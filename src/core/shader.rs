@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use std::ffi::{CStr, CString};
 use std::ptr;
 
@@ -59,7 +58,7 @@ fn verify_program(program: GLuint) -> Result<(), ShaderError> {
 
 impl Shader {
     /// Compiles a new shader from source.
-    fn new(vertex: &str, fragment: &str) -> Result<Shader, ShaderError> {
+    pub fn new(vertex: &str, fragment: &str) -> Result<Shader, ShaderError> {
         // Compile vertex shader
         let c_vert = CString::new(vertex).unwrap();
         let vert_shader = unsafe {
