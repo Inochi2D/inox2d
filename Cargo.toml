@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 gl = "0.14.0"
+glam = "0.22.0"
 thiserror = "1.0.37"
 
 [dev-dependencies]
