@@ -1,10 +1,13 @@
 use std::sync::Mutex;
 
+use crate::core::init_renderer;
+
 use lazy_static::lazy_static;
 
 pub mod core;
 pub mod math;
 pub mod misc;
+pub mod nodes;
 pub mod phys;
 
 struct InoxTime {
@@ -30,6 +33,7 @@ lazy_static! {
 }
 
 pub fn in_init(time_func: fn() -> f64) {
+    init_renderer();
     let mut guard = INOX_TIME.lock().unwrap();
     guard.time_func = time_func;
 }

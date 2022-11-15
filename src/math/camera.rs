@@ -3,6 +3,7 @@ use glam::{Mat4, Vec2, Vec3};
 use crate::core::in_get_viewport;
 
 /// An orthographic camera
+#[derive(Default, Clone)]
 pub struct Camera {
     projection: Mat4,
     pub position: Vec2,
