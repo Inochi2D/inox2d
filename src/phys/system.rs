@@ -12,7 +12,7 @@ pub trait PhysicsSystem {
 
     fn state(&self) -> &PhysicsState;
     fn state_mut(&mut self) -> &mut PhysicsState;
-    fn set_state(&mut self, vars: PhysicsState);
+    fn set_state(&mut self, state: PhysicsState);
 
     fn tick(&mut self, h: f32) {
         let curs;
