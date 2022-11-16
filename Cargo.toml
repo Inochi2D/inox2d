@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 gl = "0.14.0"
 glam = "0.22.0"
+image = "0.24.5"
 lazy_static = "1.4.0"
 thiserror = "1.0.37"
 

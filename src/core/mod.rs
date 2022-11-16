@@ -14,6 +14,7 @@ use crate::nodes::drawable::in_init_drawable;
 use crate::nodes::in_init_nodes;
 
 pub mod shader;
+pub mod texture;
 
 pub struct PostProcessingShader {
     uniform_cache: BTreeMap<String, GLint>,
