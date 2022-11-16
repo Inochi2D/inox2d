@@ -7,12 +7,13 @@ use gl::types::{GLint, GLuint};
 use glam::Vec4;
 use lazy_static::lazy_static;
 
-use self::shader::{set_uniform_int, Shader};
 use crate::c_str;
 use crate::math::camera::Camera;
-use crate::nodes::drawable::in_init_drawable;
-use crate::nodes::in_init_nodes;
+use self::nodes::drawable::in_init_drawable;
+use self::nodes::in_init_nodes;
+use self::shader::{set_uniform_int, Shader};
 
+pub mod nodes;
 pub mod shader;
 pub mod texture;
 

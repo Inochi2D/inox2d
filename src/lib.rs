@@ -7,7 +7,6 @@ use lazy_static::lazy_static;
 pub mod core;
 pub mod math;
 pub mod misc;
-pub mod nodes;
 pub mod phys;
 
 struct InoxTime {
