@@ -5,7 +5,7 @@ use crate::core::in_get_viewport;
 /// An orthographic camera
 #[derive(Clone, Debug, Default)]
 pub struct Camera {
-    projection: Mat4,
+    // projection: Mat4,
     pub position: Vec2,
     pub rotation: f32,
     pub scale: Vec2,
