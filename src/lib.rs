@@ -9,6 +9,7 @@ pub mod math;
 pub mod misc;
 pub mod phys;
 
+#[derive(Debug)]
 struct InoxTime {
     pub current_time: f64,
     pub last_time: f64,

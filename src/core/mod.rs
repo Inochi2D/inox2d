@@ -17,6 +17,7 @@ pub mod nodes;
 pub mod shader;
 pub mod texture;
 
+#[derive(Clone, Debug)]
 pub struct PostProcessingShader {
     uniform_cache: BTreeMap<String, GLint>,
     pub shader: Shader,
@@ -53,7 +54,7 @@ impl PostProcessingShader {
 }
 
 /// Global state of Inox2D
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct Inox2DRuntime {
     in_viewport_width: i32,
     in_viewport_height: i32,

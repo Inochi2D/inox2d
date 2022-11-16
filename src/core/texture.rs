@@ -33,6 +33,7 @@ pub enum Wrapping {
 
 /// A texture which is not bound to an OpenGL context.
 /// Used for texture atlassing.
+#[derive(Clone, Debug)]
 pub struct ShallowTexture {
     /// 8-bit RGBA color data.
     data: Vec<u8>,

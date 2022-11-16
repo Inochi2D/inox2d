@@ -1,6 +1,6 @@
 use glam::Mat4;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PhysicsState {
     pub vars: Vec<f32>,
     pub derivative: Vec<f32>,

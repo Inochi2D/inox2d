@@ -9,7 +9,7 @@ use thiserror::Error;
 #[error("Shader error: {0}")]
 pub struct ShaderError(String);
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Shader {
     shader_program: GLuint,
     frag_shader: GLuint,
