@@ -13,6 +13,7 @@ use self::nodes::drawable::in_init_drawable;
 use self::nodes::in_init_nodes;
 use self::shader::{set_uniform_int, Shader};
 
+pub mod mesh;
 pub mod nodes;
 pub mod shader;
 pub mod texture;
