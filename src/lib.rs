@@ -4,6 +4,8 @@ use crate::core::init_renderer;
 
 use lazy_static::lazy_static;
 
+pub const INOCHI2D_SPEC_VERSION: &str = "1.0-alpha";
+
 pub mod core;
 pub mod math;
 pub mod misc;

@@ -15,6 +15,7 @@ use crate::math::camera::Camera;
 
 pub mod mesh;
 pub mod nodes;
+pub mod puppet;
 pub mod shader;
 pub mod texture;
 
