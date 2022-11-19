@@ -11,3 +11,4 @@ pub mod part;
 
 #[derive(Debug, Default)]
 pub struct NodeTree<S: Serialize>(Vec<Box<dyn Node<S>>>);
+

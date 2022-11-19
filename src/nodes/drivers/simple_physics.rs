@@ -1,10 +1,11 @@
 use glam::Vec2;
-use serde::{Serialize, Deserialize, Serializer};
+use serde::{Serialize, Deserialize, Serializer, Deserializer};
 
-use crate::nodes::node::{NodeState, Node};
+use crate::nodes::node::{NodeState, Node, NodeDeserializer};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimplePhysics {
+    #[serde(flatten)]
     node_state: NodeState,
     param: u32,
     model_type: String,
@@ -28,5 +29,18 @@ impl<S: Serializer> Node<S> for SimplePhysics {
 
     fn serialize_node(&self, serializer: S) -> Result<S::Ok, S::Error> {
         self.serialize(serializer)
+    }
+}
+
+impl<'de, D, S> NodeDeserializer<'de, D, S> for SimplePhysics
+where
+    D: Deserializer<'de>,
+    S: Serializer,
+{
+    const NODE_TYPE: &'static str = "SimplePhysics";
+
+    fn deserialize_node(&self, deserializer: D) -> Result<Box<dyn Node<S>>, D::Error> {
+        let part: Self = Self::deserialize(deserializer)?;
+        Ok(Box::new(part))
     }
 }

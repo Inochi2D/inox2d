@@ -10,6 +10,8 @@ pub struct NodeId(usize);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeState {
     id: NodeId,
+    node_type: String,
+    #[serde(default)]
     parent: Option<NodeId>,
     children: Vec<NodeId>,
     uuid: u32,
@@ -20,14 +22,16 @@ pub struct NodeState {
     lock_to_root: bool,
 }
 
+// TODO: make a derive macro for this
 pub trait Node<S: Serializer>: Debug {
     fn get_node_state(&self) -> &NodeState;
     fn get_node_state_mut(&mut self) -> &mut NodeState;
     fn serialize_node(&self, serializer: S) -> Result<S::Ok, S::Error>;
 }
 
+// TODO: make a derive macro for this
 pub trait NodeDeserializer<'de, D: Deserializer<'de>, S: Serializer> {
     const NODE_TYPE: &'static str;
 
-    fn deserialize_node(&self, deserializer: D) -> Box<dyn Node<S>>;
+    fn deserialize_node(&self, deserializer: D) -> Result<Box<dyn Node<S>>, D::Error>;
 }
