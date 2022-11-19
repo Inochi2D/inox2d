@@ -1,9 +1,10 @@
 use std::collections::BTreeMap;
 
-use glam::{vec2, vec3, Vec2, Vec4};
+use glam::{vec2, vec3, Vec2, Vec4, IVec2};
+use serde::{Serialize, Deserialize};
 
 /// Mesh
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct Mesh {
     /// Vertices in the mesh.
     pub vertices: Vec<Vec2>,
@@ -112,10 +113,10 @@ impl Mesh {
 
 #[derive(Clone, Debug)]
 pub struct QuadBuilder {
-    size: (i32, i32),
+    size: IVec2,
     uv_bounds: Vec4,
-    cuts: (i32, i32),
-    origin: (i32, i32),
+    cuts: IVec2,
+    origin: IVec2,
 }
 
 impl Default for QuadBuilder {
@@ -123,7 +124,7 @@ impl Default for QuadBuilder {
         Self {
             size: Default::default(),
             uv_bounds: Default::default(),
-            cuts: (6, 6),
+            cuts: IVec2::new(6, 6),
             origin: Default::default(),
         }
     }
@@ -132,7 +133,7 @@ impl Default for QuadBuilder {
 impl QuadBuilder {
     /// Size of the mesh.
     pub fn size(mut self, x: i32, y: i32) -> Self {
-        self.size = (x, y);
+        self.size = IVec2::new(x, y);
         self
     }
 
@@ -146,23 +147,22 @@ impl QuadBuilder {
     ///
     /// Note: splits may not be below 2, so they are clamped automatically.
     pub fn cuts(mut self, x: i32, y: i32) -> Self {
-        let x = if x < 2 { 2 } else { x };
-        let y = if y < 2 { 2 } else { y };
+        let x = x.max(2);
+        let y = y.max(2);
 
-        self.cuts = (x, y);
+        self.cuts = IVec2::new(x, y);
         self
     }
 
     pub fn origin(mut self, x: i32, y: i32) -> Self {
-        self.origin = (x, y);
+        self.origin = IVec2::new(x, y);
         self
     }
 
     pub fn build(self) -> Mesh {
-        let sw = self.size.0 / self.cuts.0;
-        let sh = self.size.1 / self.cuts.1;
-        let uvx = self.uv_bounds.w / self.cuts.0 as f32;
-        let uvy = self.uv_bounds.z / self.cuts.1 as f32;
+        let IVec2 { x: sw, y: sh } = self.size / self.cuts;
+        let uvx = self.uv_bounds.w / self.cuts.x as f32;
+        let uvy = self.uv_bounds.z / self.cuts.y as f32;
 
         let mut vert_map = BTreeMap::new();
         let mut vertices = Vec::new();
@@ -170,11 +170,11 @@ impl QuadBuilder {
         let mut indices = Vec::new();
 
         // Generate vertices and UVs
-        for y in 0..=self.cuts.1 {
-            for x in 0..=self.cuts.0 {
+        for y in 0..=self.cuts.y {
+            for x in 0..=self.cuts.x {
                 vertices.push(vec2(
-                    (x * sw - self.origin.0) as f32,
-                    (y * sh - self.origin.1) as f32,
+                    (x * sw - self.origin.x) as f32,
+                    (y * sh - self.origin.y) as f32,
                 ));
                 uvs.push(vec2(
                     self.uv_bounds.x + x as f32 * uvx,
@@ -185,9 +185,9 @@ impl QuadBuilder {
         }
 
         // Generate indices
-        let (cx, cy) = (self.cuts.0 / 2, self.cuts.1 / 2);
-        for y in 0..cy {
-            for x in 0..cx {
+        let center = self.cuts / 2;
+        for y in 0..center.y {
+            for x in 0..center.x {
                 // Indices
                 let idx0 = (x, y);
                 let idx1 = (x, y + 1);
@@ -195,7 +195,7 @@ impl QuadBuilder {
                 let idx3 = (x + 1, y + 1);
 
                 // We want the vertices to generate in an X pattern so that we won't have too many distortion problems
-                if (x < cx && y < cy) || (x >= cx && y >= cy) {
+                if (x < center.x && y < center.y) || (x >= center.x && y >= center.y) {
                     indices.extend([
                         vert_map[&idx0],
                         vert_map[&idx2],

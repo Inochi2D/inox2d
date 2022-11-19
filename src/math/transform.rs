@@ -1,8 +1,9 @@
 use std::ops::Mul;
 
 use glam::{EulerRot, Mat3, Mat4, Quat, Vec2, Vec3, Vec4};
+use serde::{Serialize, Deserialize};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Transform {
     trs: Mat4,
     pub translation: Vec3,

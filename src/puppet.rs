@@ -45,47 +45,47 @@ pub enum PuppetAllowedModification {
 #[derive(Clone, Debug, Default)]
 pub struct PuppetUsageRights {
     /// Who is allowed to use the puppet?
-    allowed_users: PuppetAllowedUsers,
+    pub allowed_users: PuppetAllowedUsers,
     /// Whether violence content is allowed.
-    allow_violence: bool,
+    pub allow_violence: bool,
     /// Whether sexual content is allowed.
-    allow_sexual: bool,
+    pub allow_sexual: bool,
     /// Whether commercial use is allowed.
-    allow_commercial: bool,
+    pub allow_commercial: bool,
     /// Whether a model may be redistributed.
-    allow_redistribution: PuppetAllowedRedistribution,
+    pub allow_redistribution: PuppetAllowedRedistribution,
     /// Whether a model may be modified.
-    allow_modification: PuppetAllowedModification,
+    pub allow_modification: PuppetAllowedModification,
     /// Whether the author(s) must be attributed for use.
-    require_attribution: bool,
+    pub require_attribution: bool,
 }
 
 /// Puppet meta information.
 #[derive(Clone, Debug)]
 pub struct PuppetMeta {
     /// Name of the puppet.
-    name: String,
+    pub name: String,
     /// Version of the Inochi2D spec that was used when creating this model.
-    version: String,
+    pub version: String,
     /// Rigger(s) of the puppet.
-    rigger: String,
+    pub rigger: Option<String>,
     /// Artist(s) of the puppet.
-    artist: String,
+    pub artist: Option<String>,
     /// Usage Rights of the puppet.
-    rights: PuppetUsageRights,
+    pub rights: Option<PuppetUsageRights>,
     /// Copyright string.
-    copyright: String,
+    pub copyright: Option<String>,
     /// URL of the license.
-    license_url: String,
+    pub license_url: Option<String>,
     /// Contact information of the first author.
-    contact: String,
+    pub contact: Option<String>,
     /// Link to the origin of this puppet.
-    reference: String,
+    pub reference: Option<String>,
     /// Texture ID of this puppet's thumbnail.
-    thumbnail_id: Option<u32>,
+    pub thumbnail_id: Option<u32>,
     /// Whether the puppet should preserve pixel borders.
     /// This feature is mainly useful for puppets that use pixel art.
-    preserve_pixels: bool,
+    pub preserve_pixels: bool,
 }
 
 impl Default for PuppetMeta {
@@ -112,11 +112,9 @@ pub struct PuppetPhysics {
     gravity: f32,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct PuppetId(usize);
-
 #[derive(Clone, Debug)]
 pub struct Puppet {
-    id: PuppetId,
-    // TODO
+    meta: PuppetMeta,
+    physics: PuppetPhysics,
+    
 }
