@@ -9,15 +9,13 @@ pub struct Vec2sToVecVec2Error;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(transparent)]
-pub struct Vec2s {
-    vs: Vec<f32>,
-}
+pub struct Vec2s(Vec<f32>);
 
 impl TryFrom<Vec2s> for Vec<Vec2> {
     type Error = Vec2sToVecVec2Error;
 
     fn try_from(value: Vec2s) -> Result<Self, Self::Error> {
-        let chunker = value.vs.chunks_exact(2);
+        let chunker = value.0.chunks_exact(2);
         if !chunker.remainder().is_empty() {
             return Err(Vec2sToVecVec2Error);
         }
@@ -42,7 +40,7 @@ pub struct SMesh {
 
 /// Mesh
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
-#[serde(try_from = "SMesh")]
+#[serde(try_from = "SMesh", into = "SMesh")]
 pub struct Mesh {
     /// Vertices in the mesh.
     pub vertices: Vec<Vec2>,
@@ -54,16 +52,18 @@ pub struct Mesh {
     pub origin: Vec2,
 }
 
-impl TryFrom<SMesh> for Mesh {
-    // fn from(smesh: SMesh) -> Self {
-    //     Mesh {
-    //         vertices: smesh.vertices.into(),
-    //         uvs: smesh.uvs.into(),
-    //         indices: smesh.indices,
-    //         origin: smesh.origin,
-    //     }
-    // }
+impl From<Mesh> for SMesh {
+    fn from(mesh: Mesh) -> Self {
+        SMesh {
+            vertices: Vec2s(mesh.vertices.iter().flat_map(Vec2::to_array).collect()),
+            uvs: Vec2s(mesh.uvs.iter().flat_map(Vec2::to_array).collect()),
+            indices: mesh.indices,
+            origin: mesh.origin,
+        }
+    }
+}
 
+impl TryFrom<SMesh> for Mesh {
     type Error = Vec2sToVecVec2Error;
 
     fn try_from(smesh: SMesh) -> Result<Self, Self::Error> {
