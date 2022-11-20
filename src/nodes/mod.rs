@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 use std::collections::BTreeMap;
 
-use serde::Serialize;
+use serde::Serializer;
 
 use self::node::{Node, NodeId};
 
@@ -13,11 +13,11 @@ pub mod drawable;
 pub mod part;
 
 #[derive(Debug, Default)]
-pub struct NodeTree<S: Serialize> {
+pub struct NodeTree<S: Serializer> {
     arena: BTreeMap<NodeId, Box<dyn Node<S>>>
 }
 
-impl<S: Serialize> NodeTree<S> {
+impl<S: Serializer> NodeTree<S> {
     pub fn insert(&mut self, node: Box<dyn Node<S>>) -> NodeId {
         let node_id: NodeId = NodeId(self.arena.len());
         self.arena.insert(node_id, node);
