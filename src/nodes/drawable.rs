@@ -25,6 +25,18 @@ pub enum BlendMode {
     SliceFromLower,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+enum MaskMode {
+    Mask,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct Mask {
+    pub source: u32,
+    mode: MaskMode,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Drawable {
     blend_mode: BlendMode,
@@ -32,5 +44,7 @@ pub struct Drawable {
     #[serde(rename = "screenTint")]
     screen_tint: Vec3,
     mask_threshold: f32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    masks: Vec<Mask>,
     opacity: f32,
 }
