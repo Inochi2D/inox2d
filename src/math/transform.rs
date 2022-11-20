@@ -5,11 +5,15 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Transform {
+    #[serde(skip)]
     trs: Mat4,
+    #[serde(rename = "trans")]
     pub translation: Vec3,
+    #[serde(rename = "rot")]
     pub rotation: Vec3,
     pub scale: Vec2,
     /// Whether the transform should snap to pixels
+    #[serde(default)]
     pub pixel_snap: bool,
 }
 
