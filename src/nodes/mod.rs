@@ -1,9 +1,7 @@
 use std::borrow::Borrow;
 use std::collections::BTreeMap;
 
-use serde::Serializer;
-
-use self::node::{Node, NodeId};
+use self::node::{Node, NodeUuid};
 
 pub mod node;
 pub mod drivers;
@@ -13,22 +11,22 @@ pub mod drawable;
 pub mod part;
 
 #[derive(Debug, Default)]
-pub struct NodeTree<S: Serializer> {
-    arena: BTreeMap<NodeId, Box<dyn Node<S>>>
+pub struct NodeTree {
+    arena: BTreeMap<NodeUuid, Box<dyn Node>>
 }
 
-impl<S: Serializer> NodeTree<S> {
-    pub fn insert(&mut self, node: Box<dyn Node<S>>) -> NodeId {
-        let node_id: NodeId = NodeId(self.arena.len());
+impl NodeTree {
+    pub fn insert(&mut self, node: Box<dyn Node>) -> NodeUuid {
+        let node_id: NodeUuid = NodeUuid(self.arena.len() as u32);
         self.arena.insert(node_id, node);
         node_id
     }
 
-    pub fn get_node(&self, node_id: NodeId) -> Option<&dyn Node<S>> {
+    pub fn get_node(&self, node_id: NodeUuid) -> Option<&dyn Node> {
         self.arena.get(&node_id).map(Box::borrow)
     }
 
-    pub fn get_node_mut(&mut self, node_id: NodeId) -> Option<&mut Box<dyn Node<S>>> {
+    pub fn get_node_mut(&mut self, node_id: NodeUuid) -> Option<&mut Box<dyn Node>> {
         self.arena.get_mut(&node_id)
     }
 

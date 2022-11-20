@@ -1,5 +1,5 @@
 use glam::Vec2;
-use serde::{Serialize, Deserialize, Serializer, Deserializer};
+use serde::{Serialize, Deserialize, Deserializer};
 
 use crate::nodes::node::{NodeState, Node, NodeDeserializer};
 
@@ -18,7 +18,7 @@ pub struct SimplePhysics {
     output_scale: Vec2,
 }
 
-impl<S: Serializer> Node<S> for SimplePhysics {
+impl Node for SimplePhysics {
     fn get_node_state(&self) -> &NodeState {
         &self.node_state
     }
@@ -26,20 +26,15 @@ impl<S: Serializer> Node<S> for SimplePhysics {
     fn get_node_state_mut(&mut self) -> &mut NodeState {
         &mut self.node_state
     }
-
-    fn serialize_node(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        self.serialize(serializer)
-    }
 }
 
-impl<'de, D, S> NodeDeserializer<'de, D, S> for SimplePhysics
+impl<'de, D> NodeDeserializer<'de, D> for SimplePhysics
 where
     D: Deserializer<'de>,
-    S: Serializer,
 {
     const NODE_TYPE: &'static str = "SimplePhysics";
 
-    fn deserialize_node(&self, deserializer: D) -> Result<Box<dyn Node<S>>, D::Error> {
+    fn deserialize_node(&self, deserializer: D) -> Result<Box<dyn Node>, D::Error> {
         let part: Self = Self::deserialize(deserializer)?;
         Ok(Box::new(part))
     }
