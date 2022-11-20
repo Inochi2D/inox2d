@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use super::node::{Node, NodeUuid};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SNodeTree {
+struct SNodeTree {
     #[serde(flatten)]
     node: Box<dyn Node>,
     #[serde(default)]
@@ -18,13 +18,14 @@ impl SNodeTree {
         self,
         arena: &mut Arena<Box<dyn Node>>,
         uuids: &mut BTreeMap<NodeUuid, indextree::NodeId>,
-    ) {
+    ) -> indextree::NodeId {
         let uuid = self.node.get_node_state().uuid;
         let node_id = arena.new_node(self.node);
         uuids.insert(uuid, node_id);
         for child in self.children {
             child.flatten_children(arena, node_id, uuids);
         }
+        node_id
     }
 
     fn flatten_children(
@@ -45,15 +46,35 @@ impl SNodeTree {
 
 #[derive(Debug)]
 pub struct NodeTree {
-    arena: Arena<Box<dyn Node>>,
-    uuids: BTreeMap<NodeUuid, indextree::NodeId>,
+    pub root: indextree::NodeId,
+    pub arena: Arena<Box<dyn Node>>,
+    pub uuids: BTreeMap<NodeUuid, indextree::NodeId>,
+}
+
+impl Serialize for NodeTree {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serde_indextree::Node::new(self.root, &self.arena).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for NodeTree {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let node_tree = SNodeTree::deserialize(deserializer)?;
+        Ok(Self::from(node_tree))
+    }
 }
 
 impl From<SNodeTree> for NodeTree {
     fn from(sntree: SNodeTree) -> Self {
         let mut arena = Arena::new();
         let mut uuids = BTreeMap::new();
-        sntree.flatten_into(&mut arena, &mut uuids);
-        NodeTree { arena, uuids }
+        let root = sntree.flatten_into(&mut arena, &mut uuids);
+        NodeTree { root, arena, uuids }
     }
 }
