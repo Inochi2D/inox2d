@@ -2,7 +2,9 @@
 
 > An attempt at porting Inochi2D to Rust.
 
-![logo](inox2d_logo.svg)
+<p align="center">
+  <img src="inox2d_logo.svg" />
+</p>
 
 How it came to be:
 
