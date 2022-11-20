@@ -1,7 +1,7 @@
 use glam::Vec2;
-use serde::{Serialize, Deserialize, Deserializer};
+use serde::{Deserialize, Serialize};
 
-use crate::nodes::node::{NodeState, Node, NodeDeserializer};
+use crate::nodes::node::{Node, NodeState};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimplePhysics {
@@ -26,17 +26,5 @@ impl Node for SimplePhysics {
 
     fn get_node_state_mut(&mut self) -> &mut NodeState {
         &mut self.node_state
-    }
-}
-
-impl<'de, D> NodeDeserializer<'de, D> for SimplePhysics
-where
-    D: Deserializer<'de>,
-{
-    const NODE_TYPE: &'static str = "SimplePhysics";
-
-    fn deserialize_node(&self, deserializer: D) -> Result<Box<dyn Node>, D::Error> {
-        let part: Self = Self::deserialize(deserializer)?;
-        Ok(Box::new(part))
     }
 }
