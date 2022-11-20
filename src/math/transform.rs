@@ -3,6 +3,11 @@ use std::ops::Mul;
 use glam::{EulerRot, Mat3, Mat4, Quat, Vec2, Vec3, Vec4};
 use serde::{Serialize, Deserialize};
 
+/// Very dumb function that is only used by Serde for `pixel_snap` serialization
+fn is_false(value: &bool) -> bool {
+    !value
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Transform {
     #[serde(skip)]
@@ -13,7 +18,7 @@ pub struct Transform {
     pub rotation: Vec3,
     pub scale: Vec2,
     /// Whether the transform should snap to pixels
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub pixel_snap: bool,
 }
 
