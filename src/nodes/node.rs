@@ -13,13 +13,13 @@ pub struct NodeUuid(pub(crate) u32);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeState {
-    uuid: NodeUuid,
-    name: String,
-    enabled: bool,
-    zsort: f32,
-    transform: Transform,
+    pub uuid: NodeUuid,
+    pub name: String,
+    pub enabled: bool,
+    pub zsort: f32,
+    pub transform: Transform,
     #[serde(rename = "lockToRoot")]
-    lock_to_root: bool,
+    pub lock_to_root: bool,
 }
 
 // TODO: make a derive macro for this
