@@ -29,6 +29,7 @@ pub enum BlendMode {
 pub struct Drawable {
     blend_mode: BlendMode,
     tint: Vec3,
+    #[serde(rename = "screenTint")]
     screen_tint: Vec3,
     mask_threshold: f32,
     opacity: f32,

@@ -15,6 +15,7 @@ pub struct Part {
     textures: Vec<u32>,
 }
 
+#[typetag::serde]
 impl Node for Part {
     fn get_node_state(&self) -> &NodeState {
         &self.node_state

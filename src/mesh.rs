@@ -1,10 +1,48 @@
 use std::collections::BTreeMap;
 
-use glam::{vec2, vec3, Vec2, Vec4, IVec2};
-use serde::{Serialize, Deserialize};
+use glam::{vec2, vec3, IVec2, Vec2, Vec4};
+use serde::{Deserialize, Serialize};
+
+#[derive(thiserror::Error, Debug)]
+#[error("Could not convert Vec2s to Vec<Vec2> (the array did not have an even length)")]
+pub struct Vec2sToVecVec2Error;
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[serde(transparent)]
+pub struct Vec2s {
+    vs: Vec<f32>,
+}
+
+impl TryFrom<Vec2s> for Vec<Vec2> {
+    type Error = Vec2sToVecVec2Error;
+
+    fn try_from(value: Vec2s) -> Result<Self, Self::Error> {
+        let chunker = value.vs.chunks_exact(2);
+        if !chunker.remainder().is_empty() {
+            return Err(Vec2sToVecVec2Error);
+        }
+
+        let v = chunker.map(|chunk| Vec2::new(chunk[0], chunk[1])).collect();
+        Ok(v)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct SMesh {
+    /// Vertices in the mesh.
+    #[serde(rename = "verts")]
+    pub vertices: Vec2s,
+    /// Base UVs.
+    pub uvs: Vec2s,
+    /// Indices in the mesh.
+    pub indices: Vec<u16>,
+    /// Origin of the mesh.
+    pub origin: Vec2,
+}
 
 /// Mesh
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[serde(try_from = "SMesh")]
 pub struct Mesh {
     /// Vertices in the mesh.
     pub vertices: Vec<Vec2>,
@@ -14,6 +52,28 @@ pub struct Mesh {
     pub indices: Vec<u16>,
     /// Origin of the mesh.
     pub origin: Vec2,
+}
+
+impl TryFrom<SMesh> for Mesh {
+    // fn from(smesh: SMesh) -> Self {
+    //     Mesh {
+    //         vertices: smesh.vertices.into(),
+    //         uvs: smesh.uvs.into(),
+    //         indices: smesh.indices,
+    //         origin: smesh.origin,
+    //     }
+    // }
+
+    type Error = Vec2sToVecVec2Error;
+
+    fn try_from(smesh: SMesh) -> Result<Self, Self::Error> {
+        Ok(Mesh {
+            vertices: smesh.vertices.try_into()?,
+            uvs: smesh.uvs.try_into()?,
+            indices: smesh.indices,
+            origin: smesh.origin,
+        })
+    }
 }
 
 impl Mesh {

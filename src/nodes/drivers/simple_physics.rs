@@ -18,6 +18,7 @@ pub struct SimplePhysics {
     output_scale: Vec2,
 }
 
+#[typetag::serde]
 impl Node for SimplePhysics {
     fn get_node_state(&self) -> &NodeState {
         &self.node_state

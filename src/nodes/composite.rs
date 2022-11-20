@@ -11,6 +11,7 @@ pub struct Composite {
     draw_state: Drawable,
 }
 
+#[typetag::serde]
 impl Node for Composite {
     fn get_node_state(&self) -> &NodeState {
         &self.node_state
