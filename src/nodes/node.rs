@@ -7,6 +7,7 @@ use crate::math::transform::Transform;
 #[derive(
     Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
+#[repr(transparent)]
 pub struct NodeUuid(pub(crate) u32);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
