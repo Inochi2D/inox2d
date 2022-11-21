@@ -1,7 +1,7 @@
 /*
     Copyright © 2020, Inochi2D Project
     Distributed under the 2-Clause BSD License, see LICENSE file.
-    
+
     Authors: Luna Nielsen
 */
 #version 330
@@ -19,6 +19,7 @@ uniform float frame;
 out vec2 texUVs;
 
 void main() {
-    gl_Position = mvp * vec4(verts.x-offset.x+deform.x, verts.y-offset.y+deform.y, 0, 1);
-    texUVs = vec2((uvs.x/splits.x)*frame, (uvs.y/splits.y)*animation);
+  gl_Position = mvp * vec4(verts.x - offset.x + deform.x,
+                           verts.y - offset.y + deform.y, 0, 1);
+  texUVs = vec2((uvs.x / splits.x) * frame, (uvs.y / splits.y) * animation);
 }
