@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use super::node::{Node, NodeUuid};
 
+/// Node tree struct who's only purpose is to be deserialized into an arena.
 #[derive(Debug, Serialize, Deserialize)]
 struct SNodeTree {
     #[serde(flatten)]
@@ -14,6 +15,8 @@ struct SNodeTree {
 }
 
 impl SNodeTree {
+    /// Moves the entire tree into an arena.
+    /// Returns the Node ID of the root of the tree.
     fn flatten_into(
         self,
         arena: &mut Arena<Box<dyn Node>>,
