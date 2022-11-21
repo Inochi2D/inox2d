@@ -1,5 +1,5 @@
 use glam::Vec3;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Blending modes
 #[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Eq)]

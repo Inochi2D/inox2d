@@ -1,7 +1,7 @@
 use std::ops::Mul;
 
 use glam::{EulerRot, Mat3, Mat4, Quat, Vec2, Vec3, Vec4};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Very dumb function that is only used by Serde for `pixel_snap` serialization
 fn is_false(value: &bool) -> bool {

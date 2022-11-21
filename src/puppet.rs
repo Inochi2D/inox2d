@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use glam::Vec2;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::nodes::node::NodeUuid;
 use crate::nodes::node_tree::NodeTree;
