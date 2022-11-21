@@ -1,7 +1,13 @@
 #![allow(dead_code)]
 
+use glam::Vec2;
+use serde::{Serialize, Deserialize};
+
+use crate::nodes::node::NodeUuid;
+use crate::nodes::node_tree::NodeTree;
+
 /// Who is allowed to use the puppet?
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default)]
 pub enum PuppetAllowedUsers {
     /// Only the author(s) are allowed to use the puppet.
     #[default]
@@ -13,7 +19,7 @@ pub enum PuppetAllowedUsers {
 }
 
 /// Can the puppet be redistributed?
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default)]
 pub enum PuppetAllowedRedistribution {
     /// Redistribution is prohibited
     #[default]
@@ -29,7 +35,7 @@ pub enum PuppetAllowedRedistribution {
 }
 
 /// Can the puppet be modified?
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default)]
 pub enum PuppetAllowedModification {
     /// Modification is prohibited
     #[default]
@@ -42,7 +48,7 @@ pub enum PuppetAllowedModification {
 }
 
 /// Terms of usage of the puppet.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct PuppetUsageRights {
     /// Who is allowed to use the puppet?
     pub allowed_users: PuppetAllowedUsers,
@@ -61,10 +67,11 @@ pub struct PuppetUsageRights {
 }
 
 /// Puppet meta information.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PuppetMeta {
     /// Name of the puppet.
-    pub name: String,
+    pub name: Option<String>,
     /// Version of the Inochi2D spec that was used when creating this model.
     pub version: String,
     /// Rigger(s) of the puppet.
@@ -76,6 +83,7 @@ pub struct PuppetMeta {
     /// Copyright string.
     pub copyright: Option<String>,
     /// URL of the license.
+    #[serde(rename = "licenseURL")]
     pub license_url: Option<String>,
     /// Contact information of the first author.
     pub contact: Option<String>,
@@ -106,15 +114,102 @@ impl Default for PuppetMeta {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PuppetPhysics {
     pixels_per_meter: f32,
     gravity: f32,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Serialize, Deserialize)]
+pub enum InterpolateMode {
+    Linear,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BindingBase {
+    node: NodeUuid,
+    #[serde(rename = "isSet")]
+    is_set: Vec<Vec<bool>>,
+    interpolate_mode: InterpolateMode,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "param_name")]
+pub enum Binding {
+    #[serde(rename = "zSort")]
+    ZSort {
+        #[serde(flatten)]
+        base: BindingBase,
+        values: Vec<Vec<f32>>,
+    },
+    #[serde(rename = "transform.t.x")]
+    TransformTX {
+        #[serde(flatten)]
+        base: BindingBase,
+        values: Vec<Vec<f32>>,
+    },
+    #[serde(rename = "transform.t.y")]
+    TransformTY {
+        #[serde(flatten)]
+        base: BindingBase,
+        values: Vec<Vec<f32>>,
+    },
+    #[serde(rename = "transform.s.x")]
+    TransformSX {
+        #[serde(flatten)]
+        base: BindingBase,
+        values: Vec<Vec<f32>>,
+    },
+    #[serde(rename = "transform.s.y")]
+    TransformSY {
+        #[serde(flatten)]
+        base: BindingBase,
+        values: Vec<Vec<f32>>,
+    },
+    #[serde(rename = "transform.r.x")]
+    TransformRX {
+        #[serde(flatten)]
+        base: BindingBase,
+        values: Vec<Vec<f32>>,
+    },
+    #[serde(rename = "transform.r.y")]
+    TransformRY {
+        #[serde(flatten)]
+        base: BindingBase,
+        values: Vec<Vec<f32>>,
+    },
+    #[serde(rename = "transform.r.z")]
+    TransformRZ {
+        #[serde(flatten)]
+        base: BindingBase,
+        values: Vec<Vec<f32>>,
+    },
+    #[serde(rename = "deform")]
+    Deform {
+        #[serde(flatten)]
+        base: BindingBase,
+        values: Vec<Vec<Vec<Vec2>>>,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Param {
+    uuid: u32,
+    name: String,
+    is_vec2: bool,
+    min: Vec2,
+    max: Vec2,
+    defaults: Vec2,
+    axis_points: [Vec<f32>; 2],
+    bindings: Vec<Binding>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Puppet {
     meta: PuppetMeta,
     physics: PuppetPhysics,
-    
+    nodes: NodeTree,
+    #[serde(rename = "param")]
+    parameters: Vec<Param>,
 }
