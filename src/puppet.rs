@@ -207,9 +207,9 @@ pub struct Param {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Puppet {
-    meta: PuppetMeta,
-    physics: PuppetPhysics,
-    nodes: NodeTree,
+    pub meta: PuppetMeta,
+    pub physics: PuppetPhysics,
+    pub nodes: NodeTree,
     #[serde(rename = "param")]
-    parameters: Vec<Param>,
+    pub parameters: Vec<Param>,
 }

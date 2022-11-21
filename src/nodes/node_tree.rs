@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
+use std::fmt::Display;
 
-use indextree::Arena;
+use indextree::{Arena, NodeId};
+use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 
 use super::node::{Node, NodeUuid};
@@ -52,6 +54,52 @@ pub struct NodeTree {
     pub root: indextree::NodeId,
     pub arena: Arena<Box<dyn Node>>,
     pub uuids: BTreeMap<NodeUuid, indextree::NodeId>,
+}
+
+fn rec_fmt(
+    indent: usize,
+    f: &mut std::fmt::Formatter<'_>,
+    node_id: NodeId,
+    arena: &Arena<Box<dyn Node>>,
+) -> std::fmt::Result {
+    let Some(node) = arena.get(node_id) else {
+        return Ok(());
+    };
+
+    let node = node.get();
+    writeln!(
+        f,
+        "{}- [{}] {}",
+        "  ".repeat(indent),
+        node.typetag_name().magenta(),
+        node.get_node_state().name
+    )?;
+    for child in node_id.children(arena) {
+        rec_fmt(indent + 1, f, child, arena)?;
+    }
+
+    Ok(())
+}
+
+impl Display for NodeTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Some(root_node) = self.arena.get(self.root) else {
+            return write!(f, "(empty)");
+        };
+
+        let root_node = root_node.get();
+        writeln!(
+            f,
+            "- [{}] {}",
+            root_node.typetag_name().magenta(),
+            root_node.get_node_state().name
+        )?;
+        for child in self.root.children(&self.arena) {
+            rec_fmt(1, f, child, &self.arena)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Serialize for NodeTree {

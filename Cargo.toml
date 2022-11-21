@@ -10,6 +10,7 @@ glam = { version = "0.22.0", features = ["serde"] }
 image = "0.24.5"
 indextree = { version = "4.5.0", features = ["deser"] }
 nom = "7.1.1"
+owo-colors = "3.5.0"
 serde = { version = "1.0.147", features = ["derive"] }
 serde_indextree = "0.2.0"
 serde_json = "1.0.88"
@@ -17,5 +18,4 @@ thiserror = "1.0.37"
 typetag = "0.2.3"
 
 [dev-dependencies]
-clap = "4.0.26"
-miette = { version = "5.4.1", features = ["fancy"] }
+clap = { version = "4.0.26", features = ["derive"] }
