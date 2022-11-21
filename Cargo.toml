@@ -9,6 +9,7 @@ edition = "2021"
 glam = { version = "0.22.0", features = ["serde"] }
 image = "0.24.5"
 indextree = { version = "4.5.0", features = ["deser"] }
+nom = "7.1.1"
 serde = { version = "1.0.147", features = ["derive"] }
 serde_indextree = "0.2.0"
 serde_json = "1.0.88"
