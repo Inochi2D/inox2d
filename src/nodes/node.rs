@@ -1,9 +1,11 @@
 use std::fmt::Debug;
 
-// use serde::de::Visitor;
 use serde::{Deserialize, Serialize};
 
 use crate::math::transform::Transform;
+
+#[cfg(feature = "opengl")]
+use crate::renderers::opengl::OpenglRenderer;
 
 #[derive(
     Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
@@ -27,6 +29,9 @@ pub struct NodeState {
 pub trait Node: Debug {
     fn get_node_state(&self) -> &NodeState;
     fn get_node_state_mut(&mut self) -> &mut NodeState;
+
+    #[cfg(feature = "opengl")]
+    fn render(&self, _renderer: &mut OpenglRenderer) {}
 }
 
 #[typetag::serde(name = "Node")]

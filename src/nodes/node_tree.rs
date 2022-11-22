@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::collections::BTreeMap;
 use std::fmt::Display;
 
@@ -54,6 +55,32 @@ pub struct NodeTree {
     pub root: indextree::NodeId,
     pub arena: Arena<Box<dyn Node>>,
     pub uuids: BTreeMap<NodeUuid, indextree::NodeId>,
+}
+
+impl NodeTree {
+    fn get_internal_node(&self, uuid: NodeUuid) -> Option<&indextree::Node<Box<dyn Node>>> {
+        self.arena.get(*self.uuids.get(&uuid)?)
+    }
+    fn get_internal_node_mut(&mut self, uuid: NodeUuid) -> Option<&mut indextree::Node<Box<dyn Node>>> {
+        self.arena.get_mut(*self.uuids.get(&uuid)?)
+    }
+
+    pub fn get_node(&self, uuid: NodeUuid) -> Option<&Box<dyn Node>> {
+        Some(self.get_internal_node(uuid)?.get())
+    }
+
+    pub fn get_node_mut(&mut self, uuid: NodeUuid) -> Option<&mut Box<dyn Node>> {
+        Some(self.get_internal_node_mut(uuid)?.get_mut())
+    }
+
+    // fn get_node_id(&self, uuid: NodeUuid) -> Option<indextree::NodeId> {
+    //     self.arena.get_node_id(self.get_internal_node(uuid)?)
+    // }
+
+    pub fn get_parent(&self, uuid: NodeUuid) -> Option<&Box<dyn Node>> {
+        let node = self.get_internal_node(uuid)?;
+        Some(self.arena.get(node.parent()?)?.get())
+    }
 }
 
 fn rec_fmt(

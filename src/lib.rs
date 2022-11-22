@@ -6,3 +6,4 @@ pub mod model;
 pub mod nodes;
 pub mod parsers;
 pub mod puppet;
+pub mod renderers;

@@ -6,9 +6,9 @@ use nom::{
     IResult,
 };
 
-use crate::model::{Model, Texture};
+use crate::model::{Model, ModelTexture};
 
-fn parse_texture(i: &[u8]) -> IResult<&[u8], Texture> {
+fn parse_texture(i: &[u8]) -> IResult<&[u8], ModelTexture> {
     let (i, format) = be_u8(i)?;
     let format = match format {
         0 => ImageFormat::Png,
@@ -17,7 +17,7 @@ fn parse_texture(i: &[u8]) -> IResult<&[u8], Texture> {
         _ => todo!("Unknown format {format}!"),
     };
     let data = i.to_vec();
-    Ok((b"", Texture { format, data }))
+    Ok((b"", ModelTexture { format, data }))
 }
 
 /// Trans rights!
