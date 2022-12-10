@@ -60,10 +60,14 @@ impl NodeTree {
     fn get_internal_node(&self, uuid: NodeUuid) -> Option<&indextree::Node<Box<dyn Node>>> {
         self.arena.get(*self.uuids.get(&uuid)?)
     }
-    fn get_internal_node_mut(&mut self, uuid: NodeUuid) -> Option<&mut indextree::Node<Box<dyn Node>>> {
+    fn get_internal_node_mut(
+        &mut self,
+        uuid: NodeUuid,
+    ) -> Option<&mut indextree::Node<Box<dyn Node>>> {
         self.arena.get_mut(*self.uuids.get(&uuid)?)
     }
 
+    #[allow(clippy::borrowed_box)]
     pub fn get_node(&self, uuid: NodeUuid) -> Option<&Box<dyn Node>> {
         Some(self.get_internal_node(uuid)?.get())
     }
@@ -72,6 +76,7 @@ impl NodeTree {
         Some(self.get_internal_node_mut(uuid)?.get_mut())
     }
 
+    #[allow(clippy::borrowed_box)]
     pub fn get_parent(&self, uuid: NodeUuid) -> Option<&Box<dyn Node>> {
         let node = self.get_internal_node(uuid)?;
         Some(self.arena.get(node.parent()?)?.get())
