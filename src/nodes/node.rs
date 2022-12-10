@@ -31,7 +31,7 @@ pub trait Node: Debug {
     fn get_node_state_mut(&mut self) -> &mut NodeState;
 
     #[cfg(feature = "opengl")]
-    fn render(&self, _renderer: &mut OpenglRenderer) {}
+    fn render(&self, _renderer: &OpenglRenderer) {}
 }
 
 #[typetag::serde(name = "Node")]

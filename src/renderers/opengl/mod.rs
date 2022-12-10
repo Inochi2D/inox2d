@@ -1,4 +1,5 @@
 use std::any::{Any, TypeId};
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 use glow::HasContext;
@@ -11,14 +12,18 @@ pub mod shader;
 pub mod texture;
 pub mod vbo;
 
-pub struct OpenglRenderer {
-    pub gl: glow::Context,
-    pub nodes: NodeTree,
+pub struct GlCache {
     pub prev_program: Option<glow::NativeProgram>,
     pub prev_stencil: bool,
     pub prev_blend_mode: Option<BlendMode>,
     pub prev_texture: Option<glow::NativeTexture>,
     pub prev_masks: Vec<Mask>,
+}
+
+pub struct OpenglRenderer {
+    pub gl: glow::Context,
+    pub nodes: NodeTree,
+    pub gl_cache: RefCell<GlCache>,
     pub textures: Vec<glow::NativeTexture>,
     pub locations: Option<glow::NativeUniformLocation>,
     pub node_resources: HashMap<TypeId, Box<dyn Any>>,
@@ -39,8 +44,8 @@ impl OpenglRenderer {
         }
     }
 
-    pub fn use_program(&mut self, program: glow::NativeProgram) {
-        let prev = &mut self.prev_program;
+    pub fn use_program(&self, program: glow::NativeProgram) {
+        let prev = &mut self.gl_cache.borrow_mut().prev_program;
         if *prev == Some(program) {
             return;
         }
@@ -49,8 +54,8 @@ impl OpenglRenderer {
         *prev = Some(program);
     }
 
-    pub fn bind_texture(&mut self, texture: glow::NativeTexture) {
-        let prev = &mut self.prev_texture;
+    pub fn bind_texture(&self, texture: glow::NativeTexture) {
+        let prev = &mut self.gl_cache.borrow_mut().prev_texture;
         if *prev == Some(texture) {
             return;
         }
@@ -59,8 +64,8 @@ impl OpenglRenderer {
         *prev = Some(texture);
     }
 
-    pub fn set_stencil(&mut self, stencil: bool) {
-        let prev = &mut self.prev_stencil;
+    pub fn set_stencil(&self, stencil: bool) {
+        let prev = &mut self.gl_cache.borrow_mut().prev_stencil;
         if *prev == stencil {
             return;
         }
@@ -75,8 +80,8 @@ impl OpenglRenderer {
         *prev = stencil;
     }
 
-    pub fn set_blend_mode(&mut self, mode: BlendMode) {
-        let prev = &mut self.prev_blend_mode;
+    pub fn set_blend_mode(&self, mode: BlendMode) {
+        let prev = &mut self.gl_cache.borrow_mut().prev_blend_mode;
         if *prev == Some(mode) {
             return;
         }

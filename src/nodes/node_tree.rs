@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::collections::BTreeMap;
 use std::fmt::Display;
 
@@ -72,10 +71,6 @@ impl NodeTree {
     pub fn get_node_mut(&mut self, uuid: NodeUuid) -> Option<&mut Box<dyn Node>> {
         Some(self.get_internal_node_mut(uuid)?.get_mut())
     }
-
-    // fn get_node_id(&self, uuid: NodeUuid) -> Option<indextree::NodeId> {
-    //     self.arena.get_node_id(self.get_internal_node(uuid)?)
-    // }
 
     pub fn get_parent(&self, uuid: NodeUuid) -> Option<&Box<dyn Node>> {
         let node = self.get_internal_node(uuid)?;

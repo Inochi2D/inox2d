@@ -31,7 +31,7 @@ impl Node for Part {
     }
 
     #[cfg(feature = "opengl")]
-    fn render(&self, renderer: &mut OpenglRenderer) {
+    fn render(&self, renderer: &OpenglRenderer) {
         use glow::HasContext;
 
         let resources = renderer
@@ -68,11 +68,12 @@ impl Part {
     }
 
     #[cfg(feature = "opengl")]
-    fn recompute_masks(&self, renderer: &mut OpenglRenderer) {
+    fn recompute_masks(&self, renderer: &OpenglRenderer) {
         use std::any::{Any, TypeId};
         use glow::HasContext;
 
-        if renderer.prev_masks == self.draw_state.masks {
+        let prev_masks = &renderer.gl_cache.borrow().prev_masks;
+        if prev_masks == &self.draw_state.masks {
             return;
         }
 
@@ -87,7 +88,7 @@ impl Part {
             }
 
             for mask in self.draw_state.masks.iter() {
-                let node_opt = renderer.nodes.get_node_mut(mask.source);
+                let node_opt = renderer.nodes.get_node(mask.source);
                 let node = node_opt.unwrap();
                 if node.type_id() == TypeId::of::<Self>() {
                     node.render(renderer);
@@ -100,7 +101,8 @@ impl Part {
             gl.stencil_op(glow::KEEP, glow::KEEP, glow::KEEP);
         }
 
-        renderer.prev_masks = self.draw_state.masks.clone();
+        let prev_masks = &mut renderer.gl_cache.borrow_mut().prev_masks;
+        *prev_masks = self.draw_state.masks.clone();
     }
 
     #[cfg(feature = "opengl")]
