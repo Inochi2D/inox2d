@@ -8,6 +8,7 @@ use crate::nodes::drawable::{BlendMode, Mask};
 use crate::nodes::node::Node;
 use crate::nodes::node_tree::NodeTree;
 
+pub mod node_renderer;
 pub mod shader;
 pub mod texture;
 pub mod vbo;
