@@ -1,5 +1,9 @@
+use std::any::TypeId;
+
 use glow::HasContext;
 
+use crate::nodes::composite::Composite;
+use crate::nodes::drawable::Mask;
 use crate::nodes::node::downcast_node;
 use crate::nodes::part::Part;
 use crate::renderers::opengl::NodeRenderer;
@@ -17,10 +21,22 @@ impl NodeRenderer for PartRenderer {
     type Node = Part;
 
     fn render(&self, renderer: &OpenglRenderer, node: &Self::Node) {
+        renderer.set_stencil(false);
+        self.render_part(renderer, node);
+    }
+}
+
+impl PartRenderer {
+    pub(crate) fn new(gl: &glow::Context) -> Self {
+        let part_program = shader::compile(gl, VERTEX, FRAGMENT).unwrap();
+        Self { part_program }
+    }
+
+    fn render_part(&self, renderer: &OpenglRenderer, node: &Part) {
         renderer.use_program(self.part_program);
 
         if !node.draw_state.masks.is_empty() {
-            self.recompute_masks(renderer, node);
+            self.recompute_masks(renderer, &node.draw_state.masks);
         }
 
         renderer.bind_texture(renderer.textures[node.textures[0]]);
@@ -39,17 +55,9 @@ impl NodeRenderer for PartRenderer {
             );
         }
     }
-}
 
-impl PartRenderer {
-    pub(crate) fn new(gl: &glow::Context) -> Self {
-        let part_program = shader::compile(gl, VERTEX, FRAGMENT).unwrap();
-        Self { part_program }
-    }
-
-    fn recompute_masks(&self, renderer: &OpenglRenderer, node: &Part) {
-        let prev_masks = &renderer.gl_cache.borrow().prev_masks;
-        if prev_masks == &node.draw_state.masks {
+    fn recompute_masks(&self, renderer: &OpenglRenderer, masks: &[Mask]) {
+        if renderer.gl_cache.borrow().prev_masks == masks {
             return;
         }
 
@@ -62,11 +70,10 @@ impl PartRenderer {
             gl.clear(glow::STENCIL_BUFFER_BIT);
         }
 
-        for mask in node.draw_state.masks.iter() {
-            let node_opt = renderer.nodes.get_node(mask.source);
-            let node = node_opt.unwrap();
-            if let Some(part) = downcast_node(node.as_ref()) {
-                self.render(renderer, part);
+        for mask in masks.iter() {
+            let mask_node = renderer.nodes.get_node(mask.source).unwrap();
+            if let Some(part) = downcast_node(mask_node.as_ref()) {
+                self.render_part(renderer, part);
             }
         }
 
@@ -76,14 +83,10 @@ impl PartRenderer {
             gl.stencil_op(glow::KEEP, glow::KEEP, glow::KEEP);
         }
 
-        let prev_masks = &mut renderer.gl_cache.borrow_mut().prev_masks;
-        *prev_masks = node.draw_state.masks.clone();
+        renderer.gl_cache.borrow_mut().update_masks(masks.to_vec());
     }
 
     fn trans(&self, renderer: &OpenglRenderer, node: &Part) -> glam::Vec3 {
-        use crate::nodes::composite::Composite;
-        use std::any::{Any, TypeId};
-
         let mut trans = node.node_state.transform.translation;
 
         let mut current_uuid = node.node_state.uuid;

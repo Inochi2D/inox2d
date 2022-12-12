@@ -30,6 +30,50 @@ pub struct GlCache {
     pub prev_masks: Vec<Mask>,
 }
 
+impl GlCache {
+    pub fn update_program(&mut self, program: glow::NativeProgram) -> bool {
+        if let Some(prev_program) = self.prev_program.replace(program) {
+            prev_program == program
+        } else {
+            true
+        }
+    }
+
+    pub fn update_stencil(&mut self, stencil: bool) -> bool {
+        if self.prev_stencil == stencil {
+            false
+        } else {
+            self.prev_stencil = stencil;
+            true
+        }
+    }
+
+    pub fn update_blend_mode(&mut self, blend_mode: BlendMode) -> bool {
+        if let Some(prev_blend_mode) = self.prev_blend_mode.replace(blend_mode) {
+            prev_blend_mode == blend_mode
+        } else {
+            true
+        }
+    }
+
+    pub fn update_texture(&mut self, texture: glow::NativeTexture) -> bool {
+        if let Some(prev_texture) = self.prev_texture.replace(texture) {
+            prev_texture == texture
+        } else {
+            true
+        }
+    }
+
+    pub fn update_masks(&mut self, masks: Vec<Mask>) -> bool {
+        if self.prev_masks == masks {
+            false
+        } else {
+            self.prev_masks = masks;
+            true
+        }
+    }
+}
+
 pub struct OpenglRenderer {
     pub gl: glow::Context,
     pub gl_cache: RefCell<GlCache>,
@@ -77,30 +121,26 @@ impl OpenglRenderer {
     }
 
     pub fn use_program(&self, program: glow::NativeProgram) {
-        let prev = &mut self.gl_cache.borrow_mut().prev_program;
-        if *prev == Some(program) {
+        if !self.gl_cache.borrow_mut().update_program(program) {
             return;
         }
-        let gl = &self.gl;
-        unsafe { gl.use_program(Some(program)) };
-        *prev = Some(program);
+
+        unsafe { self.gl.use_program(Some(program)) };
     }
 
     pub fn bind_texture(&self, texture: glow::NativeTexture) {
-        let prev = &mut self.gl_cache.borrow_mut().prev_texture;
-        if *prev == Some(texture) {
+        if !self.gl_cache.borrow_mut().update_texture(texture) {
             return;
         }
-        let gl = &self.gl;
-        unsafe { gl.bind_texture(glow::TEXTURE_2D, Some(texture)) };
-        *prev = Some(texture);
+
+        unsafe { self.gl.bind_texture(glow::TEXTURE_2D, Some(texture)) };
     }
 
     pub fn set_stencil(&self, stencil: bool) {
-        let prev = &mut self.gl_cache.borrow_mut().prev_stencil;
-        if *prev == stencil {
+        if !self.gl_cache.borrow_mut().update_stencil(stencil) {
             return;
         }
+
         let gl = &self.gl;
         unsafe {
             if stencil {
@@ -109,12 +149,10 @@ impl OpenglRenderer {
                 gl.disable(glow::STENCIL_TEST);
             }
         }
-        *prev = stencil;
     }
 
     pub fn set_blend_mode(&self, mode: BlendMode) {
-        let prev = &mut self.gl_cache.borrow_mut().prev_blend_mode;
-        if *prev == Some(mode) {
+        if !self.gl_cache.borrow_mut().update_blend_mode(mode) {
             return;
         }
 
@@ -151,6 +189,5 @@ impl OpenglRenderer {
                 }
             }
         }
-        *prev = Some(mode);
     }
 }
