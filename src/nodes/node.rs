@@ -1,11 +1,9 @@
+use std::any::Any;
 use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
 use crate::math::transform::Transform;
-
-#[cfg(feature = "opengl")]
-use crate::renderers::opengl::OpenglRenderer;
 
 #[derive(
     Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
@@ -26,12 +24,23 @@ pub struct NodeState {
 
 // TODO: make a derive macro for this
 #[typetag::serde(tag = "type")]
-pub trait Node: Debug {
+pub trait Node: Debug + Any {
     fn get_node_state(&self) -> &NodeState;
     fn get_node_state_mut(&mut self) -> &mut NodeState;
+}
 
-    #[cfg(feature = "opengl")]
-    fn render(&self, _renderer: &OpenglRenderer) {}
+// This is the most atrocious function I have ever written 💀
+// TODO: replace with trait upcasting, coming in future Rust releases
+#[cfg(feature = "opengl")]
+pub(crate) fn downcast_node<'a, N: Node + 'static>(node: &'a dyn Node) -> Option<&'a N> {
+    if node.type_id() == std::any::TypeId::of::<N>() {
+        // downcasting magic <_<
+        // SAFETY: we just checked that the node is of type N
+        let node = unsafe { &*(node as *const dyn Node as *const N) };
+        Some(node)
+    } else {
+        None
+    }
 }
 
 #[typetag::serde(name = "Node")]

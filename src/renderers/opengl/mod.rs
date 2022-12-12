@@ -8,11 +8,20 @@ use crate::nodes::drawable::{BlendMode, Mask};
 use crate::nodes::node::Node;
 use crate::nodes::node_tree::NodeTree;
 
-pub mod node_renderer;
+use self::node_renderers::part_renderer::PartRenderer;
+
+pub mod node_renderers;
 pub mod shader;
 pub mod texture;
 pub mod vbo;
 
+pub trait NodeRenderer {
+    type Node: Node;
+
+    fn render(&self, renderer: &OpenglRenderer, node: &Self::Node);
+}
+
+#[derive(Default, Clone)]
 pub struct GlCache {
     pub prev_program: Option<glow::NativeProgram>,
     pub prev_stencil: bool,
@@ -23,22 +32,44 @@ pub struct GlCache {
 
 pub struct OpenglRenderer {
     pub gl: glow::Context,
-    pub nodes: NodeTree,
     pub gl_cache: RefCell<GlCache>,
+    pub nodes: NodeTree,
     pub textures: Vec<glow::NativeTexture>,
     pub locations: Option<glow::NativeUniformLocation>,
-    pub node_resources: HashMap<TypeId, Box<dyn Any>>,
+    pub node_renderers: HashMap<TypeId, Box<dyn Any>>,
 }
 
 impl OpenglRenderer {
-    pub fn register_node_resource<T: Node + 'static, R: 'static>(&mut self, resource: R) {
-        let tag = TypeId::of::<T>();
-        self.node_resources.insert(tag, Box::new(resource));
+    pub fn new(gl: glow::Context, nodes: NodeTree) -> Self {
+        let mut renderer = OpenglRenderer {
+            gl,
+            gl_cache: RefCell::new(GlCache::default()),
+            nodes,
+            textures: Vec::new(),
+            locations: None,
+            node_renderers: HashMap::new(),
+        };
+
+        renderer.register_node_renderer(PartRenderer::new(&renderer.gl));
+        renderer
     }
 
-    pub fn get_node_resource<T: Node + 'static, R: 'static>(&self) -> Option<&R> {
-        let tag = TypeId::of::<T>();
-        if let Some(any) = self.node_resources.get(&tag) {
+    pub fn register_node_renderer<N, R>(&mut self, renderer: R)
+    where
+        N: Node + 'static,
+        R: NodeRenderer<Node = N> + 'static,
+    {
+        let tag = TypeId::of::<N>();
+        self.node_renderers.insert(tag, Box::new(renderer));
+    }
+
+    pub fn get_node_renderer<N, R>(&self) -> Option<&R>
+    where
+        N: Node + 'static,
+        R: NodeRenderer<Node = N> + 'static,
+    {
+        let tag = TypeId::of::<N>();
+        if let Some(any) = self.node_renderers.get(&tag) {
             any.downcast_ref()
         } else {
             None

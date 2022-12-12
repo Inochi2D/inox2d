@@ -1,40 +1,23 @@
-use crate::nodes::node::Node;
+use glow::HasContext;
+
+use crate::nodes::node::downcast_node;
 use crate::nodes::part::Part;
+use crate::renderers::opengl::NodeRenderer;
+use crate::renderers::opengl::{shader, OpenglRenderer};
 
-use super::{OpenglRenderer, shader};
-
-pub trait NodeRenderer {
-    type Node: Node;
-    fn render(&self, renderer: &OpenglRenderer, node: &Self::Node);
-}
-
-const VERTEX: &str = include_str!("../../../shaders/basic/basic.vert");
-const FRAGMENT: &str = include_str!("../../../shaders/basic/basic-mask.frag");
+const VERTEX: &str = include_str!("../../../../shaders/basic/basic.vert");
+const FRAGMENT: &str = include_str!("../../../../shaders/basic/basic-mask.frag");
 
 #[derive(Debug, Clone)]
-pub(super) struct PartResources {
+pub(crate) struct PartRenderer {
     pub part_program: glow::NativeProgram,
 }
-
-impl PartResources {
-    pub fn register(renderer: &mut OpenglRenderer) {
-        let part_program = shader::compile(&renderer.gl, VERTEX, FRAGMENT).unwrap();
-        renderer.register_node_resource::<Part, _>(PartResources { part_program });
-    }
-}
-
-struct PartRenderer;
 
 impl NodeRenderer for PartRenderer {
     type Node = Part;
 
     fn render(&self, renderer: &OpenglRenderer, node: &Self::Node) {
-        use glow::HasContext;
-
-        let resources = renderer
-            .get_node_resource::<Self::Node, PartResources>()
-            .unwrap();
-        renderer.use_program(resources.part_program);
+        renderer.use_program(self.part_program);
 
         if !node.draw_state.masks.is_empty() {
             self.recompute_masks(renderer, node);
@@ -59,34 +42,35 @@ impl NodeRenderer for PartRenderer {
 }
 
 impl PartRenderer {
-    fn recompute_masks(&self, renderer: &OpenglRenderer, node: &Part) {
-        use glow::HasContext;
-        use std::any::{Any, TypeId};
+    pub(crate) fn new(gl: &glow::Context) -> Self {
+        let part_program = shader::compile(gl, VERTEX, FRAGMENT).unwrap();
+        Self { part_program }
+    }
 
+    fn recompute_masks(&self, renderer: &OpenglRenderer, node: &Part) {
         let prev_masks = &renderer.gl_cache.borrow().prev_masks;
         if prev_masks == &node.draw_state.masks {
             return;
         }
 
+        renderer.set_stencil(true);
+        let gl = &renderer.gl;
         unsafe {
-            renderer.set_stencil(true);
-            {
-                let gl = &renderer.gl;
-                gl.color_mask(false, false, false, false);
-                gl.stencil_op(glow::KEEP, glow::KEEP, glow::REPLACE);
-                gl.stencil_func(glow::ALWAYS, 0xff, 0xff);
-                gl.clear(glow::STENCIL_BUFFER_BIT);
-            }
+            gl.color_mask(false, false, false, false);
+            gl.stencil_op(glow::KEEP, glow::KEEP, glow::REPLACE);
+            gl.stencil_func(glow::ALWAYS, 0xff, 0xff);
+            gl.clear(glow::STENCIL_BUFFER_BIT);
+        }
 
-            for mask in node.draw_state.masks.iter() {
-                let node_opt = renderer.nodes.get_node(mask.source);
-                let node = node_opt.unwrap();
-                if node.type_id() == TypeId::of::<Self>() {
-                    node.render(renderer);
-                }
+        for mask in node.draw_state.masks.iter() {
+            let node_opt = renderer.nodes.get_node(mask.source);
+            let node = node_opt.unwrap();
+            if let Some(part) = downcast_node(node.as_ref()) {
+                self.render(renderer, part);
             }
+        }
 
-            let gl = &renderer.gl;
+        unsafe {
             gl.color_mask(true, true, true, true);
             gl.stencil_func(glow::EQUAL, 0xff, 0xff);
             gl.stencil_op(glow::KEEP, glow::KEEP, glow::KEEP);
