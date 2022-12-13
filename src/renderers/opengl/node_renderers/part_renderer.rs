@@ -9,8 +9,38 @@ use crate::nodes::part::Part;
 use crate::renderers::opengl::NodeRenderer;
 use crate::renderers::opengl::{shader, OpenglRenderer};
 
-const VERTEX: &str = include_str!("../../../../shaders/basic/basic.vert");
-const FRAGMENT: &str = include_str!("../../../../shaders/basic/basic-mask.frag");
+// const VERTEX: &str = include_str!("../../../../shaders/basic/basic.vert");
+// const FRAGMENT: &str = include_str!("../../../../shaders/basic/basic-mask.frag");
+
+const VERTEX: &str = "#version 100
+precision mediump float;
+uniform vec2 trans;
+attribute vec2 pos;
+attribute vec2 uvs;
+attribute vec2 deform;
+varying vec2 texcoord;
+
+void main() {
+    vec2 pos2 = pos + trans + deform;
+    pos2.y = -pos2.y;
+    texcoord = uvs;
+    gl_Position = vec4(pos2 / 3072.0, 0.0, 1.0);
+}
+";
+
+const FRAGMENT: &str = "#version 100
+precision mediump float;
+uniform sampler2D texture;
+varying vec2 texcoord;
+
+void main() {
+    vec4 color = texture2D(texture, texcoord);
+    if (color.a < 0.05) {
+        discard;
+    }
+    gl_FragColor = color;
+}
+";
 
 #[derive(Debug, Clone)]
 pub(crate) struct PartRenderer {
@@ -54,7 +84,8 @@ impl PartRenderer {
         let trans = self.trans(renderer, node);
         let gl = &renderer.gl;
         unsafe {
-            gl.uniform_3_f32_slice(self.u_trans.as_ref(), &trans.to_array());
+            gl.uniform_2_f32(self.u_trans.as_ref(), trans.x, trans.y);
+            // gl.uniform_3_f32_slice(self.u_trans.as_ref(), &trans.to_array());
 
             gl.draw_elements(
                 glow::TRIANGLES,
