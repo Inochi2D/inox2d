@@ -4,10 +4,12 @@ use std::collections::HashMap;
 
 use glow::HasContext;
 
+use crate::mesh::SMesh;
 use crate::model::ModelTexture;
 use crate::nodes::drawable::{BlendMode, Mask};
-use crate::nodes::node::{downcast_node, Node, NodeUuid};
+use crate::nodes::node::{downcast_node, downcast_node_mut, Node, NodeUuid};
 use crate::nodes::node_tree::NodeTree;
+use crate::nodes::part::Part;
 
 use self::node_renderers::composite_renderer::CompositeRenderer;
 use self::node_renderers::part_renderer::PartRenderer;
@@ -98,20 +100,42 @@ pub struct OpenglRenderer {
     pub uvs: Vbo<f32>,
     pub deform: Vbo<f32>,
     pub ibo: Vbo<u16>,
-    pub current_ibo_offset: u16,
     pub textures: Vec<glow::NativeTexture>,
     pub node_renderers: HashMap<TypeId, ErasedNodeRenderer>,
 }
 
 impl OpenglRenderer {
-    pub fn new(gl: glow::Context, nodes: NodeTree, textures: Vec<ModelTexture>) -> Self {
+    pub fn new(gl: glow::Context, mut nodes: NodeTree, textures: Vec<ModelTexture>) -> Self {
         let part_renderer = PartRenderer::new(&gl);
         let composite_renderer = CompositeRenderer::new(&gl);
 
         let vao = unsafe { gl.create_vertex_array() }.unwrap();
-        let verts = Vbo::from(vec![-1., -1., -1., 1., 1., -1., 1., -1., -1., 1., 1., 1.]);
-        let uvs = Vbo::from(vec![0., 0., 0., 1., 1., 0., 1., 0., 0., 1., 1., 1.]);
-        let deform = Vbo::from(vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]);
+
+        let mut verts = Vbo::from(vec![-1., -1., -1., 1., 1., -1., 1., -1., -1., 1., 1., 1.]);
+        let mut uvs = Vbo::from(vec![0., 0., 0., 1., 1., 0., 1., 0., 0., 1., 1., 1.]);
+        let mut deform = Vbo::from(vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]);
+
+        let mut ibo = Vbo::new();
+
+        let mut current_ibo_offset = 6;
+        for node in nodes.arena.iter_mut() {
+            if let Some(node) = downcast_node_mut::<Part>(node.get_mut()) {
+                let smesh = SMesh::from(&node.mesh);
+
+                let num_verts = smesh.vertices.0.len();
+                assert_eq!(num_verts, smesh.uvs.0.len());
+
+                node.start_indice = ibo.len() as u16;
+                node.num_indices = node.mesh.indices.len() as u16;
+                // node.start_deform = current_ibo_offset * 2;
+
+                verts.extend_from_slice(smesh.vertices.0.as_slice());
+                uvs.extend_from_slice(smesh.uvs.0.as_slice());
+                deform.extend_from_slice(vec![0.; num_verts].as_slice());
+                ibo.extend(smesh.indices.iter().map(|index| index + current_ibo_offset));
+                current_ibo_offset += (num_verts / 2) as u16;
+            }
+        }
 
         let textures: Vec<_> = textures
             .iter()
@@ -126,8 +150,7 @@ impl OpenglRenderer {
             verts,
             uvs,
             deform,
-            ibo: Vbo::new(),
-            current_ibo_offset: 6,
+            ibo,
             textures,
             node_renderers: HashMap::new(),
         };

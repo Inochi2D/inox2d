@@ -43,6 +43,19 @@ pub(crate) fn downcast_node<'a, N: Node + 'static>(node: &'a dyn Node) -> Option
     }
 }
 
+#[cfg(feature = "opengl")]
+pub(crate) fn downcast_node_mut<'a, N: Node + 'static>(node: &'a mut Box<dyn Node>) -> Option<&'a mut N> {
+    let type_id = node.as_ref().type_id();
+    if type_id == std::any::TypeId::of::<N>() {
+        // downcasting magic <_<
+        // SAFETY: we just checked that the node is of type N
+        let node = unsafe { &mut *(node.as_mut() as *mut dyn Node as *mut N) };
+        Some(node)
+    } else {
+        None
+    }
+}
+
 #[typetag::serde(name = "Node")]
 impl Node for NodeState {
     fn get_node_state(&self) -> &NodeState {

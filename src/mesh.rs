@@ -9,7 +9,7 @@ pub struct Vec2sToVecVec2Error;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(transparent)]
-pub struct Vec2s(Vec<f32>);
+pub struct Vec2s(pub(crate) Vec<f32>);
 
 impl TryFrom<Vec2s> for Vec<Vec2> {
     type Error = Vec2sToVecVec2Error;
@@ -50,6 +50,17 @@ pub struct Mesh {
     pub indices: Vec<u16>,
     /// Origin of the mesh.
     pub origin: Vec2,
+}
+
+impl From<&Mesh> for SMesh {
+    fn from(mesh: &Mesh) -> Self {
+        SMesh {
+            vertices: Vec2s(mesh.vertices.iter().flat_map(Vec2::to_array).collect()),
+            uvs: Vec2s(mesh.uvs.iter().flat_map(Vec2::to_array).collect()),
+            indices: mesh.indices.clone(),
+            origin: mesh.origin,
+        }
+    }
 }
 
 impl From<Mesh> for SMesh {

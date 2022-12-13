@@ -40,9 +40,16 @@ impl NodeRenderer for CompositeRenderer {
 
     fn render(&self, renderer: &OpenglRenderer, node: &Self::Node) {
         let name = &node.get_node_state().name;
-        eprintln!("Rendering composite {name}");
 
+        #[cfg(feature = "owo")]
+        let name = {
+            use owo_colors::OwoColorize;
+            name.yellow()
+        };
+
+        eprintln!("Rendering composite {name}\n[");
         self.render_composite(renderer, node);
+        eprintln!("]");
     }
 }
 
@@ -89,7 +96,10 @@ impl CompositeRenderer {
         unsafe {
             gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.composite_fbo));
             gl.clear(glow::COLOR_BUFFER_BIT);
-            let children = renderer.nodes.get_children_uuids(node.get_node_state().uuid).unwrap_or_default();
+            let children = renderer
+                .nodes
+                .get_children_uuids(node.get_node_state().uuid)
+                .unwrap_or_default();
             renderer.render_nodes(&children);
 
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);

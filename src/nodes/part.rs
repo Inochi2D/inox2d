@@ -16,6 +16,10 @@ pub struct Part {
     #[cfg(feature = "opengl")]
     #[serde(skip)]
     pub start_indice: u16,
+    #[cfg(feature = "opengl")]
+    #[serde(skip)]
+    pub num_indices: u16,
+    // start_deform: u16,
 }
 
 #[typetag::serde]
