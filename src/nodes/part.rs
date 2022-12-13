@@ -16,9 +16,6 @@ pub struct Part {
     #[cfg(feature = "opengl")]
     #[serde(skip)]
     pub start_indice: u16,
-    #[cfg(feature = "opengl")]
-    #[serde(skip)]
-    pub num_indices: u16,
     // start_deform: u16,
 }
 
@@ -34,7 +31,6 @@ impl Node for Part {
 }
 
 impl Part {
-    #[allow(unused)]
     pub(crate) fn num_indices(&self) -> u16 {
         self.mesh.indices.len() as u16
     }

@@ -126,7 +126,6 @@ impl OpenglRenderer {
                 assert_eq!(num_verts, smesh.uvs.0.len());
 
                 node.start_indice = ibo.len() as u16;
-                node.num_indices = node.mesh.indices.len() as u16;
                 // node.start_deform = current_ibo_offset * 2;
 
                 verts.extend_from_slice(smesh.vertices.0.as_slice());

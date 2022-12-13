@@ -1,16 +1,11 @@
-use std::any::TypeId;
-
 use glow::HasContext;
 
-use crate::nodes::composite::Composite;
+
 use crate::nodes::drawable::Mask;
 use crate::nodes::node::{downcast_node, Node};
 use crate::nodes::part::Part;
 use crate::renderers::opengl::NodeRenderer;
 use crate::renderers::opengl::{shader, OpenglRenderer};
-
-// const VERTEX: &str = include_str!("../../../../shaders/basic/basic.vert");
-// const FRAGMENT: &str = include_str!("../../../../shaders/basic/basic-mask.frag");
 
 const VERTEX: &str = "#version 100
 precision mediump float;
