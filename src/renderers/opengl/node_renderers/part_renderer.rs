@@ -14,8 +14,8 @@ const FRAGMENT: &str = include_str!("../../../../shaders/basic/basic-mask.frag")
 
 #[derive(Debug, Clone)]
 pub(crate) struct PartRenderer {
-    pub part_program: glow::NativeProgram,
-    pub u_trans: Option<glow::NativeUniformLocation>,
+    part_program: glow::NativeProgram,
+    u_trans: Option<glow::NativeUniformLocation>,
 }
 
 impl NodeRenderer for PartRenderer {

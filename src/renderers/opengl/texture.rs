@@ -1,6 +1,6 @@
 use glow::HasContext;
 
-unsafe fn upload_texture(
+pub unsafe fn upload_texture(
     gl: &glow::Context,
     width: u32,
     height: u32,

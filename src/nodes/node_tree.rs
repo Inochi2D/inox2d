@@ -81,6 +81,18 @@ impl NodeTree {
         let node = self.get_internal_node(uuid)?;
         Some(self.arena.get(node.parent()?)?.get())
     }
+
+    pub fn get_children_uuids(&self, uuid: NodeUuid) -> Option<Vec<NodeUuid>> {
+        let node = self.get_internal_node(uuid)?;
+        let node_id = self.arena.get_node_id(node)?;
+        Some(
+            node_id
+                .children(&self.arena)
+                .filter_map(|nid| self.arena.get(nid))
+                .map(|nod| nod.get().get_node_state().uuid)
+                .collect::<Vec<_>>(),
+        )
+    }
 }
 
 fn rec_fmt(

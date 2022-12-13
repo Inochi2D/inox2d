@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use glow::HasContext;
 
 use crate::nodes::drawable::{BlendMode, Mask};
-use crate::nodes::node::Node;
+use crate::nodes::node::{Node, NodeUuid};
 use crate::nodes::node_tree::NodeTree;
 
 use self::node_renderers::part_renderer::PartRenderer;
@@ -154,6 +154,13 @@ impl OpenglRenderer {
 
             self.ibo
                 .upload(gl, glow::ELEMENT_ARRAY_BUFFER, glow::STATIC_DRAW);
+        }
+    }
+
+    pub fn render_nodes(&self, sorted_nodes: &[NodeUuid]) {
+        for &node_uuid in sorted_nodes {
+            let node = self.nodes.get_node(node_uuid).unwrap();
+            // TODO (seems really hard to pull off... Mayb create an ErasedNodeRenderer on top of NodeRenderer?)
         }
     }
 

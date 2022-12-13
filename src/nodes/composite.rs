@@ -6,9 +6,9 @@ use super::node::{Node, NodeState};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Composite {
     #[serde(flatten)]
-    node_state: NodeState,
+    pub(crate) node_state: NodeState,
     #[serde(flatten)]
-    draw_state: Drawable,
+    pub(crate) draw_state: Drawable,
 }
 
 #[typetag::serde]
