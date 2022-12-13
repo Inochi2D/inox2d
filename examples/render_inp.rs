@@ -157,9 +157,9 @@ fn setup_opengl() -> Result<App, Box<dyn Error>> {
     let gl_display = gl_config.display();
 
     let context_attributes = glutin::context::ContextAttributesBuilder::new()
-        .with_profile(glutin::context::GlProfile::Core)
-        .with_context_api(glutin::context::ContextApi::OpenGl(Some(
-            glutin::context::Version::new(4, 3),
+        .with_profile(glutin::context::GlProfile::Compatibility)
+        .with_context_api(glutin::context::ContextApi::Gles(Some(
+            glutin::context::Version::new(2, 0),
         )))
         .build(Some(raw_window_handle));
 
