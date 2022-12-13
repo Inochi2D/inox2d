@@ -53,8 +53,14 @@ impl NodeRenderer for PartRenderer {
 
     fn render(&self, renderer: &OpenglRenderer, node: &Self::Node) {
         let name = &node.get_node_state().name;
-        eprintln!("  Rendering part {name}");
 
+        #[cfg(feature = "owo")]
+        let name = {
+            use owo_colors::OwoColorize;
+            name.magenta()
+        };
+
+        eprintln!("  Rendering part {name}");
         renderer.set_stencil(false);
         self.render_part(renderer, node);
     }
@@ -82,6 +88,12 @@ impl PartRenderer {
         renderer.set_blend_mode(node.draw_state.blend_mode);
 
         let trans = self.trans(renderer, node);
+        let node_trans = node.get_node_state().transform.translation;
+        eprintln!(
+            "    Translating node ({}, {}) to ({}, {})",
+            node_trans.x, node_trans.y, trans.x, trans.y,
+        );
+
         let gl = &renderer.gl;
         unsafe {
             gl.uniform_2_f32(self.u_trans.as_ref(), trans.x, trans.y);
@@ -128,19 +140,12 @@ impl PartRenderer {
     fn trans(&self, renderer: &OpenglRenderer, node: &Part) -> glam::Vec3 {
         let mut trans = node.node_state.transform.translation;
 
-        let mut current_uuid = node.node_state.uuid;
-        while let Some(parent) = renderer.nodes.get_parent(current_uuid) {
-            let (parent, parent_trans) = if parent.type_id() == TypeId::of::<Self>()
-                || parent.type_id() == TypeId::of::<Composite>()
-            {
-                let pstate = parent.get_node_state();
-                (pstate.uuid, pstate.transform.translation)
-            } else {
-                break;
-            };
-            trans += parent_trans;
-            current_uuid = parent;
+        for ancestor in renderer.nodes.ancestors(node.node_state.uuid).skip(1) {
+            if let Some(node) = renderer.nodes.arena.get(ancestor) {
+                trans += node.get().get_node_state().transform.translation;
+            }
         }
+
         trans
     }
 }

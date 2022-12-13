@@ -93,6 +93,10 @@ impl NodeTree {
         )
     }
 
+    pub fn ancestors(&self, uuid: NodeUuid) -> indextree::Ancestors<Box<dyn Node>> {
+        self.uuids[&uuid].ancestors(&self.arena)
+    }
+
     fn rec_zsorts_from_root(&self, node: &dyn Node, zsort: f32) -> Vec<(NodeUuid, f32)> {
         let node_state = node.get_node_state();
         let zsort = zsort + node_state.zsort;
