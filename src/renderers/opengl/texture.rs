@@ -1,6 +1,15 @@
 use glow::HasContext;
 
-pub unsafe fn upload_texture(
+/// Uploads a texture to OpenGL.
+///
+/// # Panics
+///
+/// Panics if OpenGL cannot create the texture.
+///
+/// # Safety
+///
+/// Make sure the bytes in `data` have the correct `width`, `height` and `format`.
+pub(crate) unsafe fn upload_texture(
     gl: &glow::Context,
     width: u32,
     height: u32,
@@ -34,7 +43,7 @@ pub unsafe fn upload_texture(
     texture
 }
 
-pub(super) fn load_texture(gl: &glow::Context, tex: &[u8]) -> glow::NativeTexture {
+pub(crate) fn load_texture(gl: &glow::Context, tex: &[u8]) -> glow::NativeTexture {
     match image::load_from_memory_with_format(tex, image::ImageFormat::Tga).unwrap() {
         image::DynamicImage::ImageRgba8(ref image) => {
             let (width, height) = image.dimensions();

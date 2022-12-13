@@ -5,9 +5,10 @@ use std::collections::HashMap;
 use glow::HasContext;
 
 use crate::nodes::drawable::{BlendMode, Mask};
-use crate::nodes::node::{Node, NodeUuid};
+use crate::nodes::node::{downcast_node, Node, NodeUuid};
 use crate::nodes::node_tree::NodeTree;
 
+use self::node_renderers::composite_renderer::CompositeRenderer;
 use self::node_renderers::part_renderer::PartRenderer;
 use self::vbo::Vbo;
 
@@ -20,6 +21,15 @@ pub trait NodeRenderer {
     type Node: Node;
 
     fn render(&self, renderer: &OpenglRenderer, node: &Self::Node);
+}
+
+// I don't know if this is clever or yet another horrible workaround.
+fn erase_node_renderer<R: NodeRenderer>(node_renderer: R) -> impl Fn(&OpenglRenderer, &dyn Node) {
+    move |renderer, node| {
+        if let Some(node) = downcast_node(node) {
+            node_renderer.render(renderer, node);
+        }
+    }
 }
 
 #[derive(Default, Clone)]
@@ -75,6 +85,8 @@ impl GlCache {
     }
 }
 
+type ErasedNodeRenderer = Box<dyn Fn(&OpenglRenderer, &dyn Node)>;
+
 pub struct OpenglRenderer {
     pub gl: glow::Context,
     pub gl_cache: RefCell<GlCache>,
@@ -85,13 +97,13 @@ pub struct OpenglRenderer {
     pub ibo: Vbo<u16>,
     pub current_ibo_offset: u16,
     pub textures: Vec<glow::NativeTexture>,
-    pub node_renderers: HashMap<TypeId, Box<dyn Any>>,
+    pub node_renderers: HashMap<TypeId, ErasedNodeRenderer>,
 }
 
 impl OpenglRenderer {
     pub fn new(gl: glow::Context, nodes: NodeTree, textures: Vec<glow::NativeTexture>) -> Self {
         let part_renderer = PartRenderer::new(&gl);
-        // let composite_renderer = CompositeRenderer::new(&gl);
+        let composite_renderer = CompositeRenderer::new(&gl);
 
         let verts = Vbo::from(vec![-1., -1., -1., 1., 1., -1., 1., -1., -1., 1., 1., 1.]);
         let uvs = Vbo::from(vec![0., 0., 0., 1., 1., 0., 1., 0., 0., 1., 1., 1.]);
@@ -111,6 +123,7 @@ impl OpenglRenderer {
         };
 
         renderer.register_node_renderer(part_renderer);
+        renderer.register_node_renderer(composite_renderer);
         renderer
     }
 
@@ -120,20 +133,8 @@ impl OpenglRenderer {
         R: NodeRenderer<Node = N> + 'static,
     {
         let tag = TypeId::of::<N>();
-        self.node_renderers.insert(tag, Box::new(renderer));
-    }
-
-    pub fn get_node_renderer<N, R>(&self) -> Option<&R>
-    where
-        N: Node + 'static,
-        R: NodeRenderer<Node = N> + 'static,
-    {
-        let tag = TypeId::of::<N>();
-        if let Some(any) = self.node_renderers.get(&tag) {
-            any.downcast_ref()
-        } else {
-            None
-        }
+        let erased = erase_node_renderer(renderer);
+        self.node_renderers.insert(tag, Box::new(erased));
     }
 
     fn upload_buffers(&mut self) {
@@ -160,7 +161,9 @@ impl OpenglRenderer {
     pub fn render_nodes(&self, sorted_nodes: &[NodeUuid]) {
         for &node_uuid in sorted_nodes {
             let node = self.nodes.get_node(node_uuid).unwrap();
-            // TODO (seems really hard to pull off... Mayb create an ErasedNodeRenderer on top of NodeRenderer?)
+            if let Some(render) = self.node_renderers.get(&node.type_id()) {
+                render(self, node.as_ref());
+            }
         }
     }
 

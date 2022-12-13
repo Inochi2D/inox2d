@@ -14,6 +14,7 @@ pub struct Part {
     pub mesh: Mesh,
     pub textures: [usize; 3],
     #[cfg(feature = "opengl")]
+    #[serde(skip)]
     pub start_indice: u16,
 }
 

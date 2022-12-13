@@ -47,13 +47,12 @@ impl NodeRenderer for CompositeRenderer {
 const SIZE: u32 = 2048;
 
 impl CompositeRenderer {
-    pub(crate) fn new(renderer: &OpenglRenderer) -> Self {
-        let composite_program = shader::compile(&renderer.gl, VERTEX, FRAGMENT).unwrap();
+    pub(crate) fn new(gl: &glow::Context) -> Self {
+        let composite_program = shader::compile(gl, VERTEX, FRAGMENT).unwrap();
 
         let composite_texture;
         let composite_fbo;
 
-        let gl = &renderer.gl;
         unsafe {
             gl.clear_color(0.0, 0.0, 0.0, 0.0);
             gl.enable(glow::BLEND);
@@ -89,7 +88,7 @@ impl CompositeRenderer {
             gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.composite_fbo));
             gl.clear(glow::COLOR_BUFFER_BIT);
             let children = renderer.nodes.get_children_uuids(node.get_node_state().uuid).unwrap_or_default();
-            // self.render_nodes(&children);
+            renderer.render_nodes(&children);
 
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
             renderer.bind_texture(self.composite_texture);
