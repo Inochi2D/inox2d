@@ -15,6 +15,7 @@ const FRAGMENT: &str = include_str!("../../../../shaders/basic/basic-mask.frag")
 #[derive(Debug, Clone)]
 pub(crate) struct PartRenderer {
     pub part_program: glow::NativeProgram,
+    pub u_trans: Option<glow::NativeUniformLocation>,
 }
 
 impl NodeRenderer for PartRenderer {
@@ -29,7 +30,12 @@ impl NodeRenderer for PartRenderer {
 impl PartRenderer {
     pub(crate) fn new(gl: &glow::Context) -> Self {
         let part_program = shader::compile(gl, VERTEX, FRAGMENT).unwrap();
-        Self { part_program }
+        let u_trans = unsafe { gl.get_uniform_location(part_program, "trans") };
+
+        Self {
+            part_program,
+            u_trans,
+        }
     }
 
     fn render_part(&self, renderer: &OpenglRenderer, node: &Part) {
@@ -45,7 +51,7 @@ impl PartRenderer {
         let trans = self.trans(renderer, node);
         let gl = &renderer.gl;
         unsafe {
-            gl.uniform_3_f32_slice(renderer.locations.as_ref(), &trans.to_array());
+            gl.uniform_3_f32_slice(self.u_trans.as_ref(), &trans.to_array());
 
             gl.draw_elements(
                 glow::TRIANGLES,

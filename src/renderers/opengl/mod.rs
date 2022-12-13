@@ -9,6 +9,7 @@ use crate::nodes::node::Node;
 use crate::nodes::node_tree::NodeTree;
 
 use self::node_renderers::part_renderer::PartRenderer;
+use self::vbo::Vbo;
 
 pub mod node_renderers;
 pub mod shader;
@@ -78,23 +79,38 @@ pub struct OpenglRenderer {
     pub gl: glow::Context,
     pub gl_cache: RefCell<GlCache>,
     pub nodes: NodeTree,
+    pub verts: Vbo<f32>,
+    pub uvs: Vbo<f32>,
+    pub deform: Vbo<f32>,
+    pub ibo: Vbo<u16>,
+    pub current_ibo_offset: u16,
     pub textures: Vec<glow::NativeTexture>,
-    pub locations: Option<glow::NativeUniformLocation>,
     pub node_renderers: HashMap<TypeId, Box<dyn Any>>,
 }
 
 impl OpenglRenderer {
-    pub fn new(gl: glow::Context, nodes: NodeTree) -> Self {
+    pub fn new(gl: glow::Context, nodes: NodeTree, textures: Vec<glow::NativeTexture>) -> Self {
+        let part_renderer = PartRenderer::new(&gl);
+        // let composite_renderer = CompositeRenderer::new(&gl);
+
+        let verts = Vbo::from(vec![-1., -1., -1., 1., 1., -1., 1., -1., -1., 1., 1., 1.]);
+        let uvs = Vbo::from(vec![0., 0., 0., 1., 1., 0., 1., 0., 0., 1., 1., 1.]);
+        let deform = Vbo::from(vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]);
+
         let mut renderer = OpenglRenderer {
             gl,
             gl_cache: RefCell::new(GlCache::default()),
             nodes,
-            textures: Vec::new(),
-            locations: None,
+            verts,
+            uvs,
+            deform,
+            ibo: Vbo::new(),
+            current_ibo_offset: 6,
+            textures,
             node_renderers: HashMap::new(),
         };
 
-        renderer.register_node_renderer(PartRenderer::new(&renderer.gl));
+        renderer.register_node_renderer(part_renderer);
         renderer
     }
 
@@ -119,6 +135,29 @@ impl OpenglRenderer {
             None
         }
     }
+
+    fn upload_buffers(&mut self) {
+        let gl = &self.gl;
+        unsafe {
+            self.verts.upload(gl, glow::ARRAY_BUFFER, glow::STATIC_DRAW);
+            gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, 8, 0);
+            gl.enable_vertex_attrib_array(0);
+
+            self.uvs.upload(gl, glow::ARRAY_BUFFER, glow::STATIC_DRAW);
+            gl.vertex_attrib_pointer_f32(1, 2, glow::FLOAT, false, 8, 0);
+            gl.enable_vertex_attrib_array(1);
+
+            self.deform
+                .upload(gl, glow::ARRAY_BUFFER, glow::DYNAMIC_DRAW);
+            gl.vertex_attrib_pointer_f32(2, 2, glow::FLOAT, false, 8, 0);
+            gl.enable_vertex_attrib_array(2);
+
+            self.ibo
+                .upload(gl, glow::ELEMENT_ARRAY_BUFFER, glow::STATIC_DRAW);
+        }
+    }
+
+    /////////////////////////////////////////
 
     pub fn use_program(&self, program: glow::NativeProgram) {
         if !self.gl_cache.borrow_mut().update_program(program) {
@@ -189,5 +228,9 @@ impl OpenglRenderer {
                 }
             }
         }
+    }
+
+    pub fn clear(&self) {
+        unsafe { self.gl.clear(glow::COLOR_BUFFER_BIT) };
     }
 }
