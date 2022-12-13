@@ -85,7 +85,6 @@ impl PartRenderer {
         let gl = &renderer.gl;
         unsafe {
             gl.uniform_2_f32(self.u_trans.as_ref(), trans.x, trans.y);
-            // gl.uniform_3_f32_slice(self.u_trans.as_ref(), &trans.to_array());
 
             gl.draw_elements(
                 glow::TRIANGLES,

@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 use std::fmt::Display;
 
 use indextree::{Arena, NodeId};
-use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 
 use super::node::{Node, NodeUuid};
@@ -133,11 +132,19 @@ fn rec_fmt(
     };
 
     let node = node.get();
+
+    let type_name = node.typetag_name();
+    #[cfg(feature = "owo")]
+    let type_name = {
+        use owo_colors::OwoColorize;
+        type_name.magenta()
+    };
+
     writeln!(
         f,
         "{}- [{}] {}",
         "  ".repeat(indent),
-        node.typetag_name().magenta(),
+        type_name,
         node.get_node_state().name
     )?;
     for child in node_id.children(arena) {
@@ -154,12 +161,15 @@ impl Display for NodeTree {
         };
 
         let root_node = root_node.get();
-        writeln!(
-            f,
-            "- [{}] {}",
-            root_node.typetag_name().magenta(),
-            root_node.get_node_state().name
-        )?;
+
+        let type_name = root_node.typetag_name();
+        #[cfg(feature = "owo")]
+        let type_name = {
+            use owo_colors::OwoColorize;
+            type_name.magenta()
+        };
+
+        writeln!(f, "- [{}] {}", type_name, root_node.get_node_state().name)?;
         for child in self.root.children(&self.arena) {
             rec_fmt(1, f, child, &self.arena)?;
         }
