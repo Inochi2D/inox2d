@@ -20,7 +20,17 @@ typetag = "0.2.3"
 
 [dev-dependencies]
 clap = { version = "4.0.26", features = ["derive"] }
+glutin = "0.30.3"
+glutin-winit = "0.2.1"
+raw-window-handle = "0.5.0"
+tracing = "0.1.37"
+tracing-subscriber = "0.3.16"
+winit = "0.27.5"
 
 [features]
 # default = ["opengl"]
 opengl = ["dep:glow"]
+
+[[example]]
+name = "render_inp"
+required-features = ["opengl"]

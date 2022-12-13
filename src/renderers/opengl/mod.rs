@@ -1,15 +1,17 @@
-use std::any::{Any, TypeId};
+use std::any::TypeId;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
 use glow::HasContext;
 
+use crate::model::ModelTexture;
 use crate::nodes::drawable::{BlendMode, Mask};
 use crate::nodes::node::{downcast_node, Node, NodeUuid};
 use crate::nodes::node_tree::NodeTree;
 
 use self::node_renderers::composite_renderer::CompositeRenderer;
 use self::node_renderers::part_renderer::PartRenderer;
+use self::texture::load_texture;
 use self::vbo::Vbo;
 
 pub mod node_renderers;
@@ -91,6 +93,7 @@ pub struct OpenglRenderer {
     pub gl: glow::Context,
     pub gl_cache: RefCell<GlCache>,
     pub nodes: NodeTree,
+    pub vao: glow::NativeVertexArray,
     pub verts: Vbo<f32>,
     pub uvs: Vbo<f32>,
     pub deform: Vbo<f32>,
@@ -101,18 +104,25 @@ pub struct OpenglRenderer {
 }
 
 impl OpenglRenderer {
-    pub fn new(gl: glow::Context, nodes: NodeTree, textures: Vec<glow::NativeTexture>) -> Self {
+    pub fn new(gl: glow::Context, nodes: NodeTree, textures: Vec<ModelTexture>) -> Self {
         let part_renderer = PartRenderer::new(&gl);
         let composite_renderer = CompositeRenderer::new(&gl);
 
+        let vao = unsafe { gl.create_vertex_array() }.unwrap();
         let verts = Vbo::from(vec![-1., -1., -1., 1., 1., -1., 1., -1., -1., 1., 1., 1.]);
         let uvs = Vbo::from(vec![0., 0., 0., 1., 1., 0., 1., 0., 0., 1., 1., 1.]);
         let deform = Vbo::from(vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]);
+
+        let textures: Vec<_> = textures
+            .iter()
+            .map(|texture| load_texture(&gl, &texture.data))
+            .collect();
 
         let mut renderer = OpenglRenderer {
             gl,
             gl_cache: RefCell::new(GlCache::default()),
             nodes,
+            vao,
             verts,
             uvs,
             deform,
@@ -124,6 +134,8 @@ impl OpenglRenderer {
 
         renderer.register_node_renderer(part_renderer);
         renderer.register_node_renderer(composite_renderer);
+
+        renderer.upload_buffers();
         renderer
     }
 
@@ -140,6 +152,8 @@ impl OpenglRenderer {
     fn upload_buffers(&mut self) {
         let gl = &self.gl;
         unsafe {
+            gl.bind_vertex_array(Some(self.vao));
+
             self.verts.upload(gl, glow::ARRAY_BUFFER, glow::STATIC_DRAW);
             gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, 8, 0);
             gl.enable_vertex_attrib_array(0);
@@ -161,8 +175,9 @@ impl OpenglRenderer {
     pub fn render_nodes(&self, sorted_nodes: &[NodeUuid]) {
         for &node_uuid in sorted_nodes {
             let node = self.nodes.get_node(node_uuid).unwrap();
+            let node = node.as_ref();
             if let Some(render) = self.node_renderers.get(&node.type_id()) {
-                render(self, node.as_ref());
+                render(self, node);
             }
         }
     }

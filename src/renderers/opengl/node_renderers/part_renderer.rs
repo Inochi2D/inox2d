@@ -4,7 +4,7 @@ use glow::HasContext;
 
 use crate::nodes::composite::Composite;
 use crate::nodes::drawable::Mask;
-use crate::nodes::node::downcast_node;
+use crate::nodes::node::{downcast_node, Node};
 use crate::nodes::part::Part;
 use crate::renderers::opengl::NodeRenderer;
 use crate::renderers::opengl::{shader, OpenglRenderer};
@@ -22,6 +22,9 @@ impl NodeRenderer for PartRenderer {
     type Node = Part;
 
     fn render(&self, renderer: &OpenglRenderer, node: &Self::Node) {
+        let name = &node.get_node_state().name;
+        eprintln!("  Rendering part {name}");
+
         renderer.set_stencil(false);
         self.render_part(renderer, node);
     }

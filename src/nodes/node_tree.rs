@@ -93,6 +93,33 @@ impl NodeTree {
                 .collect::<Vec<_>>(),
         )
     }
+
+    fn rec_zsorts_from_root(&self, node: &dyn Node, zsort: f32) -> Vec<(NodeUuid, f32)> {
+        let node_state = node.get_node_state();
+        let zsort = zsort + node_state.zsort;
+        let mut vec = vec![(node_state.uuid, zsort)];
+        for child_uuid in self.get_children_uuids(node_state.uuid).unwrap_or_default() {
+            if let Some(child) = self.get_node(child_uuid) {
+                vec.extend(self.rec_zsorts_from_root(child.as_ref(), zsort));
+            }
+        }
+        vec
+    }
+
+    fn sort_uuids_by_zsort(&self, mut uuid_zsorts: Vec<(NodeUuid, f32)>) -> Vec<NodeUuid> {
+        uuid_zsorts.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap().reverse());
+        uuid_zsorts.into_iter().map(|(uuid, _zsort)| uuid).collect()
+    }
+
+    fn sort_by_zsort(&self, node: &dyn Node) -> Vec<NodeUuid> {
+        let uuid_zsorts = self.rec_zsorts_from_root(node, 0.);
+        self.sort_uuids_by_zsort(uuid_zsorts)
+    }
+
+    pub fn zsorted(&self) -> Vec<NodeUuid> {
+        let root = self.arena.get(self.root).unwrap().get();
+        self.sort_by_zsort(root.as_ref())
+    }
 }
 
 fn rec_fmt(

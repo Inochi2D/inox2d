@@ -39,7 +39,9 @@ impl NodeRenderer for CompositeRenderer {
     type Node = Composite;
 
     fn render(&self, renderer: &OpenglRenderer, node: &Self::Node) {
-        renderer.set_stencil(false);
+        let name = &node.get_node_state().name;
+        eprintln!("Rendering composite {name}");
+
         self.render_composite(renderer, node);
     }
 }
