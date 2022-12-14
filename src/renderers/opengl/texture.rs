@@ -39,7 +39,6 @@ pub(crate) unsafe fn upload_texture(
         glow::UNSIGNED_BYTE,
         data,
     );
-    gl.generate_mipmap(glow::TEXTURE_2D);
     texture
 }
 
