@@ -40,6 +40,8 @@ impl NodeRenderer for CompositeRenderer {
 
     fn render(&self, renderer: &OpenglRenderer, node: &Self::Node) {
         let name = &node.get_node_state().name;
+        let gl = &renderer.gl;
+        unsafe { gl.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name) };
 
         #[cfg(feature = "owo")]
         let name = {
@@ -50,6 +52,8 @@ impl NodeRenderer for CompositeRenderer {
         eprintln!("Rendering composite {name}\n[");
         self.render_composite(renderer, node);
         eprintln!("]");
+
+        unsafe { gl.pop_debug_group() };
     }
 }
 

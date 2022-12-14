@@ -1,6 +1,5 @@
 use glow::HasContext;
 
-
 use crate::nodes::drawable::Mask;
 use crate::nodes::node::{downcast_node, Node};
 use crate::nodes::part::Part;
@@ -48,6 +47,8 @@ impl NodeRenderer for PartRenderer {
 
     fn render(&self, renderer: &OpenglRenderer, node: &Self::Node) {
         let name = &node.get_node_state().name;
+        let gl = &renderer.gl;
+        unsafe { gl.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name) };
 
         #[cfg(feature = "owo")]
         let name = {
@@ -58,6 +59,8 @@ impl NodeRenderer for PartRenderer {
         eprintln!("  Rendering part {name}");
         renderer.set_stencil(false);
         self.render_part(renderer, node);
+
+        unsafe { gl.pop_debug_group() };
     }
 }
 
