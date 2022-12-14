@@ -41,23 +41,6 @@ struct Cli {
     inp_path: PathBuf,
 }
 
-// fn main() {
-//     let cli = Cli::parse();
-
-//     let data = {
-//         let file = File::open(&cli.inp_path).unwrap();
-//         let mut file = BufReader::new(file);
-//         let mut data = Vec::new();
-//         file.read_to_end(&mut data).unwrap();
-//         data
-//     };
-
-//     let model = parse_inp(&data).unwrap().1;
-//     let puppet = model.puppet;
-//     let nodes = &puppet.nodes;
-//     println!("{nodes}");
-// }
-
 fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
@@ -228,7 +211,7 @@ fn setup_opengl() -> Result<App, Box<dyn Error>> {
 fn handle_event(
     event: Event<()>,
     control_flow: &mut ControlFlow,
-    gl: &glow::Context,
+    _gl: &glow::Context,
     gl_surface: &Surface<WindowSurface>,
     gl_ctx: &PossiblyCurrentContext,
 ) {
@@ -242,20 +225,6 @@ fn handle_event(
                     NonZeroU32::new(physical_size.width).unwrap(),
                     NonZeroU32::new(physical_size.height).unwrap(),
                 );
-
-                // let width = physical_size.width as i32;
-                // let height = physical_size.height as i32;
-                // let size = width.max(height);
-                // let diff_x = (width - size) / 2;
-                // let diff_y = (height - size) / 2;
-                // unsafe {
-                //     gl.viewport(
-                //         diff_x,
-                //         diff_y,
-                //         size,
-                //         size,
-                //     )
-                // };
             }
             WindowEvent::CloseRequested => control_flow.set_exit(),
             WindowEvent::KeyboardInput {
