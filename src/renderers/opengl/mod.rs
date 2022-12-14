@@ -48,24 +48,24 @@ pub struct GlCache {
 impl GlCache {
     pub fn update_program(&mut self, program: glow::NativeProgram) -> bool {
         if let Some(prev_program) = self.prev_program.replace(program) {
-            prev_program == program
+            prev_program != program
         } else {
             true
         }
     }
 
     pub fn update_stencil(&mut self, stencil: bool) -> bool {
-        if self.prev_stencil == stencil {
-            false
-        } else {
+        if self.prev_stencil != stencil {
             self.prev_stencil = stencil;
             true
+        } else {
+            false
         }
     }
 
     pub fn update_blend_mode(&mut self, blend_mode: BlendMode) -> bool {
         if let Some(prev_blend_mode) = self.prev_blend_mode.replace(blend_mode) {
-            prev_blend_mode == blend_mode
+            prev_blend_mode != blend_mode
         } else {
             true
         }
@@ -73,18 +73,18 @@ impl GlCache {
 
     pub fn update_texture(&mut self, texture: glow::NativeTexture) -> bool {
         if let Some(prev_texture) = self.prev_texture.replace(texture) {
-            prev_texture == texture
+            prev_texture != texture
         } else {
             true
         }
     }
 
     pub fn update_masks(&mut self, masks: Vec<Mask>) -> bool {
-        if self.prev_masks == masks {
-            false
-        } else {
+        if self.prev_masks != masks {
             self.prev_masks = masks;
             true
+        } else {
+            false
         }
     }
 }
