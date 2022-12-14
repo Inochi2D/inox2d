@@ -83,11 +83,6 @@ impl PartRenderer {
         renderer.set_blend_mode(node.draw_state.blend_mode);
 
         let trans = self.trans(renderer, node);
-        let node_trans = node.get_node_state().transform.translation;
-        eprintln!(
-            "    Translating node ({}, {}) to ({}, {})",
-            node_trans.x, node_trans.y, trans.x, trans.y,
-        );
 
         let gl = &renderer.gl;
         unsafe {
