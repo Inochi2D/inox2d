@@ -11,9 +11,10 @@ use glow::HasContext;
 
 use glutin::{
     context::PossiblyCurrentContext,
+    display::Display,
     display::GetGlDisplay,
     prelude::{GlConfig, GlDisplay, NotCurrentGlContextSurfaceAccessor},
-    surface::{GlSurface, Surface, SurfaceAttributesBuilder, WindowSurface}, display::Display,
+    surface::{GlSurface, Surface, SurfaceAttributesBuilder, WindowSurface},
 };
 
 use inox2d::{parsers::inp::parse_inp, renderers::opengl::OpenglRenderer};
@@ -25,7 +26,8 @@ use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*};
 
 use winit::{
     event::{ElementState, Event, KeyboardInput, StartCause, VirtualKeyCode, WindowEvent},
-    event_loop::{ControlFlow, EventLoop}, window::Window,
+    event_loop::{ControlFlow, EventLoop},
+    window::Window,
 };
 
 use std::path::PathBuf;
@@ -211,6 +213,8 @@ fn setup_opengl() -> Result<App, Box<dyn Error>> {
         gl.enable(glow::DEBUG_OUTPUT);
     }
 
+    unsafe { gl.viewport(0, 0, 2048, 2048) };
+
     Ok(App {
         gl,
         gl_ctx,
@@ -239,14 +243,19 @@ fn handle_event(
                     NonZeroU32::new(physical_size.height).unwrap(),
                 );
 
-                unsafe {
-                    gl.viewport(
-                        0,
-                        0,
-                        physical_size.width as i32,
-                        physical_size.height as i32,
-                    );
-                }
+                // let width = physical_size.width as i32;
+                // let height = physical_size.height as i32;
+                // let size = width.max(height);
+                // let diff_x = (width - size) / 2;
+                // let diff_y = (height - size) / 2;
+                // unsafe {
+                //     gl.viewport(
+                //         diff_x,
+                //         diff_y,
+                //         size,
+                //         size,
+                //     )
+                // };
             }
             WindowEvent::CloseRequested => control_flow.set_exit(),
             WindowEvent::KeyboardInput {
