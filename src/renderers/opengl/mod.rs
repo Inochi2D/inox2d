@@ -106,9 +106,6 @@ pub struct OpenglRenderer {
 
 impl OpenglRenderer {
     pub fn new(gl: glow::Context, mut nodes: NodeTree, textures: Vec<ModelTexture>) -> Self {
-        let part_renderer = PartRenderer::new(&gl);
-        let composite_renderer = CompositeRenderer::new(&gl);
-
         let vao = unsafe { gl.create_vertex_array() }.unwrap();
 
         let mut verts = Vbo::from(vec![-1., -1., -1., 1., 1., -1., 1., -1., -1., 1., 1., 1.]);
@@ -140,6 +137,9 @@ impl OpenglRenderer {
             .iter()
             .map(|texture| load_texture(&gl, &texture.data))
             .collect();
+
+        let part_renderer = PartRenderer::new(&gl);
+        let composite_renderer = CompositeRenderer::new(&gl);
 
         let mut renderer = OpenglRenderer {
             gl,
