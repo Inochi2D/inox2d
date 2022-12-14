@@ -1,9 +1,11 @@
+use std::any::TypeId;
 use std::collections::BTreeMap;
 use std::fmt::Display;
 
 use indextree::{Arena, NodeId};
 use serde::{Deserialize, Serialize};
 
+use super::composite::Composite;
 use super::node::{Node, NodeUuid};
 
 /// Node tree struct who's only purpose is to be deserialized into an arena.
@@ -101,11 +103,16 @@ impl NodeTree {
         let node_state = node.get_node_state();
         let zsort = zsort + node_state.zsort;
         let mut vec = vec![(node_state.uuid, zsort)];
-        for child_uuid in self.get_children_uuids(node_state.uuid).unwrap_or_default() {
-            if let Some(child) = self.get_node(child_uuid) {
-                vec.extend(self.rec_zsorts_from_root(child.as_ref(), zsort));
+
+        // Skip composite children because they're a special case
+        if node.type_id() != TypeId::of::<Composite>() {
+            for child_uuid in self.get_children_uuids(node_state.uuid).unwrap_or_default() {
+                if let Some(child) = self.get_node(child_uuid) {
+                    vec.extend(self.rec_zsorts_from_root(child.as_ref(), zsort));
+                }
             }
         }
+
         vec
     }
 
