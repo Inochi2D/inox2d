@@ -72,7 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         gl_display,
         events,
         window,
-    } = setup_opengl()?;
+    } = launch_opengl_window()?;
 
     let renderer = OpenglRenderer::new(gl, puppet.nodes, model.textures);
     let zsorted_nodes = renderer.nodes.zsorted();
@@ -109,7 +109,7 @@ struct App {
     pub events: EventLoop<()>,
 }
 
-fn setup_opengl() -> Result<App, Box<dyn Error>> {
+fn launch_opengl_window() -> Result<App, Box<dyn Error>> {
     if cfg!(target_os = "linux") {
         // disables vsync sometimes on x11
         if env::var("vblank_mode").is_err() {
