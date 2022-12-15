@@ -121,6 +121,7 @@ fn launch_opengl_window() -> Result<App, Box<dyn Error>> {
 
     let window_builder = winit::window::WindowBuilder::new()
         .with_transparent(true)
+        .with_resizable(false)
         .with_inner_size(winit::dpi::PhysicalSize::new(2048, 2048))
         .with_title("Render Inochi2D Puppet");
 
