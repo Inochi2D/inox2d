@@ -111,10 +111,6 @@ struct App {
 
 fn setup_opengl() -> Result<App, Box<dyn Error>> {
     if cfg!(target_os = "linux") {
-        // winit wayland is currently still wip
-        if env::var("WINIT_UNIX_BACKEND").is_err() {
-            env::set_var("WINIT_UNIX_BACKEND", "x11");
-        }
         // disables vsync sometimes on x11
         if env::var("vblank_mode").is_err() {
             env::set_var("vblank_mode", "0");
