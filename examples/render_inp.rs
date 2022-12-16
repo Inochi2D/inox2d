@@ -51,7 +51,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     info!("Parsing puppet");
     let data = {
-        let file = File::open(&cli.inp_path).unwrap();
+        let file = File::open(cli.inp_path).unwrap();
         let mut file = BufReader::new(file);
         let mut data = Vec::new();
         file.read_to_end(&mut data).unwrap();
