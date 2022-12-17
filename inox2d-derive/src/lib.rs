@@ -71,6 +71,14 @@ fn impl_node(input: &syn::DeriveInput) -> TokenStream {
             fn get_node_state_mut(&mut self) -> &mut ::inox2d::nodes::node::NodeState {
                 &mut self.#annotated_field
             }
+
+            fn as_any(&self) -> &dyn ::core::any::Any {
+                self
+            }
+
+            fn as_any_mut(&mut self) -> &mut dyn ::core::any::Any {
+                self
+            }
         }
     };
 

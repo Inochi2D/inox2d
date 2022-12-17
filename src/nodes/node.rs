@@ -27,33 +27,9 @@ pub struct NodeState {
 pub trait Node: Debug + Any {
     fn get_node_state(&self) -> &NodeState;
     fn get_node_state_mut(&mut self) -> &mut NodeState;
-}
 
-// This is the most atrocious function I have ever written 💀
-// TODO: replace with trait upcasting, coming in future Rust releases
-#[cfg(feature = "opengl")]
-pub(crate) fn downcast_node<'a, N: Node + 'static>(node: &'a dyn Node) -> Option<&'a N> {
-    if node.type_id() == std::any::TypeId::of::<N>() {
-        // downcasting magic <_<
-        // SAFETY: we just checked that the node is of type N
-        let node = unsafe { &*(node as *const dyn Node as *const N) };
-        Some(node)
-    } else {
-        None
-    }
-}
-
-#[cfg(feature = "opengl")]
-pub(crate) fn downcast_node_mut<'a, N: Node + 'static>(node: &'a mut Box<dyn Node>) -> Option<&'a mut N> {
-    let type_id = node.as_ref().type_id();
-    if type_id == std::any::TypeId::of::<N>() {
-        // downcasting magic <_<
-        // SAFETY: we just checked that the node is of type N
-        let node = unsafe { &mut *(node.as_mut() as *mut dyn Node as *mut N) };
-        Some(node)
-    } else {
-        None
-    }
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 #[typetag::serde(name = "Node")]
@@ -63,6 +39,14 @@ impl Node for NodeState {
     }
 
     fn get_node_state_mut(&mut self) -> &mut NodeState {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 }

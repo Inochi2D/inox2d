@@ -1,7 +1,9 @@
+use crate::impl_node;
+
 use serde::{Deserialize, Serialize};
 
 use super::drawable::Drawable;
-use super::node::{Node, NodeState};
+use super::node::NodeState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Composite {
@@ -11,13 +13,4 @@ pub struct Composite {
     pub(crate) draw_state: Drawable,
 }
 
-#[typetag::serde]
-impl Node for Composite {
-    fn get_node_state(&self) -> &NodeState {
-        &self.node_state
-    }
-
-    fn get_node_state_mut(&mut self) -> &mut NodeState {
-        &mut self.node_state
-    }
-}
+impl_node!(Composite, node_state);

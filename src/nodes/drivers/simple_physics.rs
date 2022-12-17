@@ -1,7 +1,8 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
-use crate::nodes::node::{Node, NodeState};
+use crate::impl_node;
+use crate::nodes::node::NodeState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimplePhysics {
@@ -18,13 +19,4 @@ pub struct SimplePhysics {
     output_scale: Vec2,
 }
 
-#[typetag::serde]
-impl Node for SimplePhysics {
-    fn get_node_state(&self) -> &NodeState {
-        &self.node_state
-    }
-
-    fn get_node_state_mut(&mut self) -> &mut NodeState {
-        &mut self.node_state
-    }
-}
+impl_node!(SimplePhysics, node_state);

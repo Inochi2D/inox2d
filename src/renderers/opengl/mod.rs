@@ -7,7 +7,7 @@ use glow::HasContext;
 use crate::mesh::SMesh;
 use crate::model::ModelTexture;
 use crate::nodes::drawable::{BlendMode, Mask};
-use crate::nodes::node::{downcast_node, downcast_node_mut, Node, NodeUuid};
+use crate::nodes::node::{Node, NodeUuid};
 use crate::nodes::node_tree::NodeTree;
 use crate::nodes::part::Part;
 
@@ -30,7 +30,7 @@ pub trait NodeRenderer {
 // I don't know if this is clever or yet another horrible workaround.
 fn erase_node_renderer<R: NodeRenderer>(node_renderer: R) -> impl Fn(&OpenglRenderer, &dyn Node) {
     move |renderer, node| {
-        if let Some(node) = downcast_node(node) {
+        if let Some(node) = node.as_any().downcast_ref() {
             node_renderer.render(renderer, node);
         }
     }
@@ -116,7 +116,7 @@ impl OpenglRenderer {
 
         let mut current_ibo_offset = 6;
         for node in nodes.arena.iter_mut() {
-            if let Some(node) = downcast_node_mut::<Part>(node.get_mut()) {
+            if let Some(node) = node.get_mut().as_any_mut().downcast_mut::<Part>() {
                 let smesh = SMesh::from(&node.mesh);
 
                 let num_verts = smesh.vertices.0.len();

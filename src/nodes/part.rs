@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 
+use crate::impl_node;
 use crate::mesh::Mesh;
 
 use super::drawable::Drawable;
-use super::node::{Node, NodeState};
+use super::node::NodeState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Part {
@@ -19,16 +20,7 @@ pub struct Part {
     // start_deform: u16,
 }
 
-#[typetag::serde]
-impl Node for Part {
-    fn get_node_state(&self) -> &NodeState {
-        &self.node_state
-    }
-
-    fn get_node_state_mut(&mut self) -> &mut NodeState {
-        &mut self.node_state
-    }
-}
+impl_node!(Part, node_state);
 
 impl Part {
     pub(crate) fn num_indices(&self) -> u16 {

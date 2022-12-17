@@ -1,7 +1,7 @@
 use glow::HasContext;
 
 use crate::nodes::drawable::Mask;
-use crate::nodes::node::{downcast_node, Node};
+use crate::nodes::node::Node;
 use crate::nodes::part::Part;
 use crate::renderers::opengl::NodeRenderer;
 use crate::renderers::opengl::{shader, OpenglRenderer};
@@ -116,7 +116,7 @@ impl PartRenderer {
 
         for mask in masks.iter() {
             let mask_node = renderer.nodes.get_node(mask.source).unwrap();
-            if let Some(part) = downcast_node(mask_node.as_ref()) {
+            if let Some(part) = mask_node.as_any().downcast_ref() {
                 self.render_part(renderer, part);
             }
         }
