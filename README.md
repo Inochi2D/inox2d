@@ -16,6 +16,8 @@ Inox2D is currently a bit of a merge between [the original Inochi2D implementati
 
 Inox2D is designed to be extensible. Nodes are extensible through the `Node` trait and users can create their own `NodeRenderer` with the `opengl` feature. That means a lot of cursed code involving `dyn Trait`, `Any` and trait downcasting. Hopefully in a future version of Rust I'll be able to make these abstractions cleaner with the [`Provider` API](https://rust-lang.github.io/rfcs/3192-dyno.html) (I prefer to stay on the stable version of Rust).
 
+**Update:** I'm currently rewriting the node system to be much cleaner. The `Node` trait will likely disappear in favor of just `Any`.
+
 > Note: all the shader files that are present in this repository (under `shaders/`) have been copied from the original Inochi2D implementation, but are currently not used. Instead, it's using Link Mauve's simpler shaders.
 
 ## Optimization
