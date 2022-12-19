@@ -1,13 +1,12 @@
 #![allow(dead_code)]
 
 use glam::Vec2;
-use serde::{Deserialize, Serialize};
 
 use crate::nodes::node::NodeUuid;
 use crate::nodes::node_tree::NodeTree;
 
 /// Who is allowed to use the puppet?
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum PuppetAllowedUsers {
     /// Only the author(s) are allowed to use the puppet.
     #[default]
@@ -19,7 +18,7 @@ pub enum PuppetAllowedUsers {
 }
 
 /// Can the puppet be redistributed?
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum PuppetAllowedRedistribution {
     /// Redistribution is prohibited
     #[default]
@@ -35,7 +34,7 @@ pub enum PuppetAllowedRedistribution {
 }
 
 /// Can the puppet be modified?
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum PuppetAllowedModification {
     /// Modification is prohibited
     #[default]
@@ -48,7 +47,7 @@ pub enum PuppetAllowedModification {
 }
 
 /// Terms of usage of the puppet.
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct PuppetUsageRights {
     /// Who is allowed to use the puppet?
     pub allowed_users: PuppetAllowedUsers,
@@ -67,8 +66,7 @@ pub struct PuppetUsageRights {
 }
 
 /// Puppet meta information.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug)]
 pub struct PuppetMeta {
     /// Name of the puppet.
     pub name: Option<String>,
@@ -83,7 +81,6 @@ pub struct PuppetMeta {
     /// Copyright string.
     pub copyright: Option<String>,
     /// URL of the license.
-    #[serde(rename = "licenseURL")]
     pub license_url: Option<String>,
     /// Contact information of the first author.
     pub contact: Option<String>,
@@ -114,86 +111,65 @@ impl Default for PuppetMeta {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug)]
 pub struct PuppetPhysics {
     pixels_per_meter: f32,
     gravity: f32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub enum InterpolateMode {
     Linear,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct BindingBase {
     node: NodeUuid,
-    #[serde(rename = "isSet")]
     is_set: Vec<Vec<bool>>,
     interpolate_mode: InterpolateMode,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "param_name")]
+#[derive(Debug)]
 pub enum Binding {
-    #[serde(rename = "zSort")]
     ZSort {
-        #[serde(flatten)]
         base: BindingBase,
         values: Vec<Vec<f32>>,
     },
-    #[serde(rename = "transform.t.x")]
     TransformTX {
-        #[serde(flatten)]
         base: BindingBase,
         values: Vec<Vec<f32>>,
     },
-    #[serde(rename = "transform.t.y")]
     TransformTY {
-        #[serde(flatten)]
         base: BindingBase,
         values: Vec<Vec<f32>>,
     },
-    #[serde(rename = "transform.s.x")]
     TransformSX {
-        #[serde(flatten)]
         base: BindingBase,
         values: Vec<Vec<f32>>,
     },
-    #[serde(rename = "transform.s.y")]
     TransformSY {
-        #[serde(flatten)]
         base: BindingBase,
         values: Vec<Vec<f32>>,
     },
-    #[serde(rename = "transform.r.x")]
     TransformRX {
-        #[serde(flatten)]
         base: BindingBase,
         values: Vec<Vec<f32>>,
     },
-    #[serde(rename = "transform.r.y")]
     TransformRY {
-        #[serde(flatten)]
         base: BindingBase,
         values: Vec<Vec<f32>>,
     },
-    #[serde(rename = "transform.r.z")]
     TransformRZ {
-        #[serde(flatten)]
         base: BindingBase,
         values: Vec<Vec<f32>>,
     },
-    #[serde(rename = "deform")]
     Deform {
-        #[serde(flatten)]
         base: BindingBase,
         values: Vec<Vec<Vec<Vec2>>>,
     },
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct Param {
     uuid: u32,
     name: String,
@@ -205,11 +181,10 @@ pub struct Param {
     bindings: Vec<Binding>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct Puppet {
     pub meta: PuppetMeta,
     pub physics: PuppetPhysics,
     pub nodes: NodeTree,
-    #[serde(rename = "param")]
     pub parameters: Vec<Param>,
 }

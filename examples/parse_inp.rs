@@ -25,6 +25,8 @@ fn main() {
 
     let model = parse_inp(&data).unwrap().1;
     let puppet = model.puppet;
-    let nodes = &puppet.nodes;
-    println!("{nodes}");
+    let _nodes = &puppet.nodes;
+    
+    todo!();
+    // println!("{nodes}");
 }

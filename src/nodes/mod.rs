@@ -9,7 +9,7 @@ pub mod part;
 #[macro_export]
 macro_rules! impl_node {
     ($t:ty, $field:ident) => {
-        #[typetag::serde]
+        // #[typetag::serde]
         impl $crate::nodes::node::Node for $t {
             fn get_node_state(&self) -> &$crate::nodes::node::NodeState {
                 &self.$field

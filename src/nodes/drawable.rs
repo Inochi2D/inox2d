@@ -1,10 +1,9 @@
 use glam::Vec3;
-use serde::{Deserialize, Serialize};
 
 use super::node::NodeUuid;
 
 /// Blending modes
-#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlendMode {
     /// Normal blending mode.
     Normal,
@@ -27,26 +26,23 @@ pub enum BlendMode {
     SliceFromLower,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum MaskMode {
     Mask,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Mask {
     pub source: NodeUuid,
     mode: MaskMode,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Drawable {
     pub blend_mode: BlendMode,
     pub tint: Vec3,
-    #[serde(rename = "screenTint")]
     pub screen_tint: Vec3,
     pub mask_threshold: f32,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub masks: Vec<Mask>,
     pub opacity: f32,
 }

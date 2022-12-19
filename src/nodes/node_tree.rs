@@ -1,19 +1,16 @@
 use std::any::TypeId;
 use std::collections::BTreeMap;
-use std::fmt::Display;
+// use std::fmt::Display;
 
-use indextree::{Arena, NodeId};
-use serde::{Deserialize, Serialize};
+use indextree::Arena;
 
 use super::composite::Composite;
 use super::node::{Node, NodeUuid};
 
 /// Node tree struct who's only purpose is to be deserialized into an arena.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 struct SNodeTree {
-    #[serde(flatten)]
     node: Box<dyn Node>,
-    #[serde(default)]
     children: Vec<SNodeTree>,
 }
 
@@ -132,81 +129,62 @@ impl NodeTree {
     }
 }
 
-fn rec_fmt(
-    indent: usize,
-    f: &mut std::fmt::Formatter<'_>,
-    node_id: NodeId,
-    arena: &Arena<Box<dyn Node>>,
-) -> std::fmt::Result {
-    let Some(node) = arena.get(node_id) else {
-        return Ok(());
-    };
+// fn rec_fmt(
+//     indent: usize,
+//     f: &mut std::fmt::Formatter<'_>,
+//     node_id: NodeId,
+//     arena: &Arena<Box<dyn Node>>,
+// ) -> std::fmt::Result {
+//     let Some(node) = arena.get(node_id) else {
+//         return Ok(());
+//     };
 
-    let node = node.get();
+//     let node = node.get();
 
-    let type_name = node.typetag_name();
-    #[cfg(feature = "owo")]
-    let type_name = {
-        use owo_colors::OwoColorize;
-        type_name.magenta()
-    };
+//     let type_name = node.typetag_name();
+//     #[cfg(feature = "owo")]
+//     let type_name = {
+//         use owo_colors::OwoColorize;
+//         type_name.magenta()
+//     };
 
-    writeln!(
-        f,
-        "{}- [{}] {}",
-        "  ".repeat(indent),
-        type_name,
-        node.get_node_state().name
-    )?;
-    for child in node_id.children(arena) {
-        rec_fmt(indent + 1, f, child, arena)?;
-    }
+//     writeln!(
+//         f,
+//         "{}- [{}] {}",
+//         "  ".repeat(indent),
+//         type_name,
+//         node.get_node_state().name
+//     )?;
+//     for child in node_id.children(arena) {
+//         rec_fmt(indent + 1, f, child, arena)?;
+//     }
 
-    Ok(())
-}
+//     Ok(())
+// }
 
-impl Display for NodeTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Some(root_node) = self.arena.get(self.root) else {
-            return write!(f, "(empty)");
-        };
+// impl Display for NodeTree {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         let Some(root_node) = self.arena.get(self.root) else {
+//             return write!(f, "(empty)");
+//         };
 
-        let root_node = root_node.get();
+//         let root_node = root_node.get();
 
-        let type_name = root_node.typetag_name();
-        #[cfg(feature = "owo")]
-        let type_name = {
-            use owo_colors::OwoColorize;
-            type_name.magenta()
-        };
+//         let type_name = root_node.typetag_name();
+//         #[cfg(feature = "owo")]
+//         let type_name = {
+//             use owo_colors::OwoColorize;
+//             type_name.magenta()
+//         };
 
-        writeln!(f, "- [{}] {}", type_name, root_node.get_node_state().name)?;
-        for child in self.root.children(&self.arena) {
-            rec_fmt(1, f, child, &self.arena)?;
-        }
+//         writeln!(f, "- [{}] {}", type_name, root_node.get_node_state().name)?;
+//         for child in self.root.children(&self.arena) {
+//             rec_fmt(1, f, child, &self.arena)?;
+//         }
 
-        Ok(())
-    }
-}
-
-impl Serialize for NodeTree {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serde_indextree::Node::new(self.root, &self.arena).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for NodeTree {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let node_tree = SNodeTree::deserialize(deserializer)?;
-        Ok(Self::from(node_tree))
-    }
-}
+//         Ok(())
+//     }
+// }
 
 impl From<SNodeTree> for NodeTree {
     fn from(sntree: SNodeTree) -> Self {

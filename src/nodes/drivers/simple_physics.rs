@@ -1,12 +1,10 @@
 use glam::Vec2;
-use serde::{Deserialize, Serialize};
 
 use crate::impl_node;
 use crate::nodes::node::NodeState;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct SimplePhysics {
-    #[serde(flatten)]
     node_state: NodeState,
     param: u32,
     model_type: String,

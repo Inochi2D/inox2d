@@ -35,7 +35,7 @@ fn be_u32_plus_1(i: &[u8]) -> IResult<&[u8], u32> {
 pub fn parse_inp(i: &[u8]) -> IResult<&[u8], Model> {
     // TODO: proper error handling with nom? Currently really weird.
     let (i, _) = tag(MAGIC)(i)?;
-    let (i, json) = length_data(be_u32)(i)?;
+    let (i, json_payload) = length_data(be_u32)(i)?;
 
     let (i, _) = tag(TEX)(i)?;
     let (mut i, num_textures) = be_u32(i)?;
@@ -46,11 +46,16 @@ pub fn parse_inp(i: &[u8]) -> IResult<&[u8], Model> {
         i = i2;
     }
 
-    let puppet = match serde_json::from_slice(json) {
-        Ok(puppet) => puppet,
-        Err(a) => {
-            panic!("{}", a);
-        }
-    };
-    Ok((i, Model { puppet, textures }))
+    // TODO: do something with the JSON payload
+    let _ = json_payload;
+
+    // let puppet = match serde_json::from_slice(json) {
+    //     Ok(puppet) => puppet,
+    //     Err(a) => {
+    //         panic!("{}", a);
+    //     }
+    // };
+    // Ok((i, Model { puppet, textures }))
+
+    todo!()
 }

@@ -1,14 +1,12 @@
 use std::collections::BTreeMap;
 
 use glam::{vec2, vec3, IVec2, Vec2, Vec4};
-use serde::{Deserialize, Serialize};
 
 #[derive(thiserror::Error, Debug)]
 #[error("Could not convert Vec2s to Vec<Vec2> (the array did not have an even length)")]
 pub struct Vec2sToVecVec2Error;
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-#[serde(transparent)]
+#[derive(Clone, Debug, Default)]
 pub struct Vec2s(pub(crate) Vec<f32>);
 
 impl TryFrom<Vec2s> for Vec<Vec2> {
@@ -25,10 +23,9 @@ impl TryFrom<Vec2s> for Vec<Vec2> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct SMesh {
     /// Vertices in the mesh.
-    #[serde(rename = "verts")]
     pub vertices: Vec2s,
     /// Base UVs.
     pub uvs: Vec2s,
@@ -39,8 +36,7 @@ pub struct SMesh {
 }
 
 /// Mesh
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-#[serde(try_from = "SMesh", into = "SMesh")]
+#[derive(Clone, Debug, Default)]
 pub struct Mesh {
     /// Vertices in the mesh.
     pub vertices: Vec<Vec2>,
