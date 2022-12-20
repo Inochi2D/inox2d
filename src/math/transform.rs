@@ -2,11 +2,6 @@ use std::ops::Mul;
 
 use glam::{EulerRot, Mat3, Mat4, Quat, Vec2, Vec3, Vec4};
 
-/// Very dumb function that is only used by Serde for `pixel_snap` serialization
-fn is_false(value: &bool) -> bool {
-    !value
-}
-
 #[derive(Clone, Debug)]
 pub struct Transform {
     trs: Mat4,

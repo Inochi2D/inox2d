@@ -4,7 +4,6 @@ use std::collections::HashMap;
 
 use glow::HasContext;
 
-use crate::mesh::SMesh;
 use crate::model::ModelTexture;
 use crate::nodes::drawable::{BlendMode, Mask};
 use crate::nodes::node::{Node, NodeUuid};
@@ -117,19 +116,19 @@ impl OpenglRenderer {
         let mut current_ibo_offset = 6;
         for node in nodes.arena.iter_mut() {
             if let Some(node) = node.get_mut().as_any_mut().downcast_mut::<Part>() {
-                let smesh = SMesh::from(&node.mesh);
+                let mesh = &node.mesh;
 
-                let num_verts = smesh.vertices.0.len();
-                assert_eq!(num_verts, smesh.uvs.0.len());
+                let num_verts = mesh.vertices.len();
+                assert_eq!(num_verts, mesh.uvs.len());
 
                 node.start_indice = ibo.len() as u16;
                 // node.start_deform = current_ibo_offset * 2;
 
-                verts.extend_from_slice(smesh.vertices.0.as_slice());
-                uvs.extend_from_slice(smesh.uvs.0.as_slice());
-                deform.extend_from_slice(vec![0.; num_verts].as_slice());
-                ibo.extend(smesh.indices.iter().map(|index| index + current_ibo_offset));
-                current_ibo_offset += (num_verts / 2) as u16;
+                verts.extend_from_slice(mesh.vertices_as_f32s());
+                uvs.extend_from_slice(mesh.uvs_as_f32s());
+                deform.extend_from_slice(vec![0.; num_verts * 2].as_slice());
+                ibo.extend(mesh.indices.iter().map(|index| index + current_ibo_offset));
+                current_ibo_offset += num_verts as u16;
             }
         }
 
