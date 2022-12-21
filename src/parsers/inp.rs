@@ -32,7 +32,7 @@ fn be_u32_plus_1(i: &[u8]) -> IResult<&[u8], u32> {
     Ok((i, 1 + int))
 }
 
-pub fn parse_inp(i: &[u8]) -> IResult<&[u8], Model> {
+pub fn parse_inp<T>(i: &[u8]) -> IResult<&[u8], Model<T>> {
     // TODO: proper error handling with nom? Currently really weird.
     let (i, _) = tag(MAGIC)(i)?;
     let (i, json_payload) = length_data(be_u32)(i)?;

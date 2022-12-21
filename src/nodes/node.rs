@@ -1,28 +1,89 @@
-use std::any::Any;
 use std::fmt::Debug;
 
 use crate::math::transform::Transform;
 
-#[derive(
-    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash,
-)]
+use super::composite::Composite;
+use super::drivers::simple_physics::SimplePhysics;
+use super::part::Part;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct NodeUuid(pub(crate) u32);
+pub struct InoxNodeUuid(pub(crate) u32);
 
 #[derive(Debug, Clone)]
-pub struct NodeState {
-    pub uuid: NodeUuid,
+pub enum InoxData<T> {
+    Node,
+    Part(Part),
+    Composite(Composite),
+    SimplePhysics(SimplePhysics),
+    Custom(T),
+}
+
+impl<T> InoxData<T> {
+    pub fn is_node(&self) -> bool {
+        matches!(self, InoxData::Node)
+    }
+
+    pub fn is_part(&self) -> bool {
+        matches!(self, InoxData::Part(_))
+    }
+
+    pub fn is_composite(&self) -> bool {
+        matches!(self, InoxData::Composite(_))
+    }
+
+    pub fn is_simple_physics(&self) -> bool {
+        matches!(self, InoxData::SimplePhysics(_))
+    }
+
+    pub fn is_custom(&self) -> bool {
+        matches!(self, InoxData::Custom(_))
+    }
+
+    pub fn data_type_name(&self) -> &'static str {
+        match self {
+            InoxData::Node => "Node",
+            InoxData::Part(_) => "Part",
+            InoxData::Composite(_) => "Composite",
+            InoxData::SimplePhysics(_) => "SimplePhysics",
+            InoxData::Custom(_) => "Custom",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct InoxNode<T> {
+    pub uuid: InoxNodeUuid,
     pub name: String,
     pub enabled: bool,
     pub zsort: f32,
     pub transform: Transform,
     pub lock_to_root: bool,
+    pub data: InoxData<T>,
 }
 
-pub trait Node: Debug + Any {
-    fn get_node_state(&self) -> &NodeState;
-    fn get_node_state_mut(&mut self) -> &mut NodeState;
+impl<T> InoxNode<T> {
+    pub fn is_node(&self) -> bool {
+        self.data.is_node()
+    }
 
-    fn as_any(&self) -> &dyn Any;
-    fn as_any_mut(&mut self) -> &mut dyn Any;
+    pub fn is_part(&self) -> bool {
+        self.data.is_part()
+    }
+
+    pub fn is_composite(&self) -> bool {
+        self.data.is_composite()
+    }
+
+    pub fn is_simple_physics(&self) -> bool {
+        self.data.is_simple_physics()
+    }
+
+    pub fn is_custom(&self) -> bool {
+        self.data.is_custom()
+    }
+
+    pub fn node_type_name(&self) -> &'static str {
+        self.data.data_type_name()
+    }
 }

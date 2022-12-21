@@ -2,8 +2,8 @@
 
 use glam::Vec2;
 
-use crate::nodes::node::NodeUuid;
-use crate::nodes::node_tree::NodeTree;
+use crate::nodes::node::InoxNodeUuid;
+use crate::nodes::node_tree::InoxNodeTree;
 
 /// Who is allowed to use the puppet?
 #[derive(Clone, Copy, Debug, Default)]
@@ -124,7 +124,7 @@ pub enum InterpolateMode {
 
 #[derive(Debug)]
 pub struct BindingBase {
-    node: NodeUuid,
+    node: InoxNodeUuid,
     is_set: Vec<Vec<bool>>,
     interpolate_mode: InterpolateMode,
 }
@@ -182,9 +182,9 @@ pub struct Param {
 }
 
 #[derive(Debug)]
-pub struct Puppet {
+pub struct Puppet<T> {
     pub meta: PuppetMeta,
     pub physics: PuppetPhysics,
-    pub nodes: NodeTree,
+    pub nodes: InoxNodeTree<T>,
     pub parameters: Vec<Param>,
 }

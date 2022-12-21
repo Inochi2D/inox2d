@@ -7,7 +7,7 @@ pub struct ModelTexture {
 }
 
 #[derive(Debug)]
-pub struct Model {
-    pub puppet: Puppet,
+pub struct Model<T> {
+    pub puppet: Puppet<T>,
     pub textures: Vec<ModelTexture>,
 }

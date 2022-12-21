@@ -1,6 +1,6 @@
 use glam::Vec3;
 
-use super::node::NodeUuid;
+use super::node::InoxNodeUuid;
 
 /// Blending modes
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,7 +33,7 @@ enum MaskMode {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mask {
-    pub source: NodeUuid,
+    pub source: InoxNodeUuid,
     mode: MaskMode,
 }
 
