@@ -3,11 +3,9 @@ use std::cell::RefCell;
 use glow::HasContext;
 
 use crate::model::ModelTexture;
-use crate::nodes::composite::Composite;
-use crate::nodes::drawable::{BlendMode, Mask};
-use crate::nodes::node::{InoxData, InoxNode, InoxNodeUuid};
+use crate::nodes::node::{InoxNode, InoxNodeUuid};
+use crate::nodes::node_data::{BlendMode, Mask, InoxData, Composite, Part};
 use crate::nodes::node_tree::InoxNodeTree;
-use crate::nodes::part::Part;
 
 use self::texture::load_texture;
 use self::vbo::Vbo;
