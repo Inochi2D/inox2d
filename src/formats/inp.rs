@@ -8,6 +8,8 @@ use nom::{
 
 use crate::model::{Model, ModelTexture};
 
+use super::serialize::deserialize_puppet;
+
 fn parse_texture(i: &[u8]) -> IResult<&[u8], ModelTexture> {
     let (i, format) = be_u8(i)?;
     let format = match format {
@@ -46,9 +48,18 @@ pub fn parse_inp(i: &[u8]) -> IResult<&[u8], Model> {
         i = i2;
     }
 
-    // TODO: do something with the JSON payload
-    let _ = json_payload;
+    // Hmmm... Is this hacky unchecked thing alright?
+    let json_payload = unsafe { std::str::from_utf8_unchecked(json_payload) };
+    let json_payload = match json::parse(json_payload) {
+        Ok(v) => v,
+        // TODO: after removing nom, have better error handling
+        Err(e) => panic!("Invalid JSON payload: {e}"),
+    };
 
-    let puppet = todo!();
+    let puppet = match deserialize_puppet(&json_payload) {
+        Some(v) => v,
+        None => panic!("Invalid puppet"),
+    };
+
     Ok((i, Model { puppet, textures }))
 }

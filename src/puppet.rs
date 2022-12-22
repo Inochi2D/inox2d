@@ -17,6 +17,23 @@ pub enum PuppetAllowedUsers {
     Everyone,
 }
 
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("Unknown allowed users {0:?}")]
+pub struct UnknownPuppetAllowedUsersError(String);
+
+impl TryFrom<&str> for PuppetAllowedUsers {
+    type Error = UnknownPuppetAllowedUsersError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "OnlyAuthor" => Ok(PuppetAllowedUsers::OnlyAuthor),
+            "OnlyLicensee" => Ok(PuppetAllowedUsers::OnlyLicensee),
+            "Everyone" => Ok(PuppetAllowedUsers::Everyone),
+            unknown => Err(UnknownPuppetAllowedUsersError(unknown.to_owned())),
+        }
+    }
+}
+
 /// Can the puppet be redistributed?
 #[derive(Clone, Copy, Debug, Default)]
 pub enum PuppetAllowedRedistribution {
@@ -33,6 +50,23 @@ pub enum PuppetAllowedRedistribution {
     CopyleftLicense,
 }
 
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("Unknown allowed redistribution {0:?}")]
+pub struct UnknownPuppetAllowedRedistributionError(String);
+
+impl TryFrom<&str> for PuppetAllowedRedistribution {
+    type Error = UnknownPuppetAllowedRedistributionError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Prohibited" => Ok(PuppetAllowedRedistribution::Prohibited),
+            "ViralLicense" => Ok(PuppetAllowedRedistribution::ViralLicense),
+            "CopyleftLicense" => Ok(PuppetAllowedRedistribution::CopyleftLicense),
+            unknown => Err(UnknownPuppetAllowedRedistributionError(unknown.to_owned())),
+        }
+    }
+}
+
 /// Can the puppet be modified?
 #[derive(Clone, Copy, Debug, Default)]
 pub enum PuppetAllowedModification {
@@ -44,6 +78,23 @@ pub enum PuppetAllowedModification {
     /// Modification is allowed with redistribution, see
     /// `allowed_redistribution` for redistribution terms.
     AllowRedistribute,
+}
+
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("Unknown allowed users {0:?}")]
+pub struct UnknownPuppetAllowedModificationError(String);
+
+impl TryFrom<&str> for PuppetAllowedModification {
+    type Error = UnknownPuppetAllowedModificationError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Prohibited" => Ok(PuppetAllowedModification::Prohibited),
+            "AllowPersonal" => Ok(PuppetAllowedModification::AllowPersonal),
+            "AllowRedistribute" => Ok(PuppetAllowedModification::AllowRedistribute),
+            unknown => Err(UnknownPuppetAllowedModificationError(unknown.to_owned())),
+        }
+    }
 }
 
 /// Terms of usage of the puppet.
@@ -113,8 +164,8 @@ impl Default for PuppetMeta {
 
 #[derive(Clone, Debug)]
 pub struct PuppetPhysics {
-    pixels_per_meter: f32,
-    gravity: f32,
+    pub pixels_per_meter: f32,
+    pub gravity: f32,
 }
 
 #[derive(Debug)]
@@ -122,12 +173,27 @@ pub enum InterpolateMode {
     Linear,
 }
 
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("Unknown interpolate mode {0:?}")]
+pub struct UnknownInterpolateModeError(String);
+
+impl TryFrom<&str> for InterpolateMode {
+    type Error = UnknownInterpolateModeError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Linear" => Ok(InterpolateMode::Linear),
+            unknown => Err(UnknownInterpolateModeError(unknown.to_owned())),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Binding {
-    node: InoxNodeUuid,
-    is_set: Vec<Vec<bool>>,
-    interpolate_mode: InterpolateMode,
-    values: BindingValues,
+    pub node: InoxNodeUuid,
+    pub is_set: Vec<Vec<bool>>,
+    pub interpolate_mode: InterpolateMode,
+    pub values: BindingValues,
 }
 
 #[derive(Debug)]
@@ -145,14 +211,14 @@ pub enum BindingValues {
 
 #[derive(Debug)]
 pub struct Param {
-    uuid: u32,
-    name: String,
-    is_vec2: bool,
-    min: Vec2,
-    max: Vec2,
-    defaults: Vec2,
-    axis_points: [Vec<f32>; 2],
-    bindings: Vec<Binding>,
+    pub uuid: u32,
+    pub name: String,
+    pub is_vec2: bool,
+    pub min: Vec2,
+    pub max: Vec2,
+    pub defaults: Vec2,
+    pub axis_points: [Vec<f32>; 2],
+    pub bindings: Vec<Binding>,
 }
 
 pub type Puppet = ExtPuppet<()>;
