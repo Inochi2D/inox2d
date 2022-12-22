@@ -119,9 +119,14 @@ impl Mesh {
     }
 }
 
-fn vec2s_as_f32s(vec: &[Vec2]) -> &'_ [f32] {
+pub(crate) fn vec2s_as_f32s(vec: &[Vec2]) -> &'_ [f32] {
     // SAFETY: the length of the slice is always right
     unsafe { slice::from_raw_parts(vec.as_ptr() as *const f32, vec.len() * 2) }
+}
+
+pub(crate) fn f32s_as_vec2s(vec: &[f32]) -> &'_ [Vec2] {
+    // SAFETY: the length of the slice never trespasses outside of the array
+    unsafe { slice::from_raw_parts(vec.as_ptr() as *const Vec2, vec.len() / 2) }
 }
 
 #[derive(Clone, Debug)]

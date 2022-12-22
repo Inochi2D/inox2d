@@ -34,15 +34,51 @@ pub enum BlendMode {
     SliceFromLower,
 }
 
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("Unknown blend mode {0:?}")]
+pub struct UnknownBlendModeError(String);
+
+impl TryFrom<&str> for BlendMode {
+    type Error = UnknownBlendModeError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Normal" => Ok(BlendMode::Normal),
+            "Multiply" => Ok(BlendMode::Multiply),
+            "ColorDodge" => Ok(BlendMode::ColorDodge),
+            "LinearDodge" => Ok(BlendMode::LinearDodge),
+            "Screen" => Ok(BlendMode::Screen),
+            "ClipToLower" => Ok(BlendMode::ClipToLower),
+            "SliceFromLower" => Ok(BlendMode::SliceFromLower),
+            unknown => Err(UnknownBlendModeError(unknown.to_owned())),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum MaskMode {
+pub enum MaskMode {
     Mask,
+}
+
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("Unknown mask mode {0:?}")]
+pub struct UnknownMaskModeError(String);
+
+impl TryFrom<&str> for MaskMode {
+    type Error = UnknownMaskModeError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Mask" => Ok(MaskMode::Mask),
+            unknown => Err(UnknownMaskModeError(unknown.to_owned())),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mask {
     pub source: InoxNodeUuid,
-    mode: MaskMode,
+    pub mode: MaskMode,
 }
 
 #[derive(Debug, Clone)]

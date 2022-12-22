@@ -44,6 +44,11 @@ impl Transform {
         self
     }
 
+    pub fn with_pixel_snap(mut self, pixel_snap: bool) -> Self {
+        self.pixel_snap = pixel_snap;
+        self
+    }
+
     pub fn matrix(&self) -> Mat4 {
         self.trs
     }
