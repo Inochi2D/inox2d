@@ -145,8 +145,6 @@ impl super::super::App for App {
                 display.get_proc_address(&CString::new(symbol).unwrap()) as *const _
             })
         };
-        // Make the context current for rendering
-        let context = not_current.make_current(&surface).unwrap();
 
         unsafe {
             gl.debug_message_callback(|_src, ty, _id, sevr, msg| {
