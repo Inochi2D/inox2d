@@ -3,7 +3,7 @@ use std::io::{BufReader, Read};
 use std::path::PathBuf;
 
 use clap::Parser;
-use inox2d::parsers::inp::parse_inp;
+use inox2d::formats::inp::parse_inp;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

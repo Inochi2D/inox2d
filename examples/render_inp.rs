@@ -17,7 +17,7 @@ use glutin::{
     surface::{GlSurface, Surface, SurfaceAttributesBuilder, WindowSurface},
 };
 
-use inox2d::{parsers::inp::parse_inp, renderers::opengl::OpenglRenderer};
+use inox2d::{formats::inp::parse_inp, renderers::opengl::OpenglRenderer};
 use raw_window_handle::HasRawWindowHandle;
 
 use tracing::{debug, error, info, warn};
