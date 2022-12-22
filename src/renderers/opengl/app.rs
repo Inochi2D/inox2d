@@ -1,16 +1,9 @@
 use glutin::{
-    config::{Config, ConfigSurfaceTypes, ConfigTemplateBuilder},
+    config::{ConfigSurfaceTypes, ConfigTemplateBuilder},
     context::{ContextApi, ContextAttributesBuilder},
     display::DisplayApiPreference::Egl,
 };
-use std::{
-    env,
-    error::Error,
-    ffi::CString,
-    fs::File,
-    io::{BufReader, Read},
-    num::NonZeroU32,
-};
+use std::{env, ffi::CString, num::NonZeroU32};
 
 use glow::HasContext;
 
@@ -21,18 +14,12 @@ use glutin::{
     surface::{GlSurface, Surface, SurfaceAttributesBuilder, WindowSurface},
 };
 
-use crate::{
-    model::{Model, ModelTexture},
-    nodes::node_tree::NodeTree,
-    renderers::opengl::OpenglRenderer,
-};
-use raw_window_handle::{
-    HasRawDisplayHandle, HasRawWindowHandle, RawDisplayHandle, RawWindowHandle,
-};
+use crate::{model::ModelTexture, nodes::node_tree::NodeTree, renderers::opengl::OpenglRenderer};
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use tracing::{debug, error, info, warn};
 
-use winit::event::{ElementState, Event, KeyboardInput, StartCause, VirtualKeyCode, WindowEvent};
+use winit::event::{Event, WindowEvent};
 
 pub struct App {
     pub gl_ctx: PossiblyCurrentContext,
@@ -76,8 +63,7 @@ impl super::super::App for App {
         let display = unsafe { Display::new(window.raw_display_handle(), Egl)? };
         let template = ConfigTemplateBuilder::default()
             .with_alpha_size(8)
-            // Offscreen rendering has no support window surface support.
-            .with_surface_type(ConfigSurfaceTypes::empty())
+            .with_surface_type(ConfigSurfaceTypes::WINDOW)
             .build();
         let config = unsafe { display.find_configs(template) }
             .unwrap()
@@ -115,7 +101,6 @@ impl super::super::App for App {
         };
 
         let raw_window_handle = window.raw_window_handle();
-        let dimensions = window.inner_size();
 
         let context_attributes = glutin::context::ContextAttributesBuilder::new()
             .with_profile(glutin::context::GlProfile::Compatibility)
