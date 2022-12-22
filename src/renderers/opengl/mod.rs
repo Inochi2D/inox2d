@@ -1,3 +1,5 @@
+#[cfg(feature = "gl-winit")]
+pub mod app;
 use std::any::TypeId;
 use std::cell::RefCell;
 use std::collections::HashMap;

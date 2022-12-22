@@ -7,6 +7,10 @@ edition = "2021"
 
 [dependencies]
 glam = { version = "0.22.0", features = ["serde"] }
+glutin = { version = "0.30.3", optional = true }
+raw-window-handle = "0.5.0"
+glutin-winit = { version = "0.2.1", optional = true }
+winit = { version = "0.27.5", optional = true }
 glow = { version = "0.11.2", optional = true }
 image = "0.24.5"
 indextree = { version = "4.5.0", features = ["deser"] }
@@ -18,19 +22,19 @@ serde_indextree = "0.2.0"
 serde_json = "1.0.88"
 thiserror = "1.0.37"
 typetag = "0.2.3"
+wgpu = { version = "0.14.2", optional = true }
+tracing = "0.1.37"
+tracing-subscriber = "0.3.16"
 
 [dev-dependencies]
 clap = { version = "4.0.26", features = ["derive"] }
-glutin = "0.30.3"
-glutin-winit = "0.2.1"
-raw-window-handle = "0.5.0"
-tracing = "0.1.37"
-tracing-subscriber = "0.3.16"
-winit = "0.27.5"
+
 
 [features]
-default = ["opengl"]
+default = ["gl-winit", "wgpu"]
 opengl = ["dep:glow"]
+gl-winit = ["opengl", "glutin", "glutin-winit", "winit"]
+wgpu = ["dep:wgpu"]
 owo = ["dep:owo-colors"]
 
 [[example]]
