@@ -3,6 +3,9 @@ use crate::{nodes::node_tree::NodeTree, model::ModelTexture};
 #[cfg(feature = "opengl")]
 pub mod opengl;
 
+#[cfg(feature = "wgpu")]
+pub mod wgpu;
+
 pub trait App
 where
     Self::Error: std::error::Error,

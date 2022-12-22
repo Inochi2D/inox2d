@@ -25,6 +25,9 @@ typetag = "0.2.3"
 wgpu = { version = "0.14.2", optional = true }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
+async-trait = "0.1.60"
+futures = "0.3.25"
+bytemuck = "1.12.3"
 
 [dev-dependencies]
 clap = { version = "4.0.26", features = ["derive"] }
