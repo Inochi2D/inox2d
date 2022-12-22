@@ -17,33 +17,28 @@ use glow::HasContext;
 use glutin::{
     context::PossiblyCurrentContext,
     display::Display,
-    display::GetGlDisplay,
     prelude::{GlConfig, GlDisplay, NotCurrentGlContextSurfaceAccessor},
     surface::{GlSurface, Surface, SurfaceAttributesBuilder, WindowSurface},
 };
 
-use crate::{parsers::inp::parse_inp, renderers::opengl::OpenglRenderer};
+use crate::{
+    model::{Model, ModelTexture},
+    nodes::node_tree::NodeTree,
+    renderers::opengl::OpenglRenderer,
+};
 use raw_window_handle::{
     HasRawDisplayHandle, HasRawWindowHandle, RawDisplayHandle, RawWindowHandle,
 };
 
 use tracing::{debug, error, info, warn};
 
-use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*};
-
-use winit::{
-    event::{ElementState, Event, KeyboardInput, StartCause, VirtualKeyCode, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::Window,
-};
-
-use std::path::PathBuf;
+use winit::event::{ElementState, Event, KeyboardInput, StartCause, VirtualKeyCode, WindowEvent};
 
 pub struct App {
-    pub gl: glow::Context,
     pub gl_ctx: PossiblyCurrentContext,
     pub surface: Surface<WindowSurface>,
     pub display: Display,
+    pub renderer: OpenglRenderer,
 }
 
 impl super::super::App for App {
@@ -66,7 +61,11 @@ impl super::super::App for App {
         }
     }
     type Error = glutin::error::Error;
-    fn launch(window: &winit::window::Window) -> Result<Self, Self::Error> {
+    fn launch(
+        window: &winit::window::Window,
+        nodes: NodeTree,
+        textures: Vec<ModelTexture>,
+    ) -> Result<Self, Self::Error> {
         if cfg!(target_os = "linux") {
             // disables vsync sometimes on x11
             if env::var("vblank_mode").is_err() {
@@ -178,10 +177,10 @@ impl super::super::App for App {
         unsafe { gl.viewport(0, 0, 2048, 2048) };
 
         Ok(App {
-            gl,
             gl_ctx,
             surface,
             display,
+            renderer: OpenglRenderer::new(gl, nodes, textures),
         })
     }
 }
