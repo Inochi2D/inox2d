@@ -3,7 +3,7 @@
 use glam::Vec2;
 
 use crate::nodes::node::InoxNodeUuid;
-use crate::nodes::node_tree::InoxNodeTree;
+use crate::nodes::node_tree::ExtInoxNodeTree;
 
 /// Who is allowed to use the puppet?
 #[derive(Clone, Copy, Debug, Default)]
@@ -181,10 +181,12 @@ pub struct Param {
     bindings: Vec<Binding>,
 }
 
+pub type Puppet = ExtPuppet<()>;
+
 #[derive(Debug)]
-pub struct Puppet<T> {
+pub struct ExtPuppet<T> {
     pub meta: PuppetMeta,
     pub physics: PuppetPhysics,
-    pub nodes: InoxNodeTree<T>,
+    pub nodes: ExtInoxNodeTree<T>,
     pub parameters: Vec<Param>,
 }

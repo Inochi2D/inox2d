@@ -17,7 +17,7 @@ use glutin::{
     surface::{GlSurface, Surface, SurfaceAttributesBuilder, WindowSurface},
 };
 
-use inox2d::{formats::inp::parse_inp, renderers::opengl::OpenglRenderer};
+use inox2d::{formats::inp::parse_inp, renderers::opengl::opengl_renderer};
 use raw_window_handle::HasRawWindowHandle;
 
 use tracing::{debug, error, info, warn};
@@ -74,7 +74,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         window,
     } = launch_opengl_window()?;
 
-    let renderer = OpenglRenderer::new(gl, puppet.nodes, model.textures);
+    let renderer = opengl_renderer(gl, puppet.nodes, model.textures);
     let zsorted_nodes = renderer.nodes.zsorted();
 
     // Event loop

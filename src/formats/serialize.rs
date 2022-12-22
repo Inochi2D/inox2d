@@ -3,7 +3,7 @@ use json::JsonValue;
 
 use crate::math::transform::Transform;
 use crate::mesh::{f32s_as_vec2s, Mesh};
-use crate::nodes::node::{InoxNode, InoxNodeUuid};
+use crate::nodes::node::{ExtInoxNode, InoxNodeUuid, InoxNode};
 use crate::nodes::node_data::{BlendMode, Composite, Drawable, InoxData, Mask, MaskMode, Part};
 use crate::nodes::physics::SimplePhysics;
 
@@ -24,12 +24,20 @@ impl SerialExtend for JsonValue {
     }
 }
 
-pub fn deserialize_node<T>(
+pub fn deserialize_node(obj: &json::object::Object) -> Option<InoxNode> {
+    deserialize_node_ext(obj, &default_deserialize_custom)
+}
+
+fn default_deserialize_custom(_node_type: &str, _obj: &json::object::Object) -> Option<()> {
+    Some(())
+}
+
+pub fn deserialize_node_ext<T>(
     obj: &json::object::Object,
     deserialize_custom: &impl Fn(&str, &json::object::Object) -> Option<T>,
-) -> Option<InoxNode<T>> {
+) -> Option<ExtInoxNode<T>> {
     let node_type = obj.get("type")?.as_str()?;
-    Some(InoxNode {
+    Some(ExtInoxNode {
         uuid: InoxNodeUuid(obj.get("uuid")?.as_u32()?),
         name: obj.get("name")?.as_str()?.to_owned(),
         enabled: obj.get("enabled")?.as_bool()?,

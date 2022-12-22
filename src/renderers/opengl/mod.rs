@@ -3,9 +3,9 @@ use std::cell::RefCell;
 use glow::HasContext;
 
 use crate::model::ModelTexture;
-use crate::nodes::node::{InoxNode, InoxNodeUuid};
-use crate::nodes::node_data::{BlendMode, Mask, InoxData, Composite, Part};
-use crate::nodes::node_tree::InoxNodeTree;
+use crate::nodes::node::{ExtInoxNode, InoxNodeUuid};
+use crate::nodes::node_data::{BlendMode, Composite, InoxData, Mask, Part};
+use crate::nodes::node_tree::{ExtInoxNodeTree, InoxNodeTree};
 
 use self::texture::load_texture;
 use self::vbo::Vbo;
@@ -99,14 +99,63 @@ impl GlCache {
     }
 }
 
-pub struct OpenglRenderer<T, R>
+pub type OpenglRenderer = ExtOpenglRenderer<(), DefaultCustomRenderer>;
+
+pub trait CustomRenderer {
+    type NodeData;
+    type Renderer;
+
+    fn render(
+        &self,
+        renderer: &Self::Renderer,
+        node: &ExtInoxNode<Self::NodeData>,
+        node_data: &Self::NodeData,
+    );
+}
+
+pub struct DefaultCustomRenderer;
+
+impl CustomRenderer for DefaultCustomRenderer {
+    type NodeData = ();
+    type Renderer = OpenglRenderer;
+
+    fn render(
+        &self,
+        _renderer: &Self::Renderer,
+        _node: &ExtInoxNode<Self::NodeData>,
+        _node_data: &Self::NodeData,
+    ) {
+    }
+}
+
+pub fn opengl_renderer(
+    gl: glow::Context,
+    nodes: InoxNodeTree,
+    textures: Vec<ModelTexture>,
+) -> OpenglRenderer {
+    ExtOpenglRenderer::new(gl, nodes, textures, DefaultCustomRenderer)
+}
+
+pub fn opengl_renderer_ext<T, R>(
+    gl: glow::Context,
+    nodes: ExtInoxNodeTree<T>,
+    textures: Vec<ModelTexture>,
+    custom_renderer: R,
+) -> ExtOpenglRenderer<T, R>
 where
-    R: Fn(&Self, &InoxNode<T>, &T),
+    R: CustomRenderer<NodeData = T, Renderer = ExtOpenglRenderer<T, R>>,
+{
+    ExtOpenglRenderer::new(gl, nodes, textures, custom_renderer)
+}
+
+pub struct ExtOpenglRenderer<T, R>
+where
+    R: CustomRenderer<NodeData = T, Renderer = Self>,
 {
     pub gl: glow::Context,
     pub gl_cache: RefCell<GlCache>,
-    pub nodes: InoxNodeTree<T>,
-    pub vao: glow::NativeVertexArray,
+    pub nodes: ExtInoxNodeTree<T>,
+    vao: glow::NativeVertexArray,
     pub verts: Vbo<f32>,
     pub uvs: Vbo<f32>,
     pub deform: Vbo<f32>,
@@ -120,13 +169,13 @@ where
     pub render_custom: R,
 }
 
-impl<T, R> OpenglRenderer<T, R>
+impl<T, R> ExtOpenglRenderer<T, R>
 where
-    R: Fn(&Self, &InoxNode<T>, &T),
+    R: CustomRenderer<NodeData = T, Renderer = Self>,
 {
-    pub fn new(
+    fn new(
         gl: glow::Context,
-        mut nodes: InoxNodeTree<T>,
+        mut nodes: ExtInoxNodeTree<T>,
         textures: Vec<ModelTexture>,
         render_custom: R,
     ) -> Self {
@@ -193,7 +242,7 @@ where
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
         };
 
-        let mut renderer = OpenglRenderer {
+        let mut renderer = ExtOpenglRenderer {
             gl,
             gl_cache: RefCell::new(GlCache::default()),
             nodes,
@@ -244,13 +293,13 @@ where
             match node.data {
                 InoxData::Part(ref part) => self.render_part(node, part),
                 InoxData::Composite(ref composite) => self.render_composite(node, composite),
-                InoxData::Custom(ref custom) => (self.render_custom)(self, node, custom),
+                InoxData::Custom(ref custom) => self.render_custom.render(self, node, custom),
                 _ => (),
             }
         }
     }
 
-    fn render_composite(&self, node: &InoxNode<T>, composite: &Composite) {
+    fn render_composite(&self, node: &ExtInoxNode<T>, composite: &Composite) {
         let name = &node.name;
         let gl = &self.gl;
         unsafe { gl.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name) };
@@ -279,7 +328,7 @@ where
         unsafe { gl.pop_debug_group() };
     }
 
-    fn render_part(&self, node: &InoxNode<T>, part: &Part) {
+    fn render_part(&self, node: &ExtInoxNode<T>, part: &Part) {
         let name = &node.name;
         let gl = &self.gl;
         unsafe { gl.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name) };
@@ -347,7 +396,7 @@ where
         self.gl_cache.borrow_mut().update_masks(masks.to_vec());
     }
 
-    fn trans(&self, node: &InoxNode<T>) -> glam::Vec3 {
+    fn trans(&self, node: &ExtInoxNode<T>) -> glam::Vec3 {
         let mut trans = node.transform.translation;
 
         for ancestor in self.nodes.ancestors(node.uuid).skip(1) {
