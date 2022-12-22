@@ -123,50 +123,24 @@ pub enum InterpolateMode {
 }
 
 #[derive(Debug)]
-pub struct BindingBase {
+pub struct Binding {
     node: InoxNodeUuid,
     is_set: Vec<Vec<bool>>,
     interpolate_mode: InterpolateMode,
+    values: BindingValues,
 }
 
 #[derive(Debug)]
-pub enum Binding {
-    ZSort {
-        base: BindingBase,
-        values: Vec<Vec<f32>>,
-    },
-    TransformTX {
-        base: BindingBase,
-        values: Vec<Vec<f32>>,
-    },
-    TransformTY {
-        base: BindingBase,
-        values: Vec<Vec<f32>>,
-    },
-    TransformSX {
-        base: BindingBase,
-        values: Vec<Vec<f32>>,
-    },
-    TransformSY {
-        base: BindingBase,
-        values: Vec<Vec<f32>>,
-    },
-    TransformRX {
-        base: BindingBase,
-        values: Vec<Vec<f32>>,
-    },
-    TransformRY {
-        base: BindingBase,
-        values: Vec<Vec<f32>>,
-    },
-    TransformRZ {
-        base: BindingBase,
-        values: Vec<Vec<f32>>,
-    },
-    Deform {
-        base: BindingBase,
-        values: Vec<Vec<Vec<Vec2>>>,
-    },
+pub enum BindingValues {
+    ZSort(Vec<Vec<f32>>),
+    TransformTX(Vec<Vec<f32>>),
+    TransformTY(Vec<Vec<f32>>),
+    TransformSX(Vec<Vec<f32>>),
+    TransformSY(Vec<Vec<f32>>),
+    TransformRX(Vec<Vec<f32>>),
+    TransformRY(Vec<Vec<f32>>),
+    TransformRZ(Vec<Vec<f32>>),
+    Deform(Vec<Vec<Vec<Vec2>>>),
 }
 
 #[derive(Debug)]
