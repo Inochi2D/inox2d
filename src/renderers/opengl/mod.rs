@@ -291,7 +291,10 @@ where
         for &node_uuid in sorted_nodes {
             let node = self.nodes.get_node(node_uuid).unwrap();
             match node.data {
-                InoxData::Part(ref part) => self.render_part(node, part),
+                InoxData::Part(ref part) => {
+                    self.set_stencil(false);
+                    self.render_part(node, part)
+                }
                 InoxData::Composite(ref composite) => self.render_composite(node, composite),
                 InoxData::Custom(ref custom) => self.render_custom.render(self, node, custom),
                 _ => (),
@@ -340,7 +343,6 @@ where
         };
 
         eprintln!("  Rendering part {name}");
-        self.set_stencil(false);
         self.use_program(self.part_program);
 
         if !part.draw_state.masks.is_empty() {
