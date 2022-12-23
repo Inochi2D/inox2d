@@ -108,13 +108,7 @@ fn rec_fmt<T>(
         type_name.magenta()
     };
 
-    writeln!(
-        f,
-        "{}- [{}] {}",
-        "  ".repeat(indent),
-        type_name,
-        node.name
-    )?;
+    writeln!(f, "{}- [{}] {}", "  ".repeat(indent), type_name, node.name)?;
     for child in node_id.children(arena) {
         rec_fmt(indent + 1, f, child, arena)?;
     }

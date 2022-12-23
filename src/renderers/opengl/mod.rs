@@ -238,7 +238,8 @@ where
         let u_trans = unsafe { gl.get_uniform_location(part_program, "trans") };
 
         // Composite rendering
-        let composite_program = shader::compile(&gl, VERTEX_PASSTHROUGH, FRAGMENT_PASSTHROUGH).unwrap();
+        let composite_program =
+            shader::compile(&gl, VERTEX_PASSTHROUGH, FRAGMENT_PASSTHROUGH).unwrap();
 
         let composite_texture;
         let composite_fbo;
