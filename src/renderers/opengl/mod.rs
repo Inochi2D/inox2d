@@ -44,6 +44,28 @@ void main() {
 }
 ";
 
+const VERTEX_PASSTHROUGH: &str = "#version 100
+precision mediump float;
+attribute vec2 pos;
+attribute vec2 uvs;
+varying vec2 texcoord;
+
+void main() {
+    texcoord = uvs;
+    gl_Position = vec4(pos, 0.0, 1.0);
+}
+";
+
+const FRAGMENT_PASSTHROUGH: &str = "#version 100
+precision mediump float;
+uniform sampler2D texture;
+varying vec2 texcoord;
+
+void main() {
+    gl_FragColor = texture2D(texture, texcoord);
+}
+";
+
 const SIZE: u32 = 2048;
 
 #[derive(Default, Clone)]
@@ -216,7 +238,7 @@ where
         let u_trans = unsafe { gl.get_uniform_location(part_program, "trans") };
 
         // Composite rendering
-        let composite_program = shader::compile(&gl, VERTEX, FRAGMENT).unwrap();
+        let composite_program = shader::compile(&gl, VERTEX_PASSTHROUGH, FRAGMENT_PASSTHROUGH).unwrap();
 
         let composite_texture;
         let composite_fbo;
