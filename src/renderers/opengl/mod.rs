@@ -291,10 +291,7 @@ where
         for &node_uuid in sorted_nodes {
             let node = self.nodes.get_node(node_uuid).unwrap();
             match node.data {
-                InoxData::Part(ref part) => {
-                    self.set_stencil(false);
-                    self.render_part(node, part)
-                }
+                InoxData::Part(ref part) => self.render_part(node, part, true),
                 InoxData::Composite(ref composite) => self.render_composite(node, composite),
                 InoxData::Custom(ref custom) => self.render_custom.render(self, node, custom),
                 _ => (),
@@ -331,7 +328,7 @@ where
         unsafe { gl.pop_debug_group() };
     }
 
-    fn render_part(&self, node: &ExtInoxNode<T>, part: &Part) {
+    fn render_part(&self, node: &ExtInoxNode<T>, part: &Part, disable_stencil: bool) {
         let name = &node.name;
         let gl = &self.gl;
         unsafe { gl.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name) };
@@ -343,6 +340,9 @@ where
         };
 
         eprintln!("  Rendering part {name}");
+        if disable_stencil {
+            self.set_stencil(false);
+        }
         self.use_program(self.part_program);
 
         if !part.draw_state.masks.is_empty() {
@@ -385,7 +385,7 @@ where
         for mask in masks.iter() {
             let mask_node = self.nodes.get_node(mask.source).unwrap();
             if let InoxData::Part(ref part) = mask_node.data {
-                self.render_part(mask_node, part);
+                self.render_part(mask_node, part, false);
             }
         }
 
