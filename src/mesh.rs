@@ -1,46 +1,10 @@
 use std::collections::BTreeMap;
+use std::slice;
 
 use glam::{vec2, vec3, IVec2, Vec2, Vec4};
-use serde::{Deserialize, Serialize};
-
-#[derive(thiserror::Error, Debug)]
-#[error("Could not convert Vec2s to Vec<Vec2> (the array did not have an even length)")]
-pub struct Vec2sToVecVec2Error;
-
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-#[serde(transparent)]
-pub struct Vec2s(pub(crate) Vec<f32>);
-
-impl TryFrom<Vec2s> for Vec<Vec2> {
-    type Error = Vec2sToVecVec2Error;
-
-    fn try_from(value: Vec2s) -> Result<Self, Self::Error> {
-        let chunker = value.0.chunks_exact(2);
-        if !chunker.remainder().is_empty() {
-            return Err(Vec2sToVecVec2Error);
-        }
-
-        let v = chunker.map(|chunk| Vec2::new(chunk[0], chunk[1])).collect();
-        Ok(v)
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct SMesh {
-    /// Vertices in the mesh.
-    #[serde(rename = "verts")]
-    pub vertices: Vec2s,
-    /// Base UVs.
-    pub uvs: Vec2s,
-    /// Indices in the mesh.
-    pub indices: Vec<u16>,
-    /// Origin of the mesh.
-    pub origin: Vec2,
-}
 
 /// Mesh
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-#[serde(try_from = "SMesh", into = "SMesh")]
+#[derive(Clone, Debug, Default)]
 pub struct Mesh {
     /// Vertices in the mesh.
     pub vertices: Vec<Vec2>,
@@ -50,41 +14,6 @@ pub struct Mesh {
     pub indices: Vec<u16>,
     /// Origin of the mesh.
     pub origin: Vec2,
-}
-
-impl From<&Mesh> for SMesh {
-    fn from(mesh: &Mesh) -> Self {
-        SMesh {
-            vertices: Vec2s(mesh.vertices.iter().flat_map(Vec2::to_array).collect()),
-            uvs: Vec2s(mesh.uvs.iter().flat_map(Vec2::to_array).collect()),
-            indices: mesh.indices.clone(),
-            origin: mesh.origin,
-        }
-    }
-}
-
-impl From<Mesh> for SMesh {
-    fn from(mesh: Mesh) -> Self {
-        SMesh {
-            vertices: Vec2s(mesh.vertices.iter().flat_map(Vec2::to_array).collect()),
-            uvs: Vec2s(mesh.uvs.iter().flat_map(Vec2::to_array).collect()),
-            indices: mesh.indices,
-            origin: mesh.origin,
-        }
-    }
-}
-
-impl TryFrom<SMesh> for Mesh {
-    type Error = Vec2sToVecVec2Error;
-
-    fn try_from(smesh: SMesh) -> Result<Self, Self::Error> {
-        Ok(Mesh {
-            vertices: smesh.vertices.try_into()?,
-            uvs: smesh.uvs.try_into()?,
-            indices: smesh.indices,
-            origin: smesh.origin,
-        })
-    }
 }
 
 impl Mesh {
@@ -155,6 +84,14 @@ impl Mesh {
         self.indices.iter().filter(|&idx| *idx == index).count()
     }
 
+    pub fn vertices_as_f32s(&self) -> &'_ [f32] {
+        vec2s_as_f32s(&self.vertices)
+    }
+
+    pub fn uvs_as_f32s(&self) -> &'_ [f32] {
+        vec2s_as_f32s(&self.uvs)
+    }
+
     /// Generates a quad-based mesh which is cut `cuts` amount of times.
     ///
     /// # Example
@@ -174,12 +111,22 @@ impl Mesh {
 
     pub fn dbg_lens(&self) {
         println!(
-            "lengths: {} {} {}",
+            "lengths: v_{} u_{} i_{}",
             self.vertices.len(),
             self.uvs.len(),
             self.indices.len()
         );
     }
+}
+
+pub(crate) fn vec2s_as_f32s(vec: &[Vec2]) -> &'_ [f32] {
+    // SAFETY: the length of the slice is always right
+    unsafe { slice::from_raw_parts(vec.as_ptr() as *const f32, vec.len() * 2) }
+}
+
+pub(crate) fn f32s_as_vec2s(vec: &[f32]) -> &'_ [Vec2] {
+    // SAFETY: the length of the slice never trespasses outside of the array
+    unsafe { slice::from_raw_parts(vec.as_ptr() as *const Vec2, vec.len() / 2) }
 }
 
 #[derive(Clone, Debug)]

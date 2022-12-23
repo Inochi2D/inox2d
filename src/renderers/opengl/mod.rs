@@ -1,40 +1,72 @@
-use std::any::TypeId;
 use std::cell::RefCell;
-use std::collections::HashMap;
 
 use glow::HasContext;
 
-use crate::mesh::SMesh;
 use crate::model::ModelTexture;
-use crate::nodes::drawable::{BlendMode, Mask};
-use crate::nodes::node::{Node, NodeUuid};
-use crate::nodes::node_tree::NodeTree;
-use crate::nodes::part::Part;
+use crate::nodes::node::{ExtInoxNode, InoxNodeUuid};
+use crate::nodes::node_data::{BlendMode, Composite, InoxData, Mask, Part};
+use crate::nodes::node_tree::{ExtInoxNodeTree, InoxNodeTree};
 
-use self::node_renderers::composite_renderer::CompositeRenderer;
-use self::node_renderers::part_renderer::PartRenderer;
 use self::texture::load_texture;
 use self::vbo::Vbo;
 
-pub mod node_renderers;
 pub mod shader;
 pub mod texture;
 pub mod vbo;
 
-pub trait NodeRenderer {
-    type Node: Node;
+const VERTEX: &str = "#version 100
+precision mediump float;
+uniform vec2 trans;
+attribute vec2 pos;
+attribute vec2 uvs;
+attribute vec2 deform;
+varying vec2 texcoord;
 
-    fn render(&self, renderer: &OpenglRenderer, node: &Self::Node);
+void main() {
+    vec2 pos2 = pos + trans + deform;
+    pos2.y = -pos2.y;
+    texcoord = uvs;
+    gl_Position = vec4(pos2 / 3072.0, 0.0, 1.0);
 }
+";
 
-// I don't know if this is clever or yet another horrible workaround.
-fn erase_node_renderer<R: NodeRenderer>(node_renderer: R) -> impl Fn(&OpenglRenderer, &dyn Node) {
-    move |renderer, node| {
-        if let Some(node) = node.as_any().downcast_ref() {
-            node_renderer.render(renderer, node);
-        }
+const FRAGMENT: &str = "#version 100
+precision mediump float;
+uniform sampler2D texture;
+varying vec2 texcoord;
+
+void main() {
+    vec4 color = texture2D(texture, texcoord);
+    if (color.a < 0.05) {
+        discard;
     }
+    gl_FragColor = color;
 }
+";
+
+const VERTEX_PASSTHROUGH: &str = "#version 100
+precision mediump float;
+attribute vec2 pos;
+attribute vec2 uvs;
+varying vec2 texcoord;
+
+void main() {
+    texcoord = uvs;
+    gl_Position = vec4(pos, 0.0, 1.0);
+}
+";
+
+const FRAGMENT_PASSTHROUGH: &str = "#version 100
+precision mediump float;
+uniform sampler2D texture;
+varying vec2 texcoord;
+
+void main() {
+    gl_FragColor = texture2D(texture, texcoord);
+}
+";
+
+const SIZE: u32 = 2048;
 
 #[derive(Default, Clone)]
 pub struct GlCache {
@@ -89,23 +121,86 @@ impl GlCache {
     }
 }
 
-type ErasedNodeRenderer = Box<dyn Fn(&OpenglRenderer, &dyn Node)>;
+pub type OpenglRenderer = ExtOpenglRenderer<(), DefaultCustomRenderer>;
 
-pub struct OpenglRenderer {
+pub trait CustomRenderer {
+    type NodeData;
+    type Renderer;
+
+    fn render(
+        &self,
+        renderer: &Self::Renderer,
+        node: &ExtInoxNode<Self::NodeData>,
+        node_data: &Self::NodeData,
+    );
+}
+
+pub struct DefaultCustomRenderer;
+
+impl CustomRenderer for DefaultCustomRenderer {
+    type NodeData = ();
+    type Renderer = OpenglRenderer;
+
+    fn render(
+        &self,
+        _renderer: &Self::Renderer,
+        _node: &ExtInoxNode<Self::NodeData>,
+        _node_data: &Self::NodeData,
+    ) {
+    }
+}
+
+pub fn opengl_renderer(
+    gl: glow::Context,
+    nodes: InoxNodeTree,
+    textures: Vec<ModelTexture>,
+) -> OpenglRenderer {
+    ExtOpenglRenderer::new(gl, nodes, textures, DefaultCustomRenderer)
+}
+
+pub fn opengl_renderer_ext<T, R>(
+    gl: glow::Context,
+    nodes: ExtInoxNodeTree<T>,
+    textures: Vec<ModelTexture>,
+    custom_renderer: R,
+) -> ExtOpenglRenderer<T, R>
+where
+    R: CustomRenderer<NodeData = T, Renderer = ExtOpenglRenderer<T, R>>,
+{
+    ExtOpenglRenderer::new(gl, nodes, textures, custom_renderer)
+}
+
+pub struct ExtOpenglRenderer<T, R>
+where
+    R: CustomRenderer<NodeData = T, Renderer = Self>,
+{
     pub gl: glow::Context,
     pub gl_cache: RefCell<GlCache>,
-    pub nodes: NodeTree,
-    pub vao: glow::NativeVertexArray,
+    pub nodes: ExtInoxNodeTree<T>,
+    vao: glow::NativeVertexArray,
     pub verts: Vbo<f32>,
     pub uvs: Vbo<f32>,
     pub deform: Vbo<f32>,
     pub ibo: Vbo<u16>,
     pub textures: Vec<glow::NativeTexture>,
-    pub node_renderers: HashMap<TypeId, ErasedNodeRenderer>,
+    part_program: glow::NativeProgram,
+    u_trans: Option<glow::NativeUniformLocation>,
+    composite_program: glow::NativeProgram,
+    composite_texture: glow::NativeTexture,
+    composite_fbo: glow::NativeFramebuffer,
+    pub render_custom: R,
 }
 
-impl OpenglRenderer {
-    pub fn new(gl: glow::Context, mut nodes: NodeTree, textures: Vec<ModelTexture>) -> Self {
+impl<T, R> ExtOpenglRenderer<T, R>
+where
+    R: CustomRenderer<NodeData = T, Renderer = Self>,
+{
+    fn new(
+        gl: glow::Context,
+        mut nodes: ExtInoxNodeTree<T>,
+        textures: Vec<ModelTexture>,
+        render_custom: R,
+    ) -> Self {
         let vao = unsafe { gl.create_vertex_array() }.unwrap();
 
         let mut verts = Vbo::from(vec![-1., -1., -1., 1., 1., -1., 1., -1., -1., 1., 1., 1.]);
@@ -116,20 +211,20 @@ impl OpenglRenderer {
 
         let mut current_ibo_offset = 6;
         for node in nodes.arena.iter_mut() {
-            if let Some(node) = node.get_mut().as_any_mut().downcast_mut::<Part>() {
-                let smesh = SMesh::from(&node.mesh);
+            if let InoxData::Part(ref mut part) = node.get_mut().data {
+                let mesh = &part.mesh;
 
-                let num_verts = smesh.vertices.0.len();
-                assert_eq!(num_verts, smesh.uvs.0.len());
+                let num_verts = mesh.vertices.len();
+                assert_eq!(num_verts, mesh.uvs.len());
 
-                node.start_indice = ibo.len() as u16;
+                part.start_indice = ibo.len() as u16;
                 // node.start_deform = current_ibo_offset * 2;
 
-                verts.extend_from_slice(smesh.vertices.0.as_slice());
-                uvs.extend_from_slice(smesh.uvs.0.as_slice());
-                deform.extend_from_slice(vec![0.; num_verts].as_slice());
-                ibo.extend(smesh.indices.iter().map(|index| index + current_ibo_offset));
-                current_ibo_offset += (num_verts / 2) as u16;
+                verts.extend_from_slice(mesh.vertices_as_f32s());
+                uvs.extend_from_slice(mesh.uvs_as_f32s());
+                deform.extend_from_slice(vec![0.; num_verts * 2].as_slice());
+                ibo.extend(mesh.indices.iter().map(|index| index + current_ibo_offset));
+                current_ibo_offset += num_verts as u16;
             }
         }
 
@@ -138,10 +233,38 @@ impl OpenglRenderer {
             .map(|texture| load_texture(&gl, &texture.data))
             .collect();
 
-        let part_renderer = PartRenderer::new(&gl);
-        let composite_renderer = CompositeRenderer::new(&gl);
+        // Part rendering
+        let part_program = shader::compile(&gl, VERTEX, FRAGMENT).unwrap();
+        let u_trans = unsafe { gl.get_uniform_location(part_program, "trans") };
 
-        let mut renderer = OpenglRenderer {
+        // Composite rendering
+        let composite_program = shader::compile(&gl, VERTEX_PASSTHROUGH, FRAGMENT_PASSTHROUGH).unwrap();
+
+        let composite_texture;
+        let composite_fbo;
+        unsafe {
+            gl.clear_color(0.0, 0.0, 0.0, 0.0);
+            gl.enable(glow::BLEND);
+            gl.stencil_mask(0xff);
+
+            composite_texture = texture::upload_texture(&gl, SIZE, SIZE, glow::RGBA, None);
+            composite_fbo = gl.create_framebuffer().unwrap();
+            gl.bind_framebuffer(glow::FRAMEBUFFER, Some(composite_fbo));
+            gl.framebuffer_texture_2d(
+                glow::FRAMEBUFFER,
+                glow::COLOR_ATTACHMENT0,
+                glow::TEXTURE_2D,
+                Some(composite_texture),
+                0,
+            );
+            assert_eq!(
+                gl.check_framebuffer_status(glow::FRAMEBUFFER),
+                glow::FRAMEBUFFER_COMPLETE
+            );
+            gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+        };
+
+        let mut renderer = ExtOpenglRenderer {
             gl,
             gl_cache: RefCell::new(GlCache::default()),
             nodes,
@@ -151,24 +274,16 @@ impl OpenglRenderer {
             deform,
             ibo,
             textures,
-            node_renderers: HashMap::new(),
+            part_program,
+            u_trans,
+            composite_program,
+            composite_texture,
+            composite_fbo,
+            render_custom,
         };
-
-        renderer.register_node_renderer(part_renderer);
-        renderer.register_node_renderer(composite_renderer);
 
         renderer.upload_buffers();
         renderer
-    }
-
-    pub fn register_node_renderer<N, R>(&mut self, renderer: R)
-    where
-        N: Node + 'static,
-        R: NodeRenderer<Node = N> + 'static,
-    {
-        let tag = TypeId::of::<N>();
-        let erased = erase_node_renderer(renderer);
-        self.node_renderers.insert(tag, Box::new(erased));
     }
 
     fn upload_buffers(&mut self) {
@@ -194,14 +309,127 @@ impl OpenglRenderer {
         }
     }
 
-    pub fn render_nodes(&self, sorted_nodes: &[NodeUuid]) {
+    pub fn render_nodes(&self, sorted_nodes: &[InoxNodeUuid]) {
         for &node_uuid in sorted_nodes {
             let node = self.nodes.get_node(node_uuid).unwrap();
-            let node = node.as_ref();
-            if let Some(render) = self.node_renderers.get(&node.type_id()) {
-                render(self, node);
+            match node.data {
+                InoxData::Part(ref part) => self.render_part(node, part, true),
+                InoxData::Composite(ref composite) => self.render_composite(node, composite),
+                InoxData::Custom(ref custom) => self.render_custom.render(self, node, custom),
+                _ => (),
             }
         }
+    }
+
+    fn render_composite(&self, node: &ExtInoxNode<T>, composite: &Composite) {
+        let name = &node.name;
+        let gl = &self.gl;
+        unsafe { gl.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name) };
+
+        #[cfg(feature = "owo")]
+        let name = {
+            use owo_colors::OwoColorize;
+            name.yellow()
+        };
+
+        eprintln!("Rendering composite {name}\n[");
+        unsafe {
+            gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.composite_fbo));
+            gl.clear(glow::COLOR_BUFFER_BIT);
+            let children = self.nodes.get_children_uuids(node.uuid).unwrap_or_default();
+            self.render_nodes(&children);
+
+            gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+            self.bind_texture(self.composite_texture);
+            self.set_blend_mode(composite.draw_state.blend_mode);
+            self.use_program(self.composite_program);
+            gl.draw_arrays(glow::TRIANGLES, 0, 6);
+        }
+        eprintln!("]");
+
+        unsafe { gl.pop_debug_group() };
+    }
+
+    fn render_part(&self, node: &ExtInoxNode<T>, part: &Part, disable_stencil: bool) {
+        let name = &node.name;
+        let gl = &self.gl;
+        unsafe { gl.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name) };
+
+        #[cfg(feature = "owo")]
+        let name = {
+            use owo_colors::OwoColorize;
+            name.magenta()
+        };
+
+        eprintln!("  Rendering part {name}");
+        if disable_stencil {
+            self.set_stencil(false);
+        }
+        self.use_program(self.part_program);
+
+        if !part.draw_state.masks.is_empty() {
+            self.recompute_masks(&part.draw_state.masks);
+        }
+
+        self.bind_texture(self.textures[part.tex_albedo]);
+        self.set_blend_mode(part.draw_state.blend_mode);
+
+        let trans = self.trans(node);
+
+        unsafe {
+            gl.uniform_2_f32(self.u_trans.as_ref(), trans.x, trans.y);
+
+            gl.draw_elements(
+                glow::TRIANGLES,
+                part.num_indices() as i32,
+                glow::UNSIGNED_SHORT,
+                (part.start_indice as i32) * 2,
+            );
+        }
+
+        unsafe { gl.pop_debug_group() };
+    }
+
+    fn recompute_masks(&self, masks: &[Mask]) {
+        if self.gl_cache.borrow().prev_masks == masks {
+            return;
+        }
+
+        self.set_stencil(true);
+        let gl = &self.gl;
+        unsafe {
+            gl.color_mask(false, false, false, false);
+            gl.stencil_op(glow::KEEP, glow::KEEP, glow::REPLACE);
+            gl.stencil_func(glow::ALWAYS, 0xff, 0xff);
+            gl.clear(glow::STENCIL_BUFFER_BIT);
+        }
+
+        for mask in masks.iter() {
+            let mask_node = self.nodes.get_node(mask.source).unwrap();
+            if let InoxData::Part(ref part) = mask_node.data {
+                self.render_part(mask_node, part, false);
+            }
+        }
+
+        unsafe {
+            gl.color_mask(true, true, true, true);
+            gl.stencil_func(glow::EQUAL, 0xff, 0xff);
+            gl.stencil_op(glow::KEEP, glow::KEEP, glow::KEEP);
+        }
+
+        self.gl_cache.borrow_mut().update_masks(masks.to_vec());
+    }
+
+    fn trans(&self, node: &ExtInoxNode<T>) -> glam::Vec3 {
+        let mut trans = node.transform.translation;
+
+        for ancestor in self.nodes.ancestors(node.uuid).skip(1) {
+            if let Some(node) = self.nodes.arena.get(ancestor) {
+                trans += node.get().transform.translation;
+            }
+        }
+
+        trans
     }
 
     /////////////////////////////////////////

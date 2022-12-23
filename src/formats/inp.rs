@@ -8,6 +8,8 @@ use nom::{
 
 use crate::model::{Model, ModelTexture};
 
+use super::serialize::deserialize_puppet;
+
 fn parse_texture(i: &[u8]) -> IResult<&[u8], ModelTexture> {
     let (i, format) = be_u8(i)?;
     let format = match format {
@@ -35,7 +37,7 @@ fn be_u32_plus_1(i: &[u8]) -> IResult<&[u8], u32> {
 pub fn parse_inp(i: &[u8]) -> IResult<&[u8], Model> {
     // TODO: proper error handling with nom? Currently really weird.
     let (i, _) = tag(MAGIC)(i)?;
-    let (i, json) = length_data(be_u32)(i)?;
+    let (i, json_payload) = length_data(be_u32)(i)?;
 
     let (i, _) = tag(TEX)(i)?;
     let (mut i, num_textures) = be_u32(i)?;
@@ -46,11 +48,18 @@ pub fn parse_inp(i: &[u8]) -> IResult<&[u8], Model> {
         i = i2;
     }
 
-    let puppet = match serde_json::from_slice(json) {
-        Ok(puppet) => puppet,
-        Err(a) => {
-            panic!("{}", a);
-        }
+    // Hmmm... Is this hacky unchecked thing alright?
+    let json_payload = unsafe { std::str::from_utf8_unchecked(json_payload) };
+    let json_payload = match json::parse(json_payload) {
+        Ok(v) => v,
+        // TODO: after removing nom, have better error handling
+        Err(e) => panic!("Invalid JSON payload: {e}"),
     };
+
+    let puppet = match deserialize_puppet(&json_payload) {
+        Ok(v) => v,
+        Err(e) => panic!("Invalid puppet\n- {e}"),
+    };
+
     Ok((i, Model { puppet, textures }))
 }

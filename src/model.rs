@@ -1,4 +1,4 @@
-use crate::puppet::Puppet;
+use crate::puppet::ExtPuppet;
 
 #[derive(Clone, Debug)]
 pub struct ModelTexture {
@@ -6,8 +6,10 @@ pub struct ModelTexture {
     pub data: Vec<u8>,
 }
 
+pub type Model = ExtModel<()>;
+
 #[derive(Debug)]
-pub struct Model {
-    pub puppet: Puppet,
+pub struct ExtModel<T> {
+    pub puppet: ExtPuppet<T>,
     pub textures: Vec<ModelTexture>,
 }
