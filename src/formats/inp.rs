@@ -57,8 +57,8 @@ pub fn parse_inp(i: &[u8]) -> IResult<&[u8], Model> {
     };
 
     let puppet = match deserialize_puppet(&json_payload) {
-        Some(v) => v,
-        None => panic!("Invalid puppet"),
+        Ok(v) => v,
+        Err(e) => panic!("Invalid puppet\n- {e}"),
     };
 
     Ok((i, Model { puppet, textures }))

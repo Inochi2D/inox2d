@@ -47,6 +47,15 @@ pub enum JsonError {
     ErrorInObject { key: String, inner: Box<JsonError> },
 }
 
+impl JsonError {
+    pub fn nested(self, key: &str) -> Self {
+        Self::ErrorInObject {
+            key: key.to_owned(),
+            inner: Box::new(self),
+        }
+    }
+}
+
 pub struct JsonObject<'a>(pub &'a json::object::Object);
 
 impl<'a> JsonObject<'a> {
@@ -171,18 +180,22 @@ impl<'a> JsonObject<'a> {
 
         let x = match list[0].as_number() {
             Some(val) => val.into(),
-            None => return Err(JsonError::ParseVec2Error {
-                key: key.to_owned(),
-                msg: "expected float, but did not get a number".to_owned(),
-            }),
+            None => {
+                return Err(JsonError::ParseVec2Error {
+                    key: key.to_owned(),
+                    msg: "expected float, but did not get a number".to_owned(),
+                })
+            }
         };
 
         let y = match list[1].as_number() {
             Some(val) => val.into(),
-            None => return Err(JsonError::ParseVec2Error {
-                key: key.to_owned(),
-                msg: "expected float, but did not get a number".to_owned(),
-            }),
+            None => {
+                return Err(JsonError::ParseVec2Error {
+                    key: key.to_owned(),
+                    msg: "expected float, but did not get a number".to_owned(),
+                })
+            }
         };
         Ok(Vec2::new(x, y))
     }
@@ -198,26 +211,32 @@ impl<'a> JsonObject<'a> {
 
         let x = match list[0].as_number() {
             Some(val) => val.into(),
-            None => return Err(JsonError::ParseVec3Error {
-                key: key.to_owned(),
-                msg: "expected float, but did not get a number".to_owned(),
-            }),
+            None => {
+                return Err(JsonError::ParseVec3Error {
+                    key: key.to_owned(),
+                    msg: "expected float, but did not get a number".to_owned(),
+                })
+            }
         };
 
         let y = match list[1].as_number() {
             Some(val) => val.into(),
-            None => return Err(JsonError::ParseVec3Error {
-                key: key.to_owned(),
-                msg: "expected float, but did not get a number".to_owned(),
-            }),
+            None => {
+                return Err(JsonError::ParseVec3Error {
+                    key: key.to_owned(),
+                    msg: "expected float, but did not get a number".to_owned(),
+                })
+            }
         };
 
         let z = match list[2].as_number() {
             Some(val) => val.into(),
-            None => return Err(JsonError::ParseVec3Error {
-                key: key.to_owned(),
-                msg: "expected float, but did not get a number".to_owned(),
-            }),
+            None => {
+                return Err(JsonError::ParseVec3Error {
+                    key: key.to_owned(),
+                    msg: "expected float, but did not get a number".to_owned(),
+                })
+            }
         };
 
         Ok(Vec3::new(x, y, z))
