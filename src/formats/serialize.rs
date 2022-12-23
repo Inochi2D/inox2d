@@ -46,6 +46,8 @@ pub enum InoxParseError {
     UnknownPuppetAllowedRedistribution(#[from] UnknownPuppetAllowedRedistributionError),
     #[error(transparent)]
     UnknownPuppetAllowedModification(#[from] UnknownPuppetAllowedModificationError),
+    #[error("Expected even number of floats in list, got {0}")]
+    OddNumberOfFloatsInList(usize),
 }
 
 impl InoxParseError {
@@ -232,7 +234,7 @@ fn deserialize_f32s(val: &[json::JsonValue]) -> Vec<f32> {
 
 fn deserialize_vec2s(vals: &[json::JsonValue]) -> InoxParseResult<Vec<Vec2>> {
     if vals.len() % 2 != 0 {
-        todo!();
+        return Err(InoxParseError::OddNumberOfFloatsInList(vals.len()));
     }
 
     let floats = deserialize_f32s(vals);
@@ -384,12 +386,16 @@ fn deserialize_nodes<T>(
 
     let mut node_tree = ExtInoxNodeTree { root, arena, uuids };
 
-    for (i, child) in obj.get_list("children")?.iter().enumerate() {
+    for (i, child) in obj.get_list("children").unwrap_or(&[]).iter().enumerate() {
         let Some(child) = child.as_object() else {
             return Err(InoxParseError::JsonError(JsonError::ValueIsNotObject(format!("children[{i}]"))))
         };
-        deserialize_nodes_rec(&JsonObject(child), deserialize_node_custom, &mut node_tree)
-            .map_err(|e| e.nested(&format!("children[{i}]")))?;
+
+        let child_id =
+            deserialize_nodes_rec(&JsonObject(child), deserialize_node_custom, &mut node_tree)
+                .map_err(|e| e.nested(&format!("children[{i}]")))?;
+
+        root.append(child_id, &mut node_tree.arena);
     }
 
     Ok(node_tree)
@@ -399,21 +405,24 @@ fn deserialize_nodes_rec<T>(
     obj: &JsonObject,
     deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
     node_tree: &mut ExtInoxNodeTree<T>,
-) -> InoxParseResult<InoxNodeUuid> {
+) -> InoxParseResult<indextree::NodeId> {
     let node = deserialize_node_ext(obj, deserialize_node_custom)?;
     let uuid = node.uuid;
     let node_id = node_tree.arena.new_node(node);
     node_tree.uuids.insert(uuid, node_id);
 
-    for (i, child) in obj.get_list("children")?.iter().enumerate() {
+    for (i, child) in obj.get_list("children").unwrap_or(&[]).iter().enumerate() {
         let Some(child) = child.as_object() else {
             return Err(InoxParseError::JsonError(JsonError::ValueIsNotObject(format!("children[{i}]"))))
         };
-        deserialize_nodes_rec(&JsonObject(child), deserialize_node_custom, node_tree)
-            .map_err(|e| e.nested(&format!("children[{i}]")))?;
+        let child_id =
+            deserialize_nodes_rec(&JsonObject(child), deserialize_node_custom, node_tree)
+                .map_err(|e| e.nested(&format!("children[{i}]")))?;
+
+        node_id.append(child_id, &mut node_tree.arena);
     }
 
-    Ok(uuid)
+    Ok(node_id)
 }
 
 fn deserialize_puppet_physics(obj: &JsonObject) -> InoxParseResult<PuppetPhysics> {
@@ -425,18 +434,18 @@ fn deserialize_puppet_physics(obj: &JsonObject) -> InoxParseResult<PuppetPhysics
 
 fn deserialize_puppet_meta(obj: &JsonObject) -> InoxParseResult<PuppetMeta> {
     Ok(PuppetMeta {
-        name: obj.get_str("name").ok().map(str::to_owned),
-        version: obj.get_str("name")?.to_owned(),
-        rigger: obj.get_str("rigger").ok().map(str::to_owned),
-        artist: obj.get_str("artist").ok().map(str::to_owned),
+        name: obj.get_nullable_str("name")?.map(str::to_owned),
+        version: obj.get_str("version")?.to_owned(),
+        rigger: obj.get_nullable_str("rigger")?.map(str::to_owned),
+        artist: obj.get_nullable_str("artist")?.map(str::to_owned),
         rights: match obj.get_object("rights").ok() {
             Some(ref rights) => Some(deserialize_puppet_usage_rights(rights)?),
             None => None,
         },
-        copyright: obj.get_str("copyright").ok().map(str::to_owned),
-        license_url: obj.get_str("licenseURL").ok().map(str::to_owned),
-        contact: obj.get_str("contact").ok().map(str::to_owned),
-        reference: obj.get_str("reference").ok().map(str::to_owned),
+        copyright: obj.get_nullable_str("copyright")?.map(str::to_owned),
+        license_url: obj.get_nullable_str("licenseURL")?.map(str::to_owned),
+        contact: obj.get_nullable_str("contact")?.map(str::to_owned),
+        reference: obj.get_nullable_str("reference")?.map(str::to_owned),
         thumbnail_id: obj.get_u32("thumbnailId").ok(),
         preserve_pixels: obj.get_bool("preservePixels")?,
     })

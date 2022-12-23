@@ -80,6 +80,17 @@ impl<'a> JsonObject<'a> {
         }
     }
 
+    pub fn get_nullable_str(&self, key: &str) -> JsonResult<Option<&str>> {
+        let val = self.get(key)?;
+        if val.is_null() {
+            return Ok(None);
+        }
+        match val.as_str() {
+            Some(val) => Ok(Some(val)),
+            None => Err(JsonError::ValueIsNotString(key.to_owned())),
+        }
+    }
+
     pub fn get_str(&self, key: &str) -> JsonResult<&str> {
         match self.get(key)?.as_str() {
             Some(val) => Ok(val),
