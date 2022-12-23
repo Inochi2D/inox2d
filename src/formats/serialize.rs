@@ -15,22 +15,7 @@ use crate::puppet::{
     PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta, PuppetPhysics, PuppetUsageRights,
 };
 
-// TODO: use Result and return useful errors instead of Option
-// This probably requires extending JsonValue with more functions...
-
-trait SerialExtend {
-    fn as_object(&self) -> Option<&json::object::Object>;
-}
-
-impl SerialExtend for JsonValue {
-    fn as_object(&self) -> Option<&json::object::Object> {
-        if let JsonValue::Object(transform) = self {
-            Some(transform)
-        } else {
-            None
-        }
-    }
-}
+use super::json::SerialExtend;
 
 pub fn deserialize_node(obj: &json::object::Object) -> Option<InoxNode> {
     deserialize_node_ext(obj, &default_deserialize_custom)
