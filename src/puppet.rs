@@ -162,6 +162,7 @@ impl Default for PuppetMeta {
     }
 }
 
+/// Global physics parameters for the puppet.
 #[derive(Clone, Debug)]
 pub struct PuppetPhysics {
     pub pixels_per_meter: f32,
@@ -188,6 +189,7 @@ impl TryFrom<&str> for InterpolateMode {
     }
 }
 
+/// Parameter binding to a node. This allows to animate a node based on the value of the parameter that owns it.
 #[derive(Debug)]
 pub struct Binding {
     pub node: InoxNodeUuid,
@@ -209,6 +211,7 @@ pub enum BindingValues {
     Deform(Vec<Vec<Vec<Vec2>>>),
 }
 
+/// Parameter. A simple bounded value that is used to animate nodes through bindings.
 #[derive(Debug)]
 pub struct Param {
     pub uuid: u32,
@@ -221,8 +224,10 @@ pub struct Param {
     pub bindings: Vec<Binding>,
 }
 
+/// Inochi2D puppet.
 pub type Puppet = ExtPuppet<()>;
 
+/// Extensible Inochi2D puppet.
 #[derive(Debug)]
 pub struct ExtPuppet<T> {
     pub meta: PuppetMeta,

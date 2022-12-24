@@ -121,8 +121,37 @@ impl GlCache {
     }
 }
 
+/// Default OpenGL renderer. Use this if your puppet doesn't have any nodes besides the Inochi2D builtin ones.
 pub type OpenglRenderer = ExtOpenglRenderer<(), DefaultCustomRenderer>;
 
+/// Custom OpenGL sub-renderer for custom nodes.
+///
+/// # Example
+///
+/// ```rs
+/// struct Square {
+///     side: f32,
+/// }
+///
+/// struct SquareRenderer {
+///     color: Vec4,
+/// }
+///
+/// impl CustomRenderer for SquareRenderer {
+///     type NodeData = Square;
+///
+///     fn render(
+///         &self,
+///         _renderer: &ExtOpenglRenderer<Square, Self>,
+///         _node: &ExtInoxNode<Square>,
+///         node_data: &Square,
+///     ) where
+///         Self: Sized,
+///     {
+///         println!("Rendering a square with side {} using color {}", node_data.side, self.color);
+///     }
+/// }
+/// ```
 pub trait CustomRenderer {
     type NodeData;
 
@@ -149,6 +178,8 @@ impl CustomRenderer for DefaultCustomRenderer {
     }
 }
 
+/// Creates a default OpenGL renderer.
+/// Use this if your puppet doesn't have any nodes besides the Inochi2D builtin ones.
 pub fn opengl_renderer(
     gl: glow::Context,
     nodes: InoxNodeTree,
@@ -157,6 +188,8 @@ pub fn opengl_renderer(
     ExtOpenglRenderer::new(gl, nodes, textures, DefaultCustomRenderer)
 }
 
+/// Creates an extensible OpenGL renderer.
+/// Use this if your puppet has custom nodes besides the Inochi2D builtin ones.
 pub fn opengl_renderer_ext<T, R>(
     gl: glow::Context,
     nodes: ExtInoxNodeTree<T>,
@@ -169,6 +202,9 @@ where
     ExtOpenglRenderer::new(gl, nodes, textures, custom_renderer)
 }
 
+/// Extensible OpenGL renderer. It accepts a `CustomRenderer` to render your custom nodes.
+///
+/// Use this if your puppet has custom nodes besides the Inochi2D builtin ones.
 pub struct ExtOpenglRenderer<T, R>
 where
     R: CustomRenderer<NodeData = T>,
@@ -286,6 +322,7 @@ where
         renderer
     }
 
+    /// Uploads the renderer's OpenGL buffers: vertices, UVs, deforms, indexes.
     fn upload_buffers(&mut self) {
         let gl = &self.gl;
         unsafe {
@@ -321,6 +358,9 @@ where
         }
     }
 
+    /// Renders a `Composite` node.
+    /// 
+    /// It renders all its children in a separate framebuffer, and then draws the framebuffer with the composite's blend mode.
     fn render_composite(&self, node: &ExtInoxNode<T>, composite: &Composite) {
         let name = &node.name;
         let gl = &self.gl;
@@ -350,6 +390,9 @@ where
         unsafe { gl.pop_debug_group() };
     }
 
+    /// Renders a `Part` node.
+    ///
+    /// If the node has masks, it will render them before itself.
     fn render_part(&self, node: &ExtInoxNode<T>, part: &Part, disable_stencil: bool) {
         let name = &node.name;
         let gl = &self.gl;
@@ -390,6 +433,9 @@ where
         unsafe { gl.pop_debug_group() };
     }
 
+    /// Directly renders a `Part` node's masks.
+    ///
+    /// Currently only `Part` nodes can be masks.
     fn recompute_masks(&self, masks: &[Mask]) {
         if self.gl_cache.borrow().prev_masks == masks {
             return;
@@ -420,6 +466,7 @@ where
         self.gl_cache.borrow_mut().update_masks(masks.to_vec());
     }
 
+    /// Calculates the absolute position of a node by summing the transform position of all its ancestors.
     fn trans(&self, node: &ExtInoxNode<T>) -> glam::Vec3 {
         let mut trans = node.transform.translation;
 
@@ -434,6 +481,7 @@ where
 
     /////////////////////////////////////////
 
+    /// Use an OpenGL shader program.
     pub fn use_program(&self, program: glow::NativeProgram) {
         if !self.gl_cache.borrow_mut().update_program(program) {
             return;
@@ -442,6 +490,7 @@ where
         unsafe { self.gl.use_program(Some(program)) };
     }
 
+    /// Bind an OpenGL texture.
     pub fn bind_texture(&self, texture: glow::NativeTexture) {
         if !self.gl_cache.borrow_mut().update_texture(texture) {
             return;
@@ -450,6 +499,7 @@ where
         unsafe { self.gl.bind_texture(glow::TEXTURE_2D, Some(texture)) };
     }
 
+    /// Enable or disable stencil.
     pub fn set_stencil(&self, stencil: bool) {
         if !self.gl_cache.borrow_mut().update_stencil(stencil) {
             return;
@@ -465,6 +515,7 @@ where
         }
     }
 
+    /// Set blending mode. See `BlendMode` for supported blend modes.
     pub fn set_blend_mode(&self, mode: BlendMode) {
         if !self.gl_cache.borrow_mut().update_blend_mode(mode) {
             return;
@@ -505,6 +556,7 @@ where
         }
     }
 
+    /// Clears the framebuffer for the next frame.
     pub fn clear(&self) {
         unsafe { self.gl.clear(glow::COLOR_BUFFER_BIT) };
     }

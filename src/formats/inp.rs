@@ -24,8 +24,10 @@ fn parse_texture(i: &[u8]) -> IResult<&[u8], ModelTexture> {
 
 /// Trans rights!
 const MAGIC: &[u8] = b"TRNSRTS\0";
+
 /// Text section header
 const TEX: &[u8] = b"TEX_SECT";
+
 /// Extended section header
 // const EXT: &[u8] = b"EXT_SECT";
 
@@ -34,8 +36,8 @@ fn be_u32_plus_1(i: &[u8]) -> IResult<&[u8], u32> {
     Ok((i, 1 + int))
 }
 
+/// Parse a `.inp` Inochi Puppet from memory.
 pub fn parse_inp(i: &[u8]) -> IResult<&[u8], Model> {
-    // TODO: proper error handling with nom? Currently really weird.
     let (i, _) = tag(MAGIC)(i)?;
     let (i, json_payload) = length_data(be_u32)(i)?;
 
