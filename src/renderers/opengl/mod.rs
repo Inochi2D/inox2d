@@ -125,25 +125,24 @@ pub type OpenglRenderer = ExtOpenglRenderer<(), DefaultCustomRenderer>;
 
 pub trait CustomRenderer {
     type NodeData;
-    type Renderer;
 
     fn render(
         &self,
-        renderer: &Self::Renderer,
+        renderer: &ExtOpenglRenderer<Self::NodeData, Self>,
         node: &ExtInoxNode<Self::NodeData>,
         node_data: &Self::NodeData,
-    );
+    ) where
+        Self: Sized;
 }
 
 pub struct DefaultCustomRenderer;
 
 impl CustomRenderer for DefaultCustomRenderer {
     type NodeData = ();
-    type Renderer = OpenglRenderer;
 
     fn render(
         &self,
-        _renderer: &Self::Renderer,
+        _renderer: &OpenglRenderer,
         _node: &ExtInoxNode<Self::NodeData>,
         _node_data: &Self::NodeData,
     ) {
@@ -165,14 +164,14 @@ pub fn opengl_renderer_ext<T, R>(
     custom_renderer: R,
 ) -> ExtOpenglRenderer<T, R>
 where
-    R: CustomRenderer<NodeData = T, Renderer = ExtOpenglRenderer<T, R>>,
+    R: CustomRenderer<NodeData = T>,
 {
     ExtOpenglRenderer::new(gl, nodes, textures, custom_renderer)
 }
 
 pub struct ExtOpenglRenderer<T, R>
 where
-    R: CustomRenderer<NodeData = T, Renderer = Self>,
+    R: CustomRenderer<NodeData = T>,
 {
     pub gl: glow::Context,
     pub gl_cache: RefCell<GlCache>,
@@ -193,7 +192,7 @@ where
 
 impl<T, R> ExtOpenglRenderer<T, R>
 where
-    R: CustomRenderer<NodeData = T, Renderer = Self>,
+    R: CustomRenderer<NodeData = T>,
 {
     fn new(
         gl: glow::Context,
