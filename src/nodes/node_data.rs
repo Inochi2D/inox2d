@@ -10,7 +10,7 @@ pub struct Composite {
     pub(crate) draw_state: Drawable,
 }
 
-/// Blending modes
+/// Blending mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlendMode {
     /// Normal blending mode.
