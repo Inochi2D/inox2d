@@ -15,9 +15,7 @@ use glutin::{
 };
 
 use crate::{
-    model::ModelTexture,
-    nodes::node_tree::ExtInoxNodeTree,
-    renderers::opengl::opengl_renderer_ext,
+    model::ModelTexture, nodes::node_tree::ExtInoxNodeTree, renderers::opengl::opengl_renderer_ext,
 };
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
@@ -37,11 +35,11 @@ where
     pub renderer: ExtOpenglRenderer<T, R>,
 }
 
-impl<T, R> super::super::App for App<T, R>
+impl<T, R> App<T, R>
 where
     R: CustomRenderer<NodeData = T>,
 {
-    fn update(&self, event: winit::event::Event<()>) {
+    pub fn update(&self, event: winit::event::Event<()>) {
         match event {
             Event::LoopDestroyed => (),
             Event::WindowEvent { event, .. } => match event {
@@ -59,15 +57,13 @@ where
             _ => (),
         }
     }
-    type Error = glutin::error::Error;
-    type NodeData = T;
-    type CustomRenderer = R;
-    fn launch(
+
+    pub fn launch(
         window: &winit::window::Window,
-        nodes: ExtInoxNodeTree<Self::NodeData>,
+        nodes: ExtInoxNodeTree<T>,
         textures: Vec<ModelTexture>,
         custom_renderer: R,
-    ) -> Result<Self, Self::Error> {
+    ) -> Result<Self, glutin::error::Error> {
         if cfg!(target_os = "linux") {
             // disables vsync sometimes on x11
             if env::var("vblank_mode").is_err() {

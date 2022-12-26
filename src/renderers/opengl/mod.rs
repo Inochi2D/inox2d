@@ -5,7 +5,6 @@ pub fn opengl_app(
     nodes: InoxNodeTree,
     textures: Vec<ModelTexture>,
 ) -> Result<app::App<(), DefaultCustomRenderer>, glutin::error::Error> {
-    use super::App;
     app::App::launch(window, nodes, textures, DefaultCustomRenderer)
 }
 
@@ -17,7 +16,6 @@ pub fn opengl_app_ext<T, R>(
 ) -> Result<app::App<T, R>, glutin::error::Error>
 where
     R: CustomRenderer<NodeData = T>, {
-    use super::App;
     app::App::launch(window, nodes, textures, custom_renderer)
 }
 

@@ -8,7 +8,7 @@ use std::{
 use glutin::surface::GlSurface;
 use inox2d::{
     formats::inp::parse_inp,
-    renderers::{opengl::opengl_app, App},
+    renderers::{opengl::opengl_app},
 };
 
 use raw_window_handle::HasRawWindowHandle;
