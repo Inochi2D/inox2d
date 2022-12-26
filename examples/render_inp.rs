@@ -8,10 +8,7 @@ use std::{
 use glutin::surface::GlSurface;
 use inox2d::{
     formats::inp::parse_inp,
-    renderers::{
-        opengl::opengl_app,
-        App,
-    },
+    renderers::{opengl::opengl_app, App},
 };
 
 use raw_window_handle::HasRawWindowHandle;
@@ -62,7 +59,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("Setting up windowing and OpenGL");
     let events = winit::event_loop::EventLoop::new();
 
-    let window = WindowBuilder::new().build(&events).unwrap();
+    let window = WindowBuilder::new()
+        .with_transparent(true)
+        .with_resizable(false)
+        .with_inner_size(winit::dpi::PhysicalSize::new(2048, 2048))
+        .with_title("Render Inochi2D Puppet")
+        .build(&events)
+        .unwrap();
     let app = opengl_app(&window, puppet.nodes, model.textures).unwrap();
 
     let zsorted_nodes = app.renderer.nodes.zsorted();
