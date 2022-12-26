@@ -4,6 +4,7 @@ use glow::HasContext;
 #[error("Could not compile shader: {0}")]
 pub struct ShaderCompileError(String);
 
+/// Compiles a shader program composed of a vertex and fragment shader.
 pub(crate) fn compile(
     gl: &glow::Context,
     vertex: &str,

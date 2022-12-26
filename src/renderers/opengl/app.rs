@@ -14,21 +14,33 @@ use glutin::{
     surface::{GlSurface, Surface, SurfaceAttributesBuilder, WindowSurface},
 };
 
-use crate::{model::ModelTexture, nodes::node_tree::NodeTree, renderers::opengl::OpenglRenderer};
+use crate::{
+    model::ModelTexture,
+    nodes::node_tree::ExtInoxNodeTree,
+    renderers::opengl::opengl_renderer_ext,
+};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use tracing::{debug, error, info, warn};
 
 use winit::event::{Event, WindowEvent};
 
-pub struct App {
+use super::{CustomRenderer, ExtOpenglRenderer};
+
+pub struct App<T, R>
+where
+    R: CustomRenderer<NodeData = T>,
+{
     pub gl_ctx: PossiblyCurrentContext,
     pub surface: Surface<WindowSurface>,
     pub display: Display,
-    pub renderer: OpenglRenderer,
+    pub renderer: ExtOpenglRenderer<T, R>,
 }
 
-impl super::super::App for App {
+impl<T, R> super::super::App for App<T, R>
+where
+    R: CustomRenderer<NodeData = T>,
+{
     fn update(&self, event: winit::event::Event<()>) {
         match event {
             Event::LoopDestroyed => (),
@@ -48,10 +60,13 @@ impl super::super::App for App {
         }
     }
     type Error = glutin::error::Error;
+    type NodeData = T;
+    type CustomRenderer = R;
     fn launch(
         window: &winit::window::Window,
-        nodes: NodeTree,
+        nodes: ExtInoxNodeTree<Self::NodeData>,
         textures: Vec<ModelTexture>,
+        custom_renderer: R,
     ) -> Result<Self, Self::Error> {
         if cfg!(target_os = "linux") {
             // disables vsync sometimes on x11
@@ -163,7 +178,7 @@ impl super::super::App for App {
             gl_ctx,
             surface,
             display,
-            renderer: OpenglRenderer::new(gl, nodes, textures),
+            renderer: opengl_renderer_ext(gl, nodes, textures, custom_renderer),
         })
     }
 }

@@ -42,7 +42,14 @@ pub(crate) unsafe fn upload_texture(
     texture
 }
 
+
+/// Loads a TGA texture from memory and uploads it to the GPU.
+///
+/// # Panics
+///
+/// Panics if it couldn't read the texture.
 pub(crate) fn load_texture(gl: &glow::Context, tex: &[u8]) -> glow::NativeTexture {
+    // TODO: accept a ModelTexture to support any format
     match image::load_from_memory_with_format(tex, image::ImageFormat::Tga).unwrap() {
         image::DynamicImage::ImageRgba8(ref image) => {
             let (width, height) = image.dimensions();

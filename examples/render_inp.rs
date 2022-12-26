@@ -7,12 +7,14 @@ use std::{
 
 use glutin::surface::GlSurface;
 use inox2d::{
-    parsers::inp::parse_inp,
+    formats::inp::parse_inp,
     renderers::{
-        opengl::{self, OpenglRenderer},
+        opengl::opengl_app,
         App,
     },
 };
+
+use raw_window_handle::HasRawWindowHandle;
 
 use tracing::{debug, error, info, warn};
 
@@ -61,7 +63,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let events = winit::event_loop::EventLoop::new();
 
     let window = WindowBuilder::new().build(&events).unwrap();
-    let app = opengl::app::App::launch(&window, puppet.nodes, model.textures).unwrap();
+    let app = opengl_app(&window, puppet.nodes, model.textures).unwrap();
 
     let zsorted_nodes = app.renderer.nodes.zsorted();
 

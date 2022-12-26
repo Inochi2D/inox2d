@@ -1,38 +1,27 @@
-# Inox2D
-
-> An attempt at porting Inochi2D to Rust.
-
 <p align="center">
-  <img src="inox2d_logo.svg" />
+  <img width="256" height="256" src="inox2d_logo.svg">
 </p>
 
-How it came to be:
+# Inox2D
 
-![origin](https://i.imgur.com/ZrTegpF.png)
+Officially supported experimental Rust port of [Inochi2D](https://github.com/Inochi2D/inochi2d). 
 
-## Implementation
+The Inox2D workgroup provides support in the **#inox2d** channel on the [Inochi2D Discord](https://discord.com/invite/abnxwN6r9v).
 
-Inox2D is currently a bit of a merge between [the original Inochi2D implementation](https://github.com/Inochi2D/inochi2d) in D and [Link Mauve's implementation](https://https://linkmauve.fr/dev/inochi2d/) in Rust (the [inochi2d](https://crates.io/crates/inochi2d) crate). The original is the standard, while Link's is a reverse-engineered and optimized implementation, but lacking the remaining core features that need to be implemented. His code is much simpler, but also not extensible (nodes are managed with an enum), so users of the library wouldn't be able to create custom nodes.
+**Currently this library and the specification is in a prototype state**, it is not recommended to use this library in production.
 
-Inox2D is designed to be extensible. Nodes are extensible through the `Node` trait and users can create their own `NodeRenderer` with the `opengl` feature. That means a lot of cursed code involving `dyn Trait`, `Any` and trait downcasting. Hopefully in a future version of Rust I'll be able to make these abstractions cleaner with the [`Provider` API](https://rust-lang.github.io/rfcs/3192-dyno.html) (I prefer to stay on the stable version of Rust).
+&nbsp;
 
-**Update:** I'm currently rewriting the node system to be much cleaner. The `Node` trait will likely disappear in favor of just `Any`.
+## Rigging
 
-> Note: all the shader files that are present in this repository (under `shaders/`) have been copied from the original Inochi2D implementation, but are currently not used. Instead, it's using Link Mauve's simpler shaders.
+If you're a model rigger you may want to check out [Inochi Creator](https://github.com/Inochi2D/inochi-creator), the official Inochi2D rigging app in development.  
+This repository is purely for developers and is not useful if you're an end user.
 
-## Optimization
-
-| Implementation        | language | OpenGL calls |
-| --------------------- | -------- | ------------ |
-| Inochi2D standard     | D        | 3076         |
-| Link Mauve's inochi2d | Rust     | 551          |
-| Inox2D                | Rust     | 634          |
-
-> To be honest, the lack of features is probably the major reason for the small number of calls.
+&nbsp;
 
 ## Status
 
-The model is parsed and rendered correctly!
+Example models are parsed and rendered correctly at this state.
 
 ![parsing](https://0x0.st/onpz.png)
 
@@ -45,7 +34,31 @@ However, it's the only thing that works currently. It doesn't deform, doesn't ha
 - [ ] Physics
 - [ ] Animations
 
-I *may* attempt to rewrite the OpenGL rendering code to be on-par with the standard Inochi2D implementation.
+Attempts to rewrite the OpenGL rendering code to be on-par with the standard Inochi2D implementation *may* be done down the line.
+
+&nbsp;
+
+## Implementation
+
+Inox2D is currently a bit of a merge between [the original Inochi2D implementation](https://github.com/Inochi2D/inochi2d) in D and [Link Mauve's implementation](https://https://linkmauve.fr/dev/inochi2d/) in Rust (the [inochi2d](https://crates.io/crates/inochi2d) crate). The original is the standard, while Link's is a reverse-engineered and optimized implementation, but lacking the remaining core features that need to be implemented. His code is much simpler, but also not extensible (nodes are managed with an enum), so users of the library wouldn't be able to create custom nodes.
+
+Inox2D is designed to be extensible. Nodes are extensible through a generic `InoxData<T>` enum which has a `Custom(T)` variant. Every other part of the library accounts for it: the OpenGL renderer accepts any struct that implements the `CustomRenderer` trait to be able to render your custom nodes, and the deserialization functions accept generic `Fn`s for deserialization of custom nodes when it is relevant.
+
+> Note: all the shader files that are present in this repository (under `shaders/`) have been copied from the original Inochi2D implementation, but are currently not used (eventually they will, probably). Instead, it's using Link Mauve's simpler shaders.
+
+&nbsp;
+
+## Optimization
+
+| Implementation        | language | OpenGL calls |
+| --------------------- | -------- | ------------ |
+| Inochi2D reference*   | D        | 3076         |
+| Link Mauve's inochi2d | Rust     | 551          |
+| Inox2D                | Rust     | 584          |
+
+\* Reference implementation is subject to change as optimisation passes are done, additionally code is more geared towards readability than performance for implementers to be able to more easily use it as reference.
+
+&nbsp;
 
 ## License
 
