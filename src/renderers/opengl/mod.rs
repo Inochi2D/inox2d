@@ -1,7 +1,5 @@
-#[cfg(feature = "gl-winit")]
 pub mod app;
 
-#[cfg(feature = "gl-winit")]
 pub fn opengl_app(
     window: &winit::window::Window,
     nodes: InoxNodeTree,
@@ -11,7 +9,6 @@ pub fn opengl_app(
     app::App::launch(window, nodes, textures, DefaultCustomRenderer)
 }
 
-#[cfg(feature = "gl-winit")]
 pub fn opengl_app_ext<T, R>(
     window: &winit::window::Window,
     nodes: ExtInoxNodeTree<T>,
