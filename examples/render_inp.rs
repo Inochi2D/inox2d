@@ -2,7 +2,6 @@ use std::{
     error::Error,
     fs::File,
     io::{BufReader, Read},
-    num::NonZeroU32,
 };
 
 use glutin::surface::GlSurface;
@@ -11,14 +10,12 @@ use inox2d::{
     renderers::{opengl::opengl_app},
 };
 
-use raw_window_handle::HasRawWindowHandle;
-
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info};
 
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*};
 
 use winit::{
-    event::{ElementState, Event, KeyboardInput, StartCause},
+    event::{Event, StartCause},
     window::WindowBuilder,
 };
 
