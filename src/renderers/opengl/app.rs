@@ -86,8 +86,6 @@ where
             })
             .expect("No available configs");
 
-        println!("Picked a config with {} samples", config.num_samples());
-
         let raw_window_handle = window.raw_window_handle();
 
         let context_attributes = glutin::context::ContextAttributesBuilder::new()
