@@ -7,3 +7,4 @@ pub mod model;
 pub mod nodes;
 pub mod puppet;
 pub mod renderers;
+pub mod texture;

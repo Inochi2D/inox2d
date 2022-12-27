@@ -17,7 +17,7 @@ use glutin::{
     surface::{GlSurface, Surface, SurfaceAttributesBuilder, WindowSurface},
 };
 
-use inox2d::{formats::inp::parse_inp, renderers::opengl::opengl_renderer};
+use inox2d::{formats::inp::parse_inp, renderers::opengl::{opengl_renderer, texture::decode_textures}};
 use raw_window_handle::HasRawWindowHandle;
 
 use tracing::{debug, error, info, warn};
@@ -57,12 +57,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         file.read_to_end(&mut data).unwrap();
         data
     };
-    let model = parse_inp(&data).unwrap().1;
+    let mut model = parse_inp(data.as_slice()).unwrap();
     let puppet = model.puppet;
     info!(
         "Successfully parsed puppet {:?}",
         puppet.meta.name.unwrap_or_default()
     );
+
+    let n_textures = model.textures.len();
+    let rx = decode_textures(&mut model.textures);
 
     info!("Setting up windowing and OpenGL");
     let App {
@@ -74,7 +77,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         window,
     } = launch_opengl_window()?;
 
-    let renderer = opengl_renderer(gl, puppet.nodes, model.textures);
+    let mut renderer = opengl_renderer(gl, puppet.nodes);
+    renderer.upload_textures(rx, n_textures);
     let zsorted_nodes = renderer.nodes.zsorted();
 
     // Event loop
