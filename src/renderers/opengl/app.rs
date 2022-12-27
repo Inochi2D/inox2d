@@ -41,18 +41,17 @@ where
     pub fn update(&self, event: winit::event::Event<()>) {
         match event {
             Event::LoopDestroyed => (),
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::Resized(physical_size) => {
-                    // Handle window resizing
-                    self.surface.resize(
-                        &self.gl_ctx,
-                        NonZeroU32::new(physical_size.width).unwrap(),
-                        NonZeroU32::new(physical_size.height).unwrap(),
-                    );
-                }
-
-                _ => (),
-            },
+            Event::WindowEvent {
+                event: WindowEvent::Resized(physical_size),
+                ..
+            } => {
+                // Handle window resizing
+                self.surface.resize(
+                    &self.gl_ctx,
+                    NonZeroU32::new(physical_size.width).unwrap(),
+                    NonZeroU32::new(physical_size.height).unwrap(),
+                );
+            }
             _ => (),
         }
     }
