@@ -85,7 +85,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 app.surface.swap_buffers(&app.gl_ctx).unwrap();
                 // window.request_redraw();
             }
-            _ => app.update(event),
+            _ => app.update(event, control_flow),
         }
     })
 }

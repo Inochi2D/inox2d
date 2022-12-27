@@ -20,7 +20,10 @@ use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use tracing::{debug, error, info, warn};
 
-use winit::event::{Event, WindowEvent};
+use winit::{
+    event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
+    event_loop::ControlFlow,
+};
 
 use super::{CustomRenderer, ExtOpenglRenderer};
 
@@ -38,20 +41,33 @@ impl<T, R> App<T, R>
 where
     R: CustomRenderer<NodeData = T>,
 {
-    pub fn update(&self, event: winit::event::Event<()>) {
+    pub fn update(&self, event: Event<()>, control_flow: &mut ControlFlow) {
         match event {
             Event::LoopDestroyed => (),
-            Event::WindowEvent {
-                event: WindowEvent::Resized(physical_size),
-                ..
-            } => {
-                // Handle window resizing
-                self.surface.resize(
-                    &self.gl_ctx,
-                    NonZeroU32::new(physical_size.width).unwrap(),
-                    NonZeroU32::new(physical_size.height).unwrap(),
-                );
-            }
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::Resized(physical_size) => {
+                    // Handle window resizing
+                    self.surface.resize(
+                        &self.gl_ctx,
+                        NonZeroU32::new(physical_size.width).unwrap(),
+                        NonZeroU32::new(physical_size.height).unwrap(),
+                    );
+                }
+                WindowEvent::CloseRequested => control_flow.set_exit(),
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            virtual_keycode: Some(VirtualKeyCode::Escape),
+                            state: ElementState::Pressed,
+                            ..
+                        },
+                    ..
+                } => {
+                    info!("There is an Escape D:");
+                    control_flow.set_exit();
+                }
+                _ => (),
+            },
             _ => (),
         }
     }
