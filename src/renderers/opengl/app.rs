@@ -1,6 +1,5 @@
 use glutin::{
     config::{ConfigSurfaceTypes, ConfigTemplateBuilder},
-    context::{ContextApi, ContextAttributesBuilder},
     display::DisplayApiPreference::Egl,
 };
 use std::{env, ffi::CString, num::NonZeroU32};
@@ -88,28 +87,6 @@ where
             .expect("No available configs");
 
         println!("Picked a config with {} samples", config.num_samples());
-
-        // Context creation.
-        //
-        // In particular, since we are doing offscreen rendering we have no raw window
-        // handle to provide.
-        let context_attributes = ContextAttributesBuilder::new().build(None);
-
-        // Since glutin by default tries to create OpenGL core context, which may not be
-        // present we should try gles.
-        let fallback_context_attributes = ContextAttributesBuilder::new()
-            .with_context_api(ContextApi::Gles(None))
-            .build(None);
-
-        let not_current = unsafe {
-            display
-                .create_context(&config, &context_attributes)
-                .unwrap_or_else(|_| {
-                    display
-                        .create_context(&config, &fallback_context_attributes)
-                        .expect("failed to create context")
-                })
-        };
 
         let raw_window_handle = window.raw_window_handle();
 
