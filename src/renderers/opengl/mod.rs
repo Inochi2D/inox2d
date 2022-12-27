@@ -1,3 +1,22 @@
+pub mod app;
+
+pub fn opengl_app(
+    window: &winit::window::Window,
+    nodes: InoxNodeTree,
+) -> Result<app::App<(), DefaultCustomRenderer>, glutin::error::Error> {
+    app::App::launch(window, nodes, DefaultCustomRenderer)
+}
+
+pub fn opengl_app_ext<T, R>(
+    window: &winit::window::Window,
+    nodes: ExtInoxNodeTree<T>,
+    custom_renderer: R
+) -> Result<app::App<T, R>, glutin::error::Error>
+where
+    R: CustomRenderer<NodeData = T>, {
+    app::App::launch(window, nodes, custom_renderer)
+}
+
 use std::cell::RefCell;
 use std::sync::mpsc;
 
