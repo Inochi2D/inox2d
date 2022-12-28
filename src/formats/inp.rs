@@ -16,14 +16,12 @@ const TEX: &[u8] = b"TEX_SECT";
 // const EXT: &[u8] = b"EXT_SECT";
 
 fn read_u8<R: io::Read>(reader: &mut R) -> io::Result<u8> {
-    let mut buf = [0_u8; 1];
-    reader.read_exact(&mut buf)?;
+    let buf = read_array::<_, 1>(reader)?;
     Ok(buf[0])
 }
 
 fn read_be_u32<R: io::Read>(reader: &mut R) -> io::Result<u32> {
-    let mut buf = [0_u8; 4];
-    reader.read_exact(&mut buf)?;
+    let buf = read_array::<_, 4>(reader)?;
     Ok(u32::from_be_bytes(buf))
 }
 
