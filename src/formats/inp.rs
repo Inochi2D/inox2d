@@ -1,5 +1,4 @@
 use std::io;
-use std::mem::MaybeUninit;
 
 use crate::model::Model;
 use crate::texture::CompressedTexture;
@@ -32,9 +31,7 @@ fn read_array<R: io::Read, const N: usize>(reader: &mut R) -> io::Result<[u8; N]
 }
 
 fn read_vec<R: io::Read>(reader: &mut R, length: usize) -> io::Result<Vec<u8>> {
-    let mut data: Vec<MaybeUninit<u8>> = Vec::with_capacity(length);
-    unsafe { data.set_len(length) };
-    let mut data: Vec<u8> = unsafe { std::mem::transmute(data) };
+    let mut data = vec![0_u8; length];
     reader.read_exact(&mut data)?;
     Ok(data)
 }
