@@ -31,8 +31,7 @@ fn read_array<R: io::Read, const N: usize>(reader: &mut R) -> io::Result<[u8; N]
     Ok(data)
 }
 
-fn read_vec<R: io::Read>(reader: &mut R, length: u32) -> io::Result<Vec<u8>> {
-    let length = length as usize;
+fn read_vec<R: io::Read>(reader: &mut R, length: usize) -> io::Result<Vec<u8>> {
     let mut data: Vec<MaybeUninit<u8>> = Vec::with_capacity(length);
     unsafe { data.set_len(length) };
     let mut data: Vec<u8> = unsafe { std::mem::transmute(data) };
@@ -49,7 +48,7 @@ pub fn parse_inp<R: io::Read>(mut reader: R) -> io::Result<Model> {
 
     let puppet = {
         let length = read_be_u32(&mut reader)?;
-        let payload = read_vec(&mut reader, length)?;
+        let payload = read_vec(&mut reader, length as usize)?;
 
         // Hmmm... Is this hacky unchecked thing alright?
         let payload = unsafe { std::str::from_utf8_unchecked(&payload) };
@@ -67,7 +66,7 @@ pub fn parse_inp<R: io::Read>(mut reader: R) -> io::Result<Model> {
     for _ in 0..num_textures {
         let length = read_be_u32(&mut reader)?;
         let format = read_u8(&mut reader)?;
-        let data = read_vec(&mut reader, length)?;
+        let data = read_vec(&mut reader, length as usize)?;
         let texture = match format {
             0 => CompressedTexture::Png(data),
             1 => CompressedTexture::Tga(data),
