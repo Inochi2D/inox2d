@@ -1,5 +1,4 @@
-use crate::texture::{CompressedTexture, Texture};
-use std::sync::mpsc;
+use crate::texture::Texture;
 
 use glow::HasContext;
 
@@ -53,48 +52,4 @@ pub(crate) fn load_texture(gl: &glow::Context, tex: &Texture) -> glow::NativeTex
             data,
         } => unsafe { upload_texture(gl, *width, *height, Some(data)) },
     }
-}
-
-#[cfg(feature = "parallel-tex-dec")]
-pub fn decode_textures(textures: &mut Vec<CompressedTexture>) -> mpsc::Receiver<(usize, Texture)> {
-    let mut num_threads = std::thread::available_parallelism().unwrap().get();
-    if num_threads > 1 {
-        num_threads -= 1;
-    }
-    if num_threads > textures.len() {
-        num_threads = textures.len();
-    }
-
-    let (tx2, rx2) = mpsc::channel();
-    let mut pipes = Vec::with_capacity(num_threads);
-    for _ in 0..num_threads {
-        let (tx, rx) = mpsc::channel::<(usize, CompressedTexture)>();
-        let tx2 = tx2.clone();
-        std::thread::Builder::new()
-            .name(String::from("Texture Decoder"))
-            .spawn(move || {
-                while let Ok((i, tex)) = rx.recv() {
-                    let tex = tex.decode();
-                    tx2.send((i, tex)).unwrap();
-                }
-            })
-            .unwrap();
-        pipes.push(tx);
-    }
-
-    for ((i, tex), tx) in textures.drain(..).enumerate().zip(pipes.iter().cycle()) {
-        tx.send((i, tex)).unwrap();
-    }
-
-    rx2
-}
-
-#[cfg(not(feature = "parallel-tex-dec"))]
-pub fn decode_textures(textures: &mut Vec<CompressedTexture>) -> mpsc::Receiver<(usize, Texture)> {
-    let (tx, rx) = mpsc::channel();
-    for (i, tex) in textures.drain(..).enumerate() {
-        let tex = tex.decode();
-        tx.send((i, tex)).unwrap();
-    }
-    rx
 }

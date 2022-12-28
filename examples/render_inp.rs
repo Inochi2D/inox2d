@@ -5,7 +5,7 @@ use std::{
 };
 
 use glutin::surface::GlSurface;
-use inox2d::{formats::inp::parse_inp, renderers::opengl::{opengl_app, texture::decode_textures}};
+use inox2d::{formats::inp::parse_inp, renderers::opengl::opengl_app, texture::decode_textures};
 
 use tracing::{debug, info};
 
