@@ -1,3 +1,5 @@
+use super::Texture;
+
 unsafe fn copy_intersperce(dst: *mut u8, src: *const u8) -> *mut u8 {
     dst.copy_from(src, 3);
     dst.offset(3).write(255);
@@ -53,7 +55,8 @@ fn decode_rle_32(mut rle: &[u8], mut ptr: *mut u8) {
     }
 }
 
-pub fn decode(tga: &[u8]) -> (u32, u32, Vec<u8>) {
+/// Decodes a TGA image into an RGBA texture.
+pub fn decode(tga: &[u8]) -> Texture {
     let width = u16::from_le_bytes([tga[12], tga[13]]) as u32;
     let height = u16::from_le_bytes([tga[14], tga[15]]) as u32;
     let mut data = Vec::with_capacity((width * height * 4) as usize);
@@ -64,5 +67,10 @@ pub fn decode(tga: &[u8]) -> (u32, u32, Vec<u8>) {
         depth => todo!("Unimplemented pixel depth {depth}"),
     }
     unsafe { data.set_len((width * height * 4) as usize) };
-    (width, height, data)
+
+    Texture::Rgba {
+        width,
+        height,
+        data,
+    }
 }
