@@ -1,52 +1,48 @@
-use std::any::Any;
 use std::fmt::Debug;
-
-use serde::{Deserialize, Serialize};
 
 use crate::math::transform::Transform;
 
-#[derive(
-    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
-#[repr(transparent)]
-pub struct NodeUuid(pub(crate) u32);
+use super::node_data::InoxData;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NodeState {
-    pub uuid: NodeUuid,
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub struct InoxNodeUuid(pub(crate) u32);
+
+pub type InoxNode = ExtInoxNode<()>;
+
+#[derive(Debug, Clone)]
+pub struct ExtInoxNode<T> {
+    pub uuid: InoxNodeUuid,
     pub name: String,
     pub enabled: bool,
     pub zsort: f32,
     pub transform: Transform,
-    #[serde(rename = "lockToRoot")]
     pub lock_to_root: bool,
+    pub data: InoxData<T>,
 }
 
-// TODO: make a derive macro for this
-#[typetag::serde(tag = "type")]
-pub trait Node: Debug + Any {
-    fn get_node_state(&self) -> &NodeState;
-    fn get_node_state_mut(&mut self) -> &mut NodeState;
-
-    fn as_any(&self) -> &dyn Any;
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-}
-
-#[typetag::serde(name = "Node")]
-impl Node for NodeState {
-    fn get_node_state(&self) -> &NodeState {
-        self
+impl<T> ExtInoxNode<T> {
+    pub fn is_node(&self) -> bool {
+        self.data.is_node()
     }
 
-    fn get_node_state_mut(&mut self) -> &mut NodeState {
-        self
+    pub fn is_part(&self) -> bool {
+        self.data.is_part()
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
+    pub fn is_composite(&self) -> bool {
+        self.data.is_composite()
     }
 
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
+    pub fn is_simple_physics(&self) -> bool {
+        self.data.is_simple_physics()
+    }
+
+    pub fn is_custom(&self) -> bool {
+        self.data.is_custom()
+    }
+
+    pub fn node_type_name(&self) -> &'static str {
+        self.data.data_type_name()
     }
 }

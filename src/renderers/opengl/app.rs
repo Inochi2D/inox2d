@@ -1,6 +1,5 @@
 use glutin::{
     config::{ConfigSurfaceTypes, ConfigTemplateBuilder},
-    context::{ContextApi, ContextAttributesBuilder},
     display::DisplayApiPreference::Egl,
 };
 use std::{env, ffi::CString, num::NonZeroU32};
@@ -14,22 +13,35 @@ use glutin::{
     surface::{GlSurface, Surface, SurfaceAttributesBuilder, WindowSurface},
 };
 
-use crate::{model::ModelTexture, nodes::node_tree::NodeTree, renderers::opengl::OpenglRenderer};
+use crate::{
+    model::ModelTexture, nodes::node_tree::ExtInoxNodeTree, renderers::opengl::opengl_renderer_ext,
+};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use tracing::{debug, error, info, warn};
 
-use winit::event::{Event, WindowEvent};
+use winit::{
+    event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
+    event_loop::ControlFlow,
+};
 
-pub struct App {
+use super::{CustomRenderer, ExtOpenglRenderer};
+
+pub struct App<T, R>
+where
+    R: CustomRenderer<NodeData = T>,
+{
     pub gl_ctx: PossiblyCurrentContext,
     pub surface: Surface<WindowSurface>,
     pub display: Display,
-    pub renderer: OpenglRenderer,
+    pub renderer: ExtOpenglRenderer<T, R>,
 }
 
-impl super::super::App for App {
-    fn update(&self, event: winit::event::Event<()>) {
+impl<T, R> App<T, R>
+where
+    R: CustomRenderer<NodeData = T>,
+{
+    pub fn update(&self, event: Event<()>, control_flow: &mut ControlFlow) {
         match event {
             Event::LoopDestroyed => (),
             Event::WindowEvent { event, .. } => match event {
@@ -41,18 +53,31 @@ impl super::super::App for App {
                         NonZeroU32::new(physical_size.height).unwrap(),
                     );
                 }
-
+                WindowEvent::CloseRequested => control_flow.set_exit(),
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            virtual_keycode: Some(VirtualKeyCode::Escape),
+                            state: ElementState::Pressed,
+                            ..
+                        },
+                    ..
+                } => {
+                    info!("There is an Escape D:");
+                    control_flow.set_exit();
+                }
                 _ => (),
             },
             _ => (),
         }
     }
-    type Error = glutin::error::Error;
-    fn launch(
+
+    pub fn launch(
         window: &winit::window::Window,
-        nodes: NodeTree,
+        nodes: ExtInoxNodeTree<T>,
         textures: Vec<ModelTexture>,
-    ) -> Result<Self, Self::Error> {
+        custom_renderer: R,
+    ) -> Result<Self, glutin::error::Error> {
         if cfg!(target_os = "linux") {
             // disables vsync sometimes on x11
             if env::var("vblank_mode").is_err() {
@@ -75,30 +100,6 @@ impl super::super::App for App {
                 }
             })
             .expect("No available configs");
-
-        println!("Picked a config with {} samples", config.num_samples());
-
-        // Context creation.
-        //
-        // In particular, since we are doing offscreen rendering we have no raw window
-        // handle to provide.
-        let context_attributes = ContextAttributesBuilder::new().build(None);
-
-        // Since glutin by default tries to create OpenGL core context, which may not be
-        // present we should try gles.
-        let fallback_context_attributes = ContextAttributesBuilder::new()
-            .with_context_api(ContextApi::Gles(None))
-            .build(None);
-
-        let not_current = unsafe {
-            display
-                .create_context(&config, &context_attributes)
-                .unwrap_or_else(|_| {
-                    display
-                        .create_context(&config, &fallback_context_attributes)
-                        .expect("failed to create context")
-                })
-        };
 
         let raw_window_handle = window.raw_window_handle();
 
@@ -163,7 +164,7 @@ impl super::super::App for App {
             gl_ctx,
             surface,
             display,
-            renderer: OpenglRenderer::new(gl, nodes, textures),
+            renderer: opengl_renderer_ext(gl, nodes, textures, custom_renderer),
         })
     }
 }

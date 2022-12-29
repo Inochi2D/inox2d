@@ -2,24 +2,20 @@ use std::{
     error::Error,
     fs::File,
     io::{BufReader, Read},
-    num::NonZeroU32,
 };
 
 use glutin::surface::GlSurface;
 use inox2d::{
-    parsers::inp::parse_inp,
-    renderers::{
-        opengl::{self, OpenglRenderer},
-        App,
-    },
+    formats::inp::parse_inp,
+    renderers::{opengl::opengl_app},
 };
 
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info};
 
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*};
 
 use winit::{
-    event::{ElementState, Event, KeyboardInput, StartCause},
+    event::{Event, StartCause},
     window::WindowBuilder,
 };
 
@@ -60,8 +56,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("Setting up windowing and OpenGL");
     let events = winit::event_loop::EventLoop::new();
 
-    let window = WindowBuilder::new().build(&events).unwrap();
-    let app = opengl::app::App::launch(&window, puppet.nodes, model.textures).unwrap();
+    let window = WindowBuilder::new()
+        .with_transparent(true)
+        .with_resizable(false)
+        .with_inner_size(winit::dpi::PhysicalSize::new(2048, 2048))
+        .with_title("Render Inochi2D Puppet")
+        .build(&events)
+        .unwrap();
+    let app = opengl_app(&window, puppet.nodes, model.textures).unwrap();
 
     let zsorted_nodes = app.renderer.nodes.zsorted();
 
@@ -83,7 +85,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 app.surface.swap_buffers(&app.gl_ctx).unwrap();
                 // window.request_redraw();
             }
-            _ => app.update(event),
+            _ => app.update(event, control_flow),
         }
     })
 }
