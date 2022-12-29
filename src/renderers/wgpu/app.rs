@@ -1,23 +1,32 @@
 use futures::executor::block_on;
-use wgpu::{Device, Surface};
-pub struct App {
+use wgpu::{Device, Queue, Surface};
+
+use crate::{
+    model::ModelTexture, nodes::node_tree::ExtInoxNodeTree,
+    renderers::opengl::DefaultCustomRenderer,
+};
+
+use super::{ext_wgpu_renderer, CustomRenderer, ExtWgpuRenderer};
+pub struct App<T, R>
+where
+    R: CustomRenderer<NodeData = T>,
+{
     pub surface: Surface,
-    pub device: Device,
-    pub config: wgpu::SurfaceConfiguration,
-    pub queue: wgpu::Queue,
     pub size: winit::dpi::PhysicalSize<u32>,
+    pub renderer: ExtWgpuRenderer<T, R>,
 }
 
-impl super::super::App for App {
-    fn update(&self, event: winit::event::Event<()>) {
+impl<T, R: CustomRenderer<NodeData = T>> App<T, R> {
+    pub fn update(&self, event: winit::event::Event<()>) {
         todo!()
     }
 
-    fn launch(
+    pub fn launch(
         window: &winit::window::Window,
-        nodes: crate::nodes::node_tree::NodeTree,
+        nodes: ExtInoxNodeTree<T>,
         textures: Vec<crate::model::ModelTexture>,
-    ) -> Result<Self, Self::Error>
+        custom_renderer: R,
+    ) -> Result<Self, wgpu::Error>
     where
         Self: Sized,
     {
@@ -59,12 +68,9 @@ impl super::super::App for App {
 
         Ok(Self {
             surface,
-            device,
-            queue,
-            config,
+
             size,
+            renderer: ext_wgpu_renderer(device, queue, config, nodes, textures, custom_renderer),
         })
     }
-
-    type Error = wgpu::Error;
 }
