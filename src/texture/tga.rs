@@ -57,8 +57,8 @@ fn decode_rle_32(mut rle: &[u8], mut ptr: *mut u8) {
 
 /// Decodes a TGA image into an RGBA texture.
 pub fn decode(tga: &[u8]) -> Texture {
-    let width = u16::from_le_bytes([tga[12], tga[13]]) as u32;
-    let height = u16::from_le_bytes([tga[14], tga[15]]) as u32;
+    let width = u16::from_le_bytes(tga[12..=13].try_into().unwrap()) as u32;
+    let height = u16::from_le_bytes(tga[14..=15].try_into().unwrap()) as u32;
     let mut data = Vec::with_capacity((width * height * 4) as usize);
     let pixel_depth = tga[16];
     match pixel_depth {
