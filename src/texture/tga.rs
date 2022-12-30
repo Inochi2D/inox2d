@@ -60,7 +60,6 @@ pub fn decode(tga: &[u8]) -> Texture {
         32 => decode_rle_32(&tga[18..], &mut data),
         depth => todo!("Unimplemented pixel depth {depth}"),
     }
-    unsafe { data.set_len((width * height * 4) as usize) };
 
     Texture::Rgba {
         width,
