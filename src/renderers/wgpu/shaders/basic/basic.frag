@@ -13,7 +13,7 @@ layout(location = 2) out vec4 outBump;
 
 layout(location = 0) uniform sampler2D albedo;
 layout(location = 1) uniform sampler2D emissive;
- ayout(location = 2) uniform sampler2D bumpmap;
+layout(location = 2) uniform sampler2D bumpmap;
 
 uniform float opacity;
 uniform vec3 multColor;
