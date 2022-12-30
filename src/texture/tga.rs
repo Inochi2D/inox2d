@@ -6,7 +6,8 @@ fn copy_intersperce(src: &[u8], dst: &mut Vec<u8>) {
     dst.push(255);
 }
 
-// This function decodes to RGBA instead of RGB, by interspercing a 255 byte every three bytes.
+/// Decodes TGA data (24-bit RGB).
+/// It decodes to RGBA instead of RGB, by interspercing a 255 byte every three bytes.
 fn decode_rle_24(mut rle: &[u8], vec: &mut Vec<u8>) {
     while rle.len() > 18 {
         let c = rle[0];
@@ -29,6 +30,7 @@ fn decode_rle_24(mut rle: &[u8], vec: &mut Vec<u8>) {
     }
 }
 
+/// Decodes TGA data (32-bit RGBA).
 fn decode_rle_32(mut rle: &[u8], out: &mut Vec<u8>) {
     while rle.len() > 16 {
         let c = rle[0];
