@@ -1,13 +1,13 @@
 use super::Texture;
 
-unsafe fn copy_intersperce(dst: *mut u8, src: *const u8) -> *mut u8 {
-    dst.copy_from(src, 3);
-    dst.offset(3).write(255);
-    dst.offset(4)
+#[inline]
+fn copy_intersperce(src: &[u8], dst: &mut Vec<u8>) {
+    dst.extend_from_slice(&src[..3]);
+    dst.push(255);
 }
 
 // This function decodes to RGBA instead of RGB, by interspercing a 255 byte every three bytes.
-fn decode_rle_24(mut rle: &[u8], mut ptr: *mut u8) {
+fn decode_rle_24(mut rle: &[u8], vec: &mut Vec<u8>) {
     while rle.len() > 18 {
         let c = rle[0];
         rle = &rle[1..];
@@ -16,20 +16,20 @@ fn decode_rle_24(mut rle: &[u8], mut ptr: *mut u8) {
             let pixel = &rle[..3];
             rle = &rle[3..];
             for _ in 0..c {
-                ptr = unsafe { copy_intersperce(ptr, pixel.as_ptr()) };
+                copy_intersperce(pixel, vec);
             }
         } else {
             let c = c + 1;
             for _ in 0..c {
                 let pixel = &rle[..3];
                 rle = &rle[3..];
-                ptr = unsafe { copy_intersperce(ptr, pixel.as_ptr()) };
+                copy_intersperce(pixel, vec);
             }
         }
     }
 }
 
-fn decode_rle_32(mut rle: &[u8], mut ptr: *mut u8) {
+fn decode_rle_32(mut rle: &[u8], out: &mut Vec<u8>) {
     while rle.len() > 16 {
         let c = rle[0];
         rle = &rle[1..];
@@ -38,19 +38,13 @@ fn decode_rle_32(mut rle: &[u8], mut ptr: *mut u8) {
             let pixel = &rle[..4];
             rle = &rle[4..];
             for _ in 0..c {
-                unsafe {
-                    core::ptr::copy(pixel.as_ptr(), ptr, 4);
-                    ptr = ptr.offset(4);
-                }
+                out.extend_from_slice(pixel);
             }
         } else {
             let c = c + 1;
             let pixels = &rle[..4 * c as usize];
             rle = &rle[4 * c as usize..];
-            unsafe {
-                core::ptr::copy(pixels.as_ptr(), ptr, 4 * c as usize);
-                ptr = ptr.offset(4 * c as isize);
-            }
+            out.extend_from_slice(pixels);
         }
     }
 }
@@ -62,8 +56,8 @@ pub fn decode(tga: &[u8]) -> Texture {
     let mut data = Vec::with_capacity((width * height * 4) as usize);
     let pixel_depth = tga[16];
     match pixel_depth {
-        24 => decode_rle_24(&tga[18..], data.as_mut_ptr()),
-        32 => decode_rle_32(&tga[18..], data.as_mut_ptr()),
+        24 => decode_rle_24(&tga[18..], &mut data),
+        32 => decode_rle_32(&tga[18..], &mut data),
         depth => todo!("Unimplemented pixel depth {depth}"),
     }
     unsafe { data.set_len((width * height * 4) as usize) };
