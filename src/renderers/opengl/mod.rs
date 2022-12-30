@@ -60,7 +60,7 @@ void main() {
     if (color.a < 0.05) {
         discard;
     }
-    gl_FragColor = color.bgra;
+    gl_FragColor = color;
 }
 ";
 
