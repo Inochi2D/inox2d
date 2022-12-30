@@ -23,7 +23,7 @@ fn main() {
         data
     };
 
-    let model = parse_inp(&data).unwrap().1;
+    let model = parse_inp(data.as_slice()).unwrap();
     let puppet = model.puppet;
     let nodes = &puppet.nodes;
 

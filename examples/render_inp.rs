@@ -5,10 +5,7 @@ use std::{
 };
 
 use glutin::surface::GlSurface;
-use inox2d::{
-    formats::inp::parse_inp,
-    renderers::{opengl::opengl_app},
-};
+use inox2d::{formats::inp::parse_inp, renderers::opengl::opengl_app, texture::decode_textures};
 
 use tracing::{debug, info};
 
@@ -46,12 +43,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         file.read_to_end(&mut data).unwrap();
         data
     };
-    let model = parse_inp(&data).unwrap().1;
+    let mut model = parse_inp(data.as_slice()).unwrap();
     let puppet = model.puppet;
     info!(
         "Successfully parsed puppet {:?}",
         puppet.meta.name.unwrap_or_default()
     );
+
+    let n_textures = model.textures.len();
+    let rx = decode_textures(&mut model.textures);
 
     info!("Setting up windowing and OpenGL");
     let events = winit::event_loop::EventLoop::new();
@@ -63,7 +63,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_title("Render Inochi2D Puppet")
         .build(&events)
         .unwrap();
-    let app = opengl_app(&window, puppet.nodes, model.textures).unwrap();
+
+    let mut app = opengl_app(&window, puppet.nodes).unwrap();
+    app.renderer.upload_textures(rx, n_textures);
 
     let zsorted_nodes = app.renderer.nodes.zsorted();
 

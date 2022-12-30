@@ -1,11 +1,5 @@
 use crate::puppet::ExtPuppet;
-
-/// Texture of a model.
-#[derive(Clone, Debug)]
-pub struct ModelTexture {
-    pub format: image::ImageFormat,
-    pub data: Vec<u8>,
-}
+use crate::texture::CompressedTexture;
 
 /// Inochi2D model.
 pub type Model = ExtModel<()>;
@@ -14,5 +8,5 @@ pub type Model = ExtModel<()>;
 #[derive(Debug)]
 pub struct ExtModel<T> {
     pub puppet: ExtPuppet<T>,
-    pub textures: Vec<ModelTexture>,
+    pub textures: Vec<CompressedTexture>,
 }

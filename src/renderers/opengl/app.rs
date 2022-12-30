@@ -13,9 +13,7 @@ use glutin::{
     surface::{GlSurface, Surface, SurfaceAttributesBuilder, WindowSurface},
 };
 
-use crate::{
-    model::ModelTexture, nodes::node_tree::ExtInoxNodeTree, renderers::opengl::opengl_renderer_ext,
-};
+use crate::{nodes::node_tree::ExtInoxNodeTree, renderers::opengl::opengl_renderer_ext};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use tracing::{debug, error, info, warn};
@@ -75,7 +73,6 @@ where
     pub fn launch(
         window: &winit::window::Window,
         nodes: ExtInoxNodeTree<T>,
-        textures: Vec<ModelTexture>,
         custom_renderer: R,
     ) -> Result<Self, glutin::error::Error> {
         if cfg!(target_os = "linux") {
@@ -164,7 +161,7 @@ where
             gl_ctx,
             surface,
             display,
-            renderer: opengl_renderer_ext(gl, nodes, textures, custom_renderer),
+            renderer: opengl_renderer_ext(gl, nodes, custom_renderer),
         })
     }
 }

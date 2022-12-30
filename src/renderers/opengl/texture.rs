@@ -1,3 +1,5 @@
+use crate::texture::Texture;
+
 use glow::HasContext;
 
 /// Uploads a texture to OpenGL.
@@ -13,7 +15,6 @@ pub(crate) unsafe fn upload_texture(
     gl: &glow::Context,
     width: u32,
     height: u32,
-    format: u32,
     data: Option<&[u8]>,
 ) -> glow::NativeTexture {
     let texture = gl.create_texture().unwrap();
@@ -31,34 +32,24 @@ pub(crate) unsafe fn upload_texture(
     gl.tex_image_2d(
         glow::TEXTURE_2D,
         0,
-        format as i32,
+        glow::RGBA as i32,
         width as i32,
         height as i32,
         0,
-        format,
+        glow::RGBA,
         glow::UNSIGNED_BYTE,
         data,
     );
     texture
 }
 
-
-/// Loads a TGA texture from memory and uploads it to the GPU.
-///
-/// # Panics
-///
-/// Panics if it couldn't read the texture.
-pub(crate) fn load_texture(gl: &glow::Context, tex: &[u8]) -> glow::NativeTexture {
-    // TODO: accept a ModelTexture to support any format
-    match image::load_from_memory_with_format(tex, image::ImageFormat::Tga).unwrap() {
-        image::DynamicImage::ImageRgba8(ref image) => {
-            let (width, height) = image.dimensions();
-            unsafe { upload_texture(gl, width, height, glow::RGBA, Some(image)) }
-        }
-        image::DynamicImage::ImageRgb8(ref image) => {
-            let (width, height) = image.dimensions();
-            unsafe { upload_texture(gl, width, height, glow::RGB, Some(image)) }
-        }
-        image => todo!("Unsupported image: {:?}", image),
+/// Loads a texture from memory and uploads it to the GPU.
+pub(crate) fn load_texture(gl: &glow::Context, tex: &Texture) -> glow::NativeTexture {
+    match tex {
+        Texture::Rgba {
+            width,
+            height,
+            data,
+        } => unsafe { upload_texture(gl, *width, *height, Some(data)) },
     }
 }

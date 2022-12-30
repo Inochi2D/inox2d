@@ -3,30 +3,29 @@ pub mod app;
 pub fn opengl_app(
     window: &winit::window::Window,
     nodes: InoxNodeTree,
-    textures: Vec<ModelTexture>,
 ) -> Result<app::App<(), DefaultCustomRenderer>, glutin::error::Error> {
-    app::App::launch(window, nodes, textures, DefaultCustomRenderer)
+    app::App::launch(window, nodes, DefaultCustomRenderer)
 }
 
 pub fn opengl_app_ext<T, R>(
     window: &winit::window::Window,
     nodes: ExtInoxNodeTree<T>,
-    textures: Vec<ModelTexture>,
     custom_renderer: R
 ) -> Result<app::App<T, R>, glutin::error::Error>
 where
     R: CustomRenderer<NodeData = T>, {
-    app::App::launch(window, nodes, textures, custom_renderer)
+    app::App::launch(window, nodes, custom_renderer)
 }
 
 use std::cell::RefCell;
+use std::sync::mpsc;
 
 use glow::HasContext;
 
-use crate::model::ModelTexture;
 use crate::nodes::node::{ExtInoxNode, InoxNodeUuid};
 use crate::nodes::node_data::{BlendMode, Composite, InoxData, Mask, Part};
 use crate::nodes::node_tree::{ExtInoxNodeTree, InoxNodeTree};
+use crate::texture::Texture;
 
 use self::texture::load_texture;
 use self::vbo::Vbo;
@@ -46,7 +45,7 @@ varying vec2 texcoord;
 void main() {
     vec2 pos2 = pos + trans + deform;
     pos2.y = -pos2.y;
-    texcoord = uvs;
+    texcoord = vec2(uvs.x, -uvs.y);
     gl_Position = vec4(pos2 / 3072.0, 0.0, 1.0);
 }
 ";
@@ -204,9 +203,8 @@ impl CustomRenderer for DefaultCustomRenderer {
 pub fn opengl_renderer(
     gl: glow::Context,
     nodes: InoxNodeTree,
-    textures: Vec<ModelTexture>,
 ) -> OpenglRenderer {
-    ExtOpenglRenderer::new(gl, nodes, textures, DefaultCustomRenderer)
+    ExtOpenglRenderer::new(gl, nodes, DefaultCustomRenderer)
 }
 
 /// Creates an extensible OpenGL renderer.
@@ -214,13 +212,12 @@ pub fn opengl_renderer(
 pub fn opengl_renderer_ext<T, R>(
     gl: glow::Context,
     nodes: ExtInoxNodeTree<T>,
-    textures: Vec<ModelTexture>,
     custom_renderer: R,
 ) -> ExtOpenglRenderer<T, R>
 where
     R: CustomRenderer<NodeData = T>,
 {
-    ExtOpenglRenderer::new(gl, nodes, textures, custom_renderer)
+    ExtOpenglRenderer::new(gl, nodes, custom_renderer)
 }
 
 /// Extensible OpenGL renderer. It accepts a `CustomRenderer` to render your custom nodes.
@@ -254,7 +251,6 @@ where
     fn new(
         gl: glow::Context,
         mut nodes: ExtInoxNodeTree<T>,
-        textures: Vec<ModelTexture>,
         render_custom: R,
     ) -> Self {
         let vao = unsafe { gl.create_vertex_array() }.unwrap();
@@ -284,11 +280,6 @@ where
             }
         }
 
-        let textures: Vec<_> = textures
-            .iter()
-            .map(|texture| load_texture(&gl, &texture.data))
-            .collect();
-
         // Part rendering
         let part_program = shader::compile(&gl, VERTEX, FRAGMENT).unwrap();
         let u_trans = unsafe { gl.get_uniform_location(part_program, "trans") };
@@ -304,7 +295,7 @@ where
             gl.enable(glow::BLEND);
             gl.stencil_mask(0xff);
 
-            composite_texture = texture::upload_texture(&gl, SIZE, SIZE, glow::RGBA, None);
+            composite_texture = texture::upload_texture(&gl, SIZE, SIZE, None);
             composite_fbo = gl.create_framebuffer().unwrap();
             gl.bind_framebuffer(glow::FRAMEBUFFER, Some(composite_fbo));
             gl.framebuffer_texture_2d(
@@ -330,7 +321,7 @@ where
             uvs,
             deform,
             ibo,
-            textures,
+            textures: Vec::new(),
             part_program,
             u_trans,
             composite_program,
@@ -365,6 +356,15 @@ where
             self.ibo
                 .upload(gl, glow::ELEMENT_ARRAY_BUFFER, glow::STATIC_DRAW);
         }
+    }
+
+    pub fn upload_textures(&mut self, rx: mpsc::Receiver<(usize, Texture)>, num_textures: usize) {
+        let mut vec = vec![None; num_textures];
+        while let Ok((i, tex)) = rx.recv() {
+            let texture = load_texture(&self.gl, &tex);
+            vec[i] = Some(texture);
+        }
+        self.textures = vec.into_iter().map(Option::unwrap).collect();
     }
 
     pub fn render_nodes(&self, sorted_nodes: &[InoxNodeUuid]) {
