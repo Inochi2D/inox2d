@@ -10,10 +10,11 @@ pub fn opengl_app(
 pub fn opengl_app_ext<T, R>(
     window: &winit::window::Window,
     nodes: ExtInoxNodeTree<T>,
-    custom_renderer: R
+    custom_renderer: R,
 ) -> Result<app::App<T, R>, glutin::error::Error>
 where
-    R: CustomRenderer<NodeData = T>, {
+    R: CustomRenderer<NodeData = T>,
+{
     app::App::launch(window, nodes, custom_renderer)
 }
 
@@ -27,12 +28,12 @@ use crate::nodes::node_data::{BlendMode, Composite, InoxData, Mask, Part};
 use crate::nodes::node_tree::{ExtInoxNodeTree, InoxNodeTree};
 use crate::texture::Texture;
 
+use self::gl_buffer::GlBuffer;
 use self::texture::load_texture;
-use self::vbo::Vbo;
 
+pub mod gl_buffer;
 pub mod shader;
 pub mod texture;
-pub mod vbo;
 
 const VERTEX: &str = "#version 100
 precision mediump float;
@@ -200,10 +201,7 @@ impl CustomRenderer for DefaultCustomRenderer {
 
 /// Creates a default OpenGL renderer.
 /// Use this if your puppet doesn't have any nodes besides the Inochi2D builtin ones.
-pub fn opengl_renderer(
-    gl: glow::Context,
-    nodes: InoxNodeTree,
-) -> OpenglRenderer {
+pub fn opengl_renderer(gl: glow::Context, nodes: InoxNodeTree) -> OpenglRenderer {
     ExtOpenglRenderer::new(gl, nodes, DefaultCustomRenderer)
 }
 
@@ -227,39 +225,62 @@ pub struct ExtOpenglRenderer<T, R>
 where
     R: CustomRenderer<NodeData = T>,
 {
+    /// OpenGL context.
     pub gl: glow::Context,
+    /// Cache to avoid making unnecessary OpenGL calls.
     pub gl_cache: RefCell<GlCache>,
-    pub nodes: ExtInoxNodeTree<T>,
+    /// Tree of nodes to render.
+    pub nodes: ExtInoxNodeTree<T>, // TODO: maybe make a light copy of it instead of owning it?
+
+    /// Single vertex array for all the vertex buffers of the renderer.
     vao: glow::NativeVertexArray,
-    pub verts: Vbo<f32>,
-    pub uvs: Vbo<f32>,
-    pub deform: Vbo<f32>,
-    pub ibo: Vbo<u16>,
-    pub textures: Vec<glow::NativeTexture>,
+
+    /// Vertex buffer. Used to store vertex positions from meshes.
+    pub verts: GlBuffer<f32>,
+    /// UV buffer. Used to store UVs from Inochi2D meshes.
+    pub uvs: GlBuffer<f32>,
+    /// Deform buffer. Used to store mesh deformations, eventually...?
+    pub deform: GlBuffer<f32>,
+    /// Index buffer.
+    pub ibo: GlBuffer<u16>,
+
+    // OpenGL variables for GlBuffers above, stored for proper destruction on drop.
+    nb_verts: glow::NativeBuffer,
+    nb_uvs: glow::NativeBuffer,
+    nb_deform: glow::NativeBuffer,
+    nb_ibo: glow::NativeBuffer,
+
+    /// All textures from the model, uploaded to the GPU.
+    textures: Vec<glow::NativeTexture>,
+
+    /// Shader program to render Part nodes.
     part_program: glow::NativeProgram,
+    /// Location of the `u_trans` uniform for the Part shader program.
     u_trans: Option<glow::NativeUniformLocation>,
+
+    /// Shader program to render Composite nodes.
     composite_program: glow::NativeProgram,
+    /// Texture created to draw composite stuff on it.
     composite_texture: glow::NativeTexture,
+    /// Framebuffer where composite drawing happens.
     composite_fbo: glow::NativeFramebuffer,
-    pub render_custom: R,
+
+    /// Custom renderer.
+    pub custom_renderer: R,
 }
 
 impl<T, R> ExtOpenglRenderer<T, R>
 where
     R: CustomRenderer<NodeData = T>,
 {
-    fn new(
-        gl: glow::Context,
-        mut nodes: ExtInoxNodeTree<T>,
-        render_custom: R,
-    ) -> Self {
+    fn new(gl: glow::Context, mut nodes: ExtInoxNodeTree<T>, render_custom: R) -> Self {
         let vao = unsafe { gl.create_vertex_array() }.unwrap();
 
-        let mut verts = Vbo::from(vec![-1., -1., -1., 1., 1., -1., 1., -1., -1., 1., 1., 1.]);
-        let mut uvs = Vbo::from(vec![0., 0., 0., 1., 1., 0., 1., 0., 0., 1., 1., 1.]);
-        let mut deform = Vbo::from(vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]);
+        let mut verts = GlBuffer::from(vec![-1., -1., -1., 1., 1., -1., 1., -1., -1., 1., 1., 1.]);
+        let mut uvs = GlBuffer::from(vec![0., 0., 0., 1., 1., 0., 1., 0., 0., 1., 1., 1.]);
+        let mut deform = GlBuffer::from(vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]);
 
-        let mut ibo = Vbo::new();
+        let mut ibo = GlBuffer::new();
 
         let mut current_ibo_offset = 6;
         for node in nodes.arena.iter_mut() {
@@ -312,7 +333,30 @@ where
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
         };
 
-        let mut renderer = ExtOpenglRenderer {
+        // upload buffers
+        let nb_verts;
+        let nb_uvs;
+        let nb_deform;
+        let nb_ibo;
+        unsafe {
+            gl.bind_vertex_array(Some(vao));
+
+            nb_verts = verts.upload(&gl, glow::ARRAY_BUFFER, glow::STATIC_DRAW);
+            gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, 8, 0);
+            gl.enable_vertex_attrib_array(0);
+
+            nb_uvs = uvs.upload(&gl, glow::ARRAY_BUFFER, glow::STATIC_DRAW);
+            gl.vertex_attrib_pointer_f32(1, 2, glow::FLOAT, false, 8, 0);
+            gl.enable_vertex_attrib_array(1);
+
+            nb_deform = deform.upload(&gl, glow::ARRAY_BUFFER, glow::DYNAMIC_DRAW);
+            gl.vertex_attrib_pointer_f32(2, 2, glow::FLOAT, false, 8, 0);
+            gl.enable_vertex_attrib_array(2);
+
+            nb_ibo = ibo.upload(&gl, glow::ELEMENT_ARRAY_BUFFER, glow::STATIC_DRAW);
+        }
+
+        ExtOpenglRenderer {
             gl,
             gl_cache: RefCell::new(GlCache::default()),
             nodes,
@@ -321,40 +365,17 @@ where
             uvs,
             deform,
             ibo,
+            nb_verts,
+            nb_uvs,
+            nb_deform,
+            nb_ibo,
             textures: Vec::new(),
             part_program,
             u_trans,
             composite_program,
             composite_texture,
             composite_fbo,
-            render_custom,
-        };
-
-        renderer.upload_buffers();
-        renderer
-    }
-
-    /// Uploads the renderer's OpenGL buffers: vertices, UVs, deforms, indexes.
-    fn upload_buffers(&mut self) {
-        let gl = &self.gl;
-        unsafe {
-            gl.bind_vertex_array(Some(self.vao));
-
-            self.verts.upload(gl, glow::ARRAY_BUFFER, glow::STATIC_DRAW);
-            gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, 8, 0);
-            gl.enable_vertex_attrib_array(0);
-
-            self.uvs.upload(gl, glow::ARRAY_BUFFER, glow::STATIC_DRAW);
-            gl.vertex_attrib_pointer_f32(1, 2, glow::FLOAT, false, 8, 0);
-            gl.enable_vertex_attrib_array(1);
-
-            self.deform
-                .upload(gl, glow::ARRAY_BUFFER, glow::DYNAMIC_DRAW);
-            gl.vertex_attrib_pointer_f32(2, 2, glow::FLOAT, false, 8, 0);
-            gl.enable_vertex_attrib_array(2);
-
-            self.ibo
-                .upload(gl, glow::ELEMENT_ARRAY_BUFFER, glow::STATIC_DRAW);
+            custom_renderer: render_custom,
         }
     }
 
@@ -373,14 +394,14 @@ where
             match node.data {
                 InoxData::Part(ref part) => self.render_part(node, part, true),
                 InoxData::Composite(ref composite) => self.render_composite(node, composite),
-                InoxData::Custom(ref custom) => self.render_custom.render(self, node, custom),
+                InoxData::Custom(ref custom) => self.custom_renderer.render(self, node, custom),
                 _ => (),
             }
         }
     }
 
     /// Renders a `Composite` node.
-    /// 
+    ///
     /// It renders all its children in a separate framebuffer, and then draws the framebuffer with the composite's blend mode.
     fn render_composite(&self, node: &ExtInoxNode<T>, composite: &Composite) {
         let name = &node.name;
@@ -580,5 +601,32 @@ where
     /// Clears the framebuffer for the next frame.
     pub fn clear(&self) {
         unsafe { self.gl.clear(glow::COLOR_BUFFER_BIT) };
+    }
+}
+
+impl<T, R> Drop for ExtOpenglRenderer<T, R>
+where
+    R: CustomRenderer<NodeData = T>,
+{
+    fn drop(&mut self) {
+        let gl = &self.gl;
+        unsafe {
+            gl.delete_vertex_array(self.vao);
+
+            gl.delete_buffer(self.nb_verts);
+            gl.delete_buffer(self.nb_uvs);
+            gl.delete_buffer(self.nb_deform);
+            gl.delete_buffer(self.nb_ibo);
+
+            for &texture in &self.textures {
+                gl.delete_texture(texture);
+            }
+
+            gl.delete_program(self.part_program);
+
+            gl.delete_program(self.composite_program);
+            gl.delete_texture(self.composite_texture);
+            gl.delete_framebuffer(self.composite_fbo);
+        }
     }
 }
