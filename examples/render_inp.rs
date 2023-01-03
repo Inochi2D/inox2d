@@ -176,6 +176,8 @@ fn launch_opengl_window() -> Result<App, Box<dyn Error>> {
         })
     };
 
+    // MacOS doesn't support debug output. Rip. :(
+    #[cfg(not(target_os = "macos"))]
     unsafe {
         gl.debug_message_callback(|_src, ty, _id, sevr, msg| {
             let ty = match ty {
