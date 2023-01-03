@@ -368,6 +368,31 @@ where
         self.textures = vec.into_iter().map(Option::unwrap).collect();
     }
 
+    /// Pushes an OpenGL debug group.
+    /// This is very useful to debug OpenGL calls per node with `apitrace`, as it will nest calls inside of labels,
+    /// making it trivial to know which calls correspond to which nodes.
+    /// 
+    /// It is a no-op on platforms that don't support it (only MacOS so far).
+    #[inline]
+    fn push_debug_group(&self, name: &str) {
+        #[cfg(not(target_os = "macos"))]
+        unsafe {
+            self.gl
+                .push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name);
+        }
+    }
+
+    /// Pops the last OpenGL debug group.
+    /// 
+    /// It is a no-op on platforms that don't support it (only MacOS so far).
+    #[inline]
+    fn pop_debug_group(&self) {
+        #[cfg(not(target_os = "macos"))]
+        unsafe {
+            self.gl.pop_debug_group();
+        }
+    }
+
     pub fn render_nodes(&self, sorted_nodes: &[InoxNodeUuid]) {
         for &node_uuid in sorted_nodes {
             let node = self.nodes.get_node(node_uuid).unwrap();
@@ -387,8 +412,7 @@ where
         let name = &node.name;
         let gl = &self.gl;
 
-        #[cfg(not(target_os = "macos"))]
-        unsafe { gl.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name) };
+        self.push_debug_group(name);
 
         #[cfg(feature = "owo")]
         let name = {
@@ -411,8 +435,7 @@ where
         }
         eprintln!("]");
 
-        #[cfg(not(target_os = "macos"))]
-        unsafe { gl.pop_debug_group() };
+        self.pop_debug_group();
     }
 
     /// Renders a `Part` node.
@@ -421,9 +444,8 @@ where
     fn render_part(&self, node: &ExtInoxNode<T>, part: &Part, disable_stencil: bool) {
         let name = &node.name;
         let gl = &self.gl;
-        
-        #[cfg(not(target_os = "macos"))]
-        unsafe { gl.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name) };
+
+        self.push_debug_group(name);
 
         #[cfg(feature = "owo")]
         let name = {
@@ -457,8 +479,7 @@ where
             );
         }
 
-        #[cfg(not(target_os = "macos"))]
-        unsafe { gl.pop_debug_group() };
+        self.pop_debug_group();
     }
 
     /// Directly renders a `Part` node's masks.
