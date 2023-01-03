@@ -1,10 +1,6 @@
-use std::borrow::Borrow;
-
 use glam::{Mat4, Vec2, Vec3};
 
-#[derive(Clone, Debug)]
 pub struct Camera {
-    projection: Mat4,
     pub position: Vec2,
     pub rotation: f32,
     pub scale: Vec2,
@@ -13,7 +9,6 @@ pub struct Camera {
 impl Default for Camera {
     fn default() -> Self {
         Self {
-            projection: Mat4::IDENTITY,
             position: Vec2{ x: 0.0, y: 0.0 },
             rotation: 0.0,
             scale: Vec2::ONE
