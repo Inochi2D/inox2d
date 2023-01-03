@@ -27,8 +27,7 @@ impl Camera {
 
     /// Gets the center offset of the viewport
     pub fn center_offset(&mut self, viewport: Vec2) -> Vec2 {
-        let real_size = self.real_size(viewport);
-        real_size / 2.0
+        self.real_size(viewport) / 2.0
     }
 
     /// Gets the resulting matrix from the camera and viewport
