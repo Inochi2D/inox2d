@@ -7,6 +7,7 @@ use std::{
     num::NonZeroU32,
 };
 
+use glam::uvec2;
 use glow::HasContext;
 
 use glutin::{
@@ -81,7 +82,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     } = launch_opengl_window()?;
 
     info!("Initializing Inox2D renderer");
-    let mut renderer = opengl_renderer(gl, puppet.nodes);
+    let window_size = window.inner_size();
+    let viewport = uvec2(window_size.width, window_size.height);
+    let mut renderer = opengl_renderer(gl, viewport, puppet.nodes);
     renderer.upload_textures(rx, n_textures);
     info!("Inox2D renderer initialized");
 
@@ -96,7 +99,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         control_flow.set_wait();
 
         match event {
-            Event::NewEvents(StartCause::Poll) | Event::RedrawRequested(_) => {
+            Event::RedrawRequested(_) => {
                 debug!("Redrawing");
 
                 renderer.clear();
@@ -105,7 +108,19 @@ fn main() -> Result<(), Box<dyn Error>> {
                 gl_surface.swap_buffers(&gl_ctx).unwrap();
                 // window.request_redraw();
             }
-            _ => handle_event(event, control_flow, &renderer.gl, &gl_surface, &gl_ctx),
+            Event::WindowEvent {
+                event: WindowEvent::Resized(physical_size),
+                ..
+            } => {
+                // Handle window resizing
+                renderer.resize(physical_size.width, physical_size.height);
+                gl_surface.resize(
+                    &gl_ctx,
+                    NonZeroU32::new(physical_size.width).unwrap(),
+                    NonZeroU32::new(physical_size.height).unwrap(),
+                );
+            }
+            _ => handle_close(event, control_flow),
         }
     })
 }
@@ -131,7 +146,7 @@ fn launch_opengl_window() -> Result<App, Box<dyn Error>> {
 
     let window_builder = winit::window::WindowBuilder::new()
         .with_transparent(true)
-        .with_resizable(false)
+        .with_resizable(true)
         .with_inner_size(winit::dpi::PhysicalSize::new(2048, 2048))
         .with_title("Render Inochi2D Puppet");
 
@@ -204,8 +219,6 @@ fn launch_opengl_window() -> Result<App, Box<dyn Error>> {
         gl.enable(glow::DEBUG_OUTPUT);
     }
 
-    unsafe { gl.viewport(0, 0, 2048, 2048) };
-
     Ok(App {
         gl,
         gl_ctx,
@@ -216,24 +229,12 @@ fn launch_opengl_window() -> Result<App, Box<dyn Error>> {
     })
 }
 
-fn handle_event(
+fn handle_close(
     event: Event<()>,
     control_flow: &mut ControlFlow,
-    _gl: &glow::Context,
-    gl_surface: &Surface<WindowSurface>,
-    gl_ctx: &PossiblyCurrentContext,
 ) {
-    match event {
-        Event::LoopDestroyed => (),
-        Event::WindowEvent { event, .. } => match event {
-            WindowEvent::Resized(physical_size) => {
-                // Handle window resizing
-                gl_surface.resize(
-                    gl_ctx,
-                    NonZeroU32::new(physical_size.width).unwrap(),
-                    NonZeroU32::new(physical_size.height).unwrap(),
-                );
-            }
+    if let Event::WindowEvent { event, .. } = event {
+        match event {
             WindowEvent::CloseRequested => control_flow.set_exit(),
             WindowEvent::KeyboardInput {
                 input:
@@ -248,7 +249,6 @@ fn handle_event(
                 control_flow.set_exit();
             }
             _ => (),
-        },
-        _ => (),
+        }
     }
 }

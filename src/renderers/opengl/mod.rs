@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::sync::mpsc;
 
+use glam::{uvec2, UVec2};
 use glow::HasContext;
 
 use crate::nodes::node::{ExtInoxNode, InoxNodeUuid};
@@ -66,8 +67,6 @@ void main() {
     gl_FragColor = texture2D(texture, texcoord);
 }
 ";
-
-const SIZE: u32 = 2048;
 
 #[derive(Default, Clone)]
 pub struct GlCache {
@@ -181,21 +180,22 @@ impl CustomRenderer for DefaultCustomRenderer {
 
 /// Creates a default OpenGL renderer.
 /// Use this if your puppet doesn't have any nodes besides the Inochi2D builtin ones.
-pub fn opengl_renderer(gl: glow::Context, nodes: InoxNodeTree) -> OpenglRenderer {
-    ExtOpenglRenderer::new(gl, nodes, DefaultCustomRenderer)
+pub fn opengl_renderer(gl: glow::Context, viewport: UVec2, nodes: InoxNodeTree) -> OpenglRenderer {
+    ExtOpenglRenderer::new(gl, viewport, nodes, DefaultCustomRenderer)
 }
 
 /// Creates an extensible OpenGL renderer.
 /// Use this if your puppet has custom nodes besides the Inochi2D builtin ones.
 pub fn opengl_renderer_ext<T, R>(
     gl: glow::Context,
+    viewport: UVec2,
     nodes: ExtInoxNodeTree<T>,
     custom_renderer: R,
 ) -> ExtOpenglRenderer<T, R>
 where
     R: CustomRenderer<NodeData = T>,
 {
-    ExtOpenglRenderer::new(gl, nodes, custom_renderer)
+    ExtOpenglRenderer::new(gl, viewport, nodes, custom_renderer)
 }
 
 /// Extensible OpenGL renderer. It accepts a `CustomRenderer` to render your custom nodes.
@@ -211,6 +211,9 @@ where
     pub gl_cache: RefCell<GlCache>,
     /// Tree of nodes to render.
     pub nodes: ExtInoxNodeTree<T>, // TODO: maybe make a light copy of it instead of owning it?
+
+    /// Viewport of the renderer.
+    viewport: UVec2,
 
     /// Single vertex array for all the vertex buffers of the renderer.
     vao: glow::NativeVertexArray,
@@ -253,7 +256,16 @@ impl<T, R> ExtOpenglRenderer<T, R>
 where
     R: CustomRenderer<NodeData = T>,
 {
-    fn new(gl: glow::Context, mut nodes: ExtInoxNodeTree<T>, render_custom: R) -> Self {
+    fn new(
+        gl: glow::Context,
+        viewport: UVec2,
+        mut nodes: ExtInoxNodeTree<T>,
+        render_custom: R,
+    ) -> Self {
+        // Set initial viewport size
+        unsafe { gl.viewport(0, 0, viewport.x as i32, viewport.y as i32) };
+
+        // Setup batch rendering of nodes
         let vao = unsafe { gl.create_vertex_array() }.unwrap();
 
         let mut verts = GlBuffer::from(vec![-1., -1., -1., 1., 1., -1., 1., -1., -1., 1., 1., 1.]);
@@ -296,7 +308,7 @@ where
             gl.enable(glow::BLEND);
             gl.stencil_mask(0xff);
 
-            composite_texture = texture::upload_texture(&gl, SIZE, SIZE, None);
+            composite_texture = texture::upload_texture(&gl, viewport.x, viewport.y, None);
             composite_fbo = gl.create_framebuffer().unwrap();
             gl.bind_framebuffer(glow::FRAMEBUFFER, Some(composite_fbo));
             gl.framebuffer_texture_2d(
@@ -340,6 +352,7 @@ where
             gl,
             gl_cache: RefCell::new(GlCache::default()),
             nodes,
+            viewport,
             vao,
             verts,
             uvs,
@@ -356,6 +369,37 @@ where
             composite_texture,
             composite_fbo,
             custom_renderer: render_custom,
+        }
+    }
+
+    pub fn viewport(&self) -> UVec2 {
+        self.viewport
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        if width == 0 || height == 0 {
+            return;
+        }
+
+        self.viewport = uvec2(width, height);
+
+        let gl = &self.gl;
+        unsafe { gl.viewport(0, 0, width as i32, height as i32) };
+
+        // Resize composite texture
+        self.bind_texture(self.composite_texture);
+        unsafe {
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA as i32,
+                width as i32,
+                height as i32,
+                0,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                None,
+            );
         }
     }
 
@@ -388,7 +432,9 @@ where
         let gl = &self.gl;
 
         #[cfg(not(target_os = "macos"))]
-        unsafe { gl.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name) };
+        unsafe {
+            gl.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name)
+        };
 
         #[cfg(feature = "owo")]
         let name = {
@@ -412,7 +458,9 @@ where
         eprintln!("]");
 
         #[cfg(not(target_os = "macos"))]
-        unsafe { gl.pop_debug_group() };
+        unsafe {
+            gl.pop_debug_group()
+        };
     }
 
     /// Renders a `Part` node.
@@ -421,9 +469,11 @@ where
     fn render_part(&self, node: &ExtInoxNode<T>, part: &Part, disable_stencil: bool) {
         let name = &node.name;
         let gl = &self.gl;
-        
+
         #[cfg(not(target_os = "macos"))]
-        unsafe { gl.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name) };
+        unsafe {
+            gl.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name)
+        };
 
         #[cfg(feature = "owo")]
         let name = {
@@ -458,7 +508,9 @@ where
         }
 
         #[cfg(not(target_os = "macos"))]
-        unsafe { gl.pop_debug_group() };
+        unsafe {
+            gl.pop_debug_group()
+        };
     }
 
     /// Directly renders a `Part` node's masks.

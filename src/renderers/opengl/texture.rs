@@ -19,6 +19,7 @@ pub(crate) unsafe fn upload_texture(
 ) -> glow::NativeTexture {
     let texture = gl.create_texture().unwrap();
     gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+
     gl.tex_parameter_i32(
         glow::TEXTURE_2D,
         glow::TEXTURE_MIN_FILTER,
@@ -29,6 +30,20 @@ pub(crate) unsafe fn upload_texture(
         glow::TEXTURE_MAG_FILTER,
         glow::LINEAR as i32,
     );
+
+    if data.is_none() {
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_WRAP_S,
+            glow::CLAMP_TO_EDGE as i32,
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_WRAP_T,
+            glow::CLAMP_TO_EDGE as i32,
+        );
+    }
+
     gl.tex_image_2d(
         glow::TEXTURE_2D,
         0,
@@ -40,6 +55,7 @@ pub(crate) unsafe fn upload_texture(
         glow::UNSIGNED_BYTE,
         data,
     );
+
     texture
 }
 

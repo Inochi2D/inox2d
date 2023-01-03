@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec2, Vec3};
+use glam::{Mat4, Vec2};
 
 pub struct Camera {
     pub position: Vec2,
