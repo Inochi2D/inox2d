@@ -17,19 +17,18 @@ impl Default for Camera {
 }
 
 impl Camera {
-
     /// Gets the real size of the viewport
     pub fn get_real_size(&mut self, viewport: Vec2) -> Vec2 {
         Vec2 {
-            x: viewport.x/self.scale.x, 
-            y: viewport.y/self.scale.y,
+            x: viewport.x / self.scale.x,
+            y: viewport.y / self.scale.y,
         }
     }
 
     /// Gets the center offset of the viewport
     pub fn get_center_offset(&mut self, viewport: Vec2) -> Vec2 {
         let real_size = self.get_real_size(viewport);
-        real_size/2.0
+        real_size / 2.0
     }
 
     /// Gets the resulting matrix from the camera and viewport
@@ -37,13 +36,13 @@ impl Camera {
         let real_size = self.get_real_size(viewport);
 
         // Faster to reuse real_size, so do that instead of calling get_center_offset
-        let origin = real_size/2.0;
-        let pos = self.position.extend(-(u16::MAX as f32/2.0));
+        let origin = real_size / 2.0;
+        let pos = self.position.extend(-(u16::MAX as f32 / 2.0));
 
         // Return camera ortho matrix
-        Mat4::orthographic_lh(0.0, real_size.x, real_size.y, 0.0, 0.0, u16::MAX as f32) * 
-            Mat4::from_translation(origin.extend(0.0)) *
-            Mat4::from_rotation_z(self.rotation) *
-            Mat4::from_translation(pos)
+        Mat4::orthographic_lh(0.0, real_size.x, real_size.y, 0.0, 0.0, u16::MAX as f32)
+            * Mat4::from_translation(origin.extend(0.0))
+            * Mat4::from_rotation_z(self.rotation)
+            * Mat4::from_translation(pos)
     }
 }
