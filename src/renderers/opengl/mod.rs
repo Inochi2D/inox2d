@@ -406,6 +406,8 @@ where
     fn render_composite(&self, node: &ExtInoxNode<T>, composite: &Composite) {
         let name = &node.name;
         let gl = &self.gl;
+
+        #[cfg(not(target_os = "macos"))]
         unsafe { gl.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name) };
 
         #[cfg(feature = "owo")]
@@ -429,6 +431,7 @@ where
         }
         eprintln!("]");
 
+        #[cfg(not(target_os = "macos"))]
         unsafe { gl.pop_debug_group() };
     }
 
@@ -438,6 +441,8 @@ where
     fn render_part(&self, node: &ExtInoxNode<T>, part: &Part, disable_stencil: bool) {
         let name = &node.name;
         let gl = &self.gl;
+        
+        #[cfg(not(target_os = "macos"))]
         unsafe { gl.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name) };
 
         #[cfg(feature = "owo")]
@@ -472,6 +477,7 @@ where
             );
         }
 
+        #[cfg(not(target_os = "macos"))]
         unsafe { gl.pop_debug_group() };
     }
 

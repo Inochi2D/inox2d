@@ -1,6 +1,6 @@
 use glutin::{
     config::{ConfigSurfaceTypes, ConfigTemplateBuilder},
-    display::DisplayApiPreference::Egl,
+    display::{DisplayApiPreference, self},
 };
 use std::{env, ffi::CString, num::NonZeroU32};
 
@@ -82,7 +82,14 @@ where
             }
         }
 
-        let display = unsafe { Display::new(window.raw_display_handle(), Egl)? };
+        let display = unsafe { Display::new(window.raw_display_handle(), 
+            #[cfg(target_os = "linux")]
+            display::DisplayApiPreference::Egl,
+            #[cfg(target_os = "macos")]
+            display::DisplayApiPreference::Cgl,
+            #[cfg(target_os = "windows")]
+            display::DisplayApiPreference::Wgl(Some(window.raw_window_handle())),
+        )? };
         let template = ConfigTemplateBuilder::default()
             .with_alpha_size(8)
             .with_surface_type(ConfigSurfaceTypes::WINDOW)
@@ -101,10 +108,10 @@ where
         let raw_window_handle = window.raw_window_handle();
 
         let context_attributes = glutin::context::ContextAttributesBuilder::new()
-            .with_profile(glutin::context::GlProfile::Compatibility)
-            .with_context_api(glutin::context::ContextApi::Gles(Some(
-                glutin::context::Version::new(2, 0),
+            .with_context_api(glutin::context::ContextApi::OpenGl(Some(
+                glutin::context::Version::new(3, 1),
             )))
+            .with_profile(glutin::context::GlProfile::Core)
             .build(Some(raw_window_handle));
 
         let dimensions = window.inner_size();
@@ -129,6 +136,8 @@ where
             })
         };
 
+
+        #[cfg(not(target_os = "macos"))]
         unsafe {
             gl.debug_message_callback(|_src, ty, _id, sevr, msg| {
                 let ty = match ty {
