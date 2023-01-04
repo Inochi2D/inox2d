@@ -1,5 +1,6 @@
 use glam::{Mat4, Vec2};
 
+#[derive(Clone)]
 pub struct Camera {
     pub position: Vec2,
     pub rotation: f32,
