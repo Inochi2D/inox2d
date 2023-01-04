@@ -7,7 +7,7 @@ use std::{
     num::NonZeroU32,
 };
 
-use glam::uvec2;
+use glam::{uvec2, Vec2};
 use glow::HasContext;
 
 use glutin::{
@@ -29,7 +29,7 @@ use tracing::{debug, error, info, warn};
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*};
 
 use winit::{
-    event::{ElementState, Event, KeyboardInput, StartCause, VirtualKeyCode, WindowEvent},
+    event::{ElementState, Event, KeyboardInput, MouseScrollDelta, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::Window,
 };
@@ -86,6 +86,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let viewport = uvec2(window_size.width, window_size.height);
     let mut renderer = opengl_renderer(gl, viewport, puppet.nodes);
     renderer.upload_textures(rx, n_textures);
+    renderer.camera.scale = Vec2::splat(0.15);
     info!("Inox2D renderer initialized");
 
     let zsorted_nodes = renderer.nodes.zsorted();
@@ -108,20 +109,37 @@ fn main() -> Result<(), Box<dyn Error>> {
                 gl_surface.swap_buffers(&gl_ctx).unwrap();
                 // window.request_redraw();
             }
-            Event::WindowEvent {
-                event: WindowEvent::Resized(physical_size),
-                ..
-            } => {
-                // Handle window resizing
-                renderer.resize(physical_size.width, physical_size.height);
-                gl_surface.resize(
-                    &gl_ctx,
-                    NonZeroU32::new(physical_size.width).unwrap(),
-                    NonZeroU32::new(physical_size.height).unwrap(),
-                );
-            }
-            _ => handle_close(event, control_flow),
+            Event::WindowEvent { ref event, .. } => match event {
+                WindowEvent::Resized(physical_size) => {
+                    // Handle window resizing
+                    renderer.resize(physical_size.width, physical_size.height);
+                    gl_surface.resize(
+                        &gl_ctx,
+                        NonZeroU32::new(physical_size.width).unwrap(),
+                        NonZeroU32::new(physical_size.height).unwrap(),
+                    );
+                }
+                WindowEvent::MouseWheel { delta, .. } => {
+                    // Handle mouse wheel (zoom)
+                    let my = match delta {
+                        MouseScrollDelta::LineDelta(_, y) => *y,
+                        MouseScrollDelta::PixelDelta(pos) => pos.y as f32,
+                    };
+
+                    if my.is_sign_positive() {
+                        renderer.camera.scale *= 8.0 * my.abs() / 7.0;
+                    } else {
+                        renderer.camera.scale *= 7.0 * my.abs() / 8.0;
+                    }
+
+                    window.request_redraw();
+                }
+                _ => (),
+            },
+            _ => (),
         }
+
+        handle_close(event, control_flow);
     })
 }
 
@@ -147,7 +165,7 @@ fn launch_opengl_window() -> Result<App, Box<dyn Error>> {
     let window_builder = winit::window::WindowBuilder::new()
         .with_transparent(true)
         .with_resizable(true)
-        .with_inner_size(winit::dpi::PhysicalSize::new(2048, 2048))
+        .with_inner_size(winit::dpi::PhysicalSize::new(600, 800))
         .with_title("Render Inochi2D Puppet");
 
     let (window, gl_config) = glutin_winit::DisplayBuilder::new()
@@ -229,10 +247,7 @@ fn launch_opengl_window() -> Result<App, Box<dyn Error>> {
     })
 }
 
-fn handle_close(
-    event: Event<()>,
-    control_flow: &mut ControlFlow,
-) {
+fn handle_close(event: Event<()>, control_flow: &mut ControlFlow) {
     if let Event::WindowEvent { event, .. } = event {
         match event {
             WindowEvent::CloseRequested => control_flow.set_exit(),
