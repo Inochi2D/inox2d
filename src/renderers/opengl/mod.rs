@@ -239,7 +239,7 @@ where
     /// Shader program to render Part nodes.
     part_program: glow::NativeProgram,
     /// Location of the `u_trans` uniform for the Part shader program.
-    u_trans: Option<glow::NativeUniformLocation>,
+    u_trans: glow::NativeUniformLocation,
 
     /// Shader program to render Composite nodes.
     composite_program: glow::NativeProgram,
@@ -295,7 +295,7 @@ where
 
         // Part rendering
         let part_program = shader::compile(&gl, VERTEX, FRAGMENT).unwrap();
-        let u_trans = unsafe { gl.get_uniform_location(part_program, "trans") };
+        let u_trans = unsafe { gl.get_uniform_location(part_program, "trans") }.unwrap();
 
         // Composite rendering
         let composite_program =
@@ -513,7 +513,7 @@ where
         let trans = self.trans(node);
 
         unsafe {
-            gl.uniform_2_f32(self.u_trans.as_ref(), trans.x, trans.y);
+            gl.uniform_2_f32(Some(&self.u_trans), trans.x, trans.y);
 
             gl.draw_elements(
                 glow::TRIANGLES,
