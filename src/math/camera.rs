@@ -19,7 +19,7 @@ impl Default for Camera {
 
 impl Camera {
     /// Gets the real size of the viewport
-    pub fn real_size(&mut self, viewport: Vec2) -> Vec2 {
+    pub fn real_size(&self, viewport: Vec2) -> Vec2 {
         Vec2 {
             x: viewport.x / self.scale.x,
             y: viewport.y / self.scale.y,
@@ -27,12 +27,12 @@ impl Camera {
     }
 
     /// Gets the center offset of the viewport
-    pub fn center_offset(&mut self, viewport: Vec2) -> Vec2 {
+    pub fn center_offset(&self, viewport: Vec2) -> Vec2 {
         self.real_size(viewport) / 2.0
     }
 
     /// Gets the resulting matrix from the camera and viewport
-    pub fn matrix(&mut self, viewport: Vec2) -> Mat4 {
+    pub fn matrix(&self, viewport: Vec2) -> Mat4 {
         let real_size = self.real_size(viewport);
 
         // Faster to reuse real_size, so do that instead of calling get_center_offset
