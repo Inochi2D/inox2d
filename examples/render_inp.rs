@@ -7,7 +7,7 @@ use std::{
     num::NonZeroU32,
 };
 
-use glam::{uvec2, Vec2};
+use glam::{uvec2, vec2, Vec2};
 use glow::HasContext;
 
 use glutin::{
@@ -50,7 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     tracing_subscriber::registry()
         .with(fmt::layer())
-        .with(LevelFilter::DEBUG)
+        .with(LevelFilter::INFO)
         .init();
 
     info!("Parsing puppet");
@@ -91,6 +91,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let zsorted_nodes = renderer.nodes.zsorted();
 
+    let mut camera_pos = Vec2::ZERO;
+    let mut mouse_pos = Vec2::ZERO;
+    let mut mouse_pos_held = mouse_pos;
+    let mut mouse_state = ElementState::Released;
+
     // Event loop
     events.run(move |event, _, control_flow| {
         // They need to be present
@@ -118,6 +123,21 @@ fn main() -> Result<(), Box<dyn Error>> {
                         NonZeroU32::new(physical_size.width).unwrap(),
                         NonZeroU32::new(physical_size.height).unwrap(),
                     );
+                }
+                WindowEvent::CursorMoved { position, .. } => {
+                    mouse_pos = vec2(position.x as f32, position.y as f32);
+                    if mouse_state == ElementState::Pressed {
+                        renderer.camera.position =
+                            camera_pos + (mouse_pos - mouse_pos_held) / renderer.camera.scale;
+                        window.request_redraw();
+                    }
+                }
+                WindowEvent::MouseInput { state, .. } => {
+                    mouse_state = *state;
+                    if mouse_state == ElementState::Pressed {
+                        mouse_pos_held = mouse_pos;
+                        camera_pos = renderer.camera.position;
+                    }
                 }
                 WindowEvent::MouseWheel { delta, .. } => {
                     // Handle mouse wheel (zoom)
