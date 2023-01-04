@@ -24,6 +24,7 @@ const COMPOSITE_FRAG: &str = include_str!("../../../shaders/simplified/composite
 
 #[derive(Default, Clone)]
 pub struct GlCache {
+    pub prev_camera: Camera,
     pub prev_program: Option<glow::NativeProgram>,
     pub prev_stencil: bool,
     pub prev_blend_mode: Option<BlendMode>,
@@ -344,7 +345,17 @@ where
         self.viewport = uvec2(width, height);
 
         let gl = &self.gl;
-        unsafe { gl.viewport(0, 0, width as i32, height as i32) };
+        unsafe {
+            gl.viewport(0, 0, width as i32, height as i32);
+
+            // update mvp because viewport changed
+            self.use_program(self.part_program);
+            self.gl.uniform_matrix_4_f32_slice(
+                Some(&self.u_mvp),
+                false,
+                self.camera.matrix(self.viewport.as_vec2()).as_ref(),
+            );
+        }
 
         // Resize composite texture
         self.bind_texture(self.composite_texture);
@@ -395,6 +406,44 @@ where
         unsafe {
             self.gl.pop_debug_group();
         }
+    }
+
+    /// Updates the camera in the GL cache and returns whether it changed.
+    pub fn update_camera(&self) -> bool {
+        let mut changed = false;
+
+        {
+            // scope to delimit borrowing of prev_camera
+            let prev_camera = &mut self.gl_cache.borrow_mut().prev_camera;
+            let camera = &self.camera;
+
+            if prev_camera.position != camera.position {
+                prev_camera.position = camera.position;
+                changed = true;
+            }
+            if prev_camera.rotation != camera.rotation {
+                prev_camera.rotation = camera.rotation;
+                changed = true;
+            }
+            if prev_camera.scale != camera.scale {
+                prev_camera.scale = camera.scale;
+                changed = true;
+            }
+        }
+
+        if changed {
+            unsafe {
+                // update mvp
+                self.use_program(self.part_program);
+                self.gl.uniform_matrix_4_f32_slice(
+                    Some(&self.u_mvp),
+                    false,
+                    self.camera.matrix(self.viewport.as_vec2()).as_ref(),
+                );
+            }
+        }
+
+        changed
     }
 
     pub fn render_nodes(&self, sorted_nodes: &[InoxNodeUuid]) {
@@ -473,12 +522,6 @@ where
         let trans = self.trans(node);
 
         unsafe {
-            // TODO: is the camera matrix worth caching?
-            gl.uniform_matrix_4_f32_slice(
-                Some(&self.u_mvp),
-                false,
-                self.camera.matrix(self.viewport.as_vec2()).as_ref(),
-            );
             gl.uniform_2_f32(Some(&self.u_trans), trans.x, trans.y);
 
             gl.draw_elements(

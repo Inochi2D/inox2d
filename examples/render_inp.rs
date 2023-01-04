@@ -109,6 +109,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 debug!("Redrawing");
 
                 renderer.clear();
+                renderer.update_camera(); // Currently need to manually update the camera
                 renderer.render_nodes(&zsorted_nodes);
 
                 gl_surface.swap_buffers(&gl_ctx).unwrap();
@@ -129,6 +130,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     if mouse_state == ElementState::Pressed {
                         renderer.camera.position =
                             camera_pos + (mouse_pos - mouse_pos_held) / renderer.camera.scale;
+
                         window.request_redraw();
                     }
                 }
@@ -152,6 +154,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         renderer.camera.scale *= 7.0 * my.abs() / 8.0;
                     }
 
+                    renderer.update_camera();
                     window.request_redraw();
                 }
                 _ => (),
