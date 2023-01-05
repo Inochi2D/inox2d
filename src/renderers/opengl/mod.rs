@@ -7,8 +7,10 @@
 use std::cell::RefCell;
 use std::sync::mpsc;
 
+use glam::{uvec2, UVec2};
 use glow::HasContext;
 
+use crate::math::camera::Camera;
 use crate::nodes::node::{ExtInoxNode, InoxNodeUuid};
 use crate::nodes::node_data::{BlendMode, Composite, InoxData, Mask, Part};
 use crate::nodes::node_tree::{ExtInoxNodeTree, InoxNodeTree};
@@ -21,62 +23,14 @@ pub mod gl_buffer;
 pub mod shader;
 pub mod texture;
 
-const VERTEX: &str = "#version 100
-precision mediump float;
-uniform vec2 trans;
-attribute vec2 pos;
-attribute vec2 uvs;
-attribute vec2 deform;
-varying vec2 texcoord;
-
-void main() {
-    vec2 pos2 = pos + trans + deform;
-    pos2.y = -pos2.y;
-    texcoord = vec2(uvs.x, -uvs.y);
-    gl_Position = vec4(pos2 / 3072.0, 0.0, 1.0);
-}
-";
-
-const FRAGMENT: &str = "#version 100
-precision mediump float;
-uniform sampler2D texture;
-varying vec2 texcoord;
-
-void main() {
-    vec4 color = texture2D(texture, texcoord);
-    if (color.a < 0.05) {
-        discard;
-    }
-    gl_FragColor = color;
-}
-";
-
-const VERTEX_PASSTHROUGH: &str = "#version 100
-precision mediump float;
-attribute vec2 pos;
-attribute vec2 uvs;
-varying vec2 texcoord;
-
-void main() {
-    texcoord = uvs;
-    gl_Position = vec4(pos, 0.0, 1.0);
-}
-";
-
-const FRAGMENT_PASSTHROUGH: &str = "#version 100
-precision mediump float;
-uniform sampler2D texture;
-varying vec2 texcoord;
-
-void main() {
-    gl_FragColor = texture2D(texture, texcoord);
-}
-";
-
-const SIZE: u32 = 2048;
+const PART_VERT: &str = include_str!("../../../shaders/simplified/part.vert");
+const PART_FRAG: &str = include_str!("../../../shaders/simplified/part.frag");
+const COMPOSITE_VERT: &str = include_str!("../../../shaders/simplified/composite.vert");
+const COMPOSITE_FRAG: &str = include_str!("../../../shaders/simplified/composite.frag");
 
 #[derive(Default, Clone)]
 pub struct GlCache {
+    pub prev_camera: Camera,
     pub prev_program: Option<glow::NativeProgram>,
     pub prev_stencil: bool,
     pub prev_blend_mode: Option<BlendMode>,
@@ -187,21 +141,22 @@ impl CustomRenderer for DefaultCustomRenderer {
 
 /// Creates a default OpenGL renderer.
 /// Use this if your puppet doesn't have any nodes besides the Inochi2D builtin ones.
-pub fn opengl_renderer(gl: glow::Context, nodes: InoxNodeTree) -> OpenglRenderer {
-    ExtOpenglRenderer::new(gl, nodes, DefaultCustomRenderer)
+pub fn opengl_renderer(gl: glow::Context, viewport: UVec2, nodes: InoxNodeTree) -> OpenglRenderer {
+    ExtOpenglRenderer::new(gl, viewport, nodes, DefaultCustomRenderer)
 }
 
 /// Creates an extensible OpenGL renderer.
 /// Use this if your puppet has custom nodes besides the Inochi2D builtin ones.
 pub fn opengl_renderer_ext<T, R>(
     gl: glow::Context,
+    viewport: UVec2,
     nodes: ExtInoxNodeTree<T>,
     custom_renderer: R,
 ) -> ExtOpenglRenderer<T, R>
 where
     R: CustomRenderer<NodeData = T>,
 {
-    ExtOpenglRenderer::new(gl, nodes, custom_renderer)
+    ExtOpenglRenderer::new(gl, viewport, nodes, custom_renderer)
 }
 
 /// Extensible OpenGL renderer. It accepts a `CustomRenderer` to render your custom nodes.
@@ -217,6 +172,11 @@ where
     pub gl_cache: RefCell<GlCache>,
     /// Tree of nodes to render.
     pub nodes: ExtInoxNodeTree<T>, // TODO: maybe make a light copy of it instead of owning it?
+
+    /// Viewport of the renderer.
+    viewport: UVec2,
+    /// Camera of the renderer.
+    pub camera: Camera,
 
     /// Single vertex array for all the vertex buffers of the renderer.
     vao: glow::NativeVertexArray,
@@ -241,8 +201,10 @@ where
 
     /// Shader program to render Part nodes.
     part_program: glow::NativeProgram,
+    /// Location of the `u_mvp` uniform for the Part shader program.
+    u_mvp: glow::NativeUniformLocation,
     /// Location of the `u_trans` uniform for the Part shader program.
-    u_trans: Option<glow::NativeUniformLocation>,
+    u_trans: glow::NativeUniformLocation,
 
     /// Shader program to render Composite nodes.
     composite_program: glow::NativeProgram,
@@ -259,7 +221,16 @@ impl<T, R> ExtOpenglRenderer<T, R>
 where
     R: CustomRenderer<NodeData = T>,
 {
-    fn new(gl: glow::Context, mut nodes: ExtInoxNodeTree<T>, render_custom: R) -> Self {
+    fn new(
+        gl: glow::Context,
+        viewport: UVec2,
+        mut nodes: ExtInoxNodeTree<T>,
+        render_custom: R,
+    ) -> Self {
+        // Set initial viewport size
+        unsafe { gl.viewport(0, 0, viewport.x as i32, viewport.y as i32) };
+
+        // Setup batch rendering of nodes
         let vao = unsafe { gl.create_vertex_array() }.unwrap();
 
         let mut verts = GlBuffer::from(vec![-1., -1., -1., 1., 1., -1., 1., -1., -1., 1., 1., 1.]);
@@ -288,12 +259,12 @@ where
         }
 
         // Part rendering
-        let part_program = shader::compile(&gl, VERTEX, FRAGMENT).unwrap();
-        let u_trans = unsafe { gl.get_uniform_location(part_program, "trans") };
+        let part_program = shader::compile(&gl, PART_VERT, PART_FRAG).unwrap();
+        let u_mvp = unsafe { gl.get_uniform_location(part_program, "u_mvp") }.unwrap();
+        let u_trans = unsafe { gl.get_uniform_location(part_program, "u_trans") }.unwrap();
 
         // Composite rendering
-        let composite_program =
-            shader::compile(&gl, VERTEX_PASSTHROUGH, FRAGMENT_PASSTHROUGH).unwrap();
+        let composite_program = shader::compile(&gl, COMPOSITE_VERT, COMPOSITE_FRAG).unwrap();
 
         let composite_texture;
         let composite_fbo;
@@ -302,7 +273,7 @@ where
             gl.enable(glow::BLEND);
             gl.stencil_mask(0xff);
 
-            composite_texture = texture::upload_texture(&gl, SIZE, SIZE, None);
+            composite_texture = texture::upload_texture(&gl, viewport.x, viewport.y, None);
             composite_fbo = gl.create_framebuffer().unwrap();
             gl.bind_framebuffer(glow::FRAMEBUFFER, Some(composite_fbo));
             gl.framebuffer_texture_2d(
@@ -346,6 +317,8 @@ where
             gl,
             gl_cache: RefCell::new(GlCache::default()),
             nodes,
+            viewport,
+            camera: Camera::default(),
             vao,
             verts,
             uvs,
@@ -357,11 +330,53 @@ where
             nb_ibo,
             textures: Vec::new(),
             part_program,
+            u_mvp,
             u_trans,
             composite_program,
             composite_texture,
             composite_fbo,
             custom_renderer: render_custom,
+        }
+    }
+
+    pub fn viewport(&self) -> UVec2 {
+        self.viewport
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        if width == 0 || height == 0 {
+            return;
+        }
+
+        self.viewport = uvec2(width, height);
+
+        let gl = &self.gl;
+        unsafe {
+            gl.viewport(0, 0, width as i32, height as i32);
+
+            // update mvp because viewport changed
+            self.use_program(self.part_program);
+            self.gl.uniform_matrix_4_f32_slice(
+                Some(&self.u_mvp),
+                false,
+                self.camera.matrix(self.viewport.as_vec2()).as_ref(),
+            );
+        }
+
+        // Resize composite texture
+        self.bind_texture(self.composite_texture);
+        unsafe {
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA as i32,
+                width as i32,
+                height as i32,
+                0,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                None,
+            );
         }
     }
 
@@ -377,7 +392,7 @@ where
     /// Pushes an OpenGL debug group.
     /// This is very useful to debug OpenGL calls per node with `apitrace`, as it will nest calls inside of labels,
     /// making it trivial to know which calls correspond to which nodes.
-    /// 
+    ///
     /// It is a no-op on platforms that don't support it (only MacOS so far).
     #[inline]
     fn push_debug_group(&self, name: &str) {
@@ -389,7 +404,7 @@ where
     }
 
     /// Pops the last OpenGL debug group.
-    /// 
+    ///
     /// It is a no-op on platforms that don't support it (only MacOS so far).
     #[inline]
     fn pop_debug_group(&self) {
@@ -397,6 +412,44 @@ where
         unsafe {
             self.gl.pop_debug_group();
         }
+    }
+
+    /// Updates the camera in the GL cache and returns whether it changed.
+    pub fn update_camera(&self) -> bool {
+        let mut changed = false;
+
+        {
+            // scope to delimit borrowing of prev_camera
+            let prev_camera = &mut self.gl_cache.borrow_mut().prev_camera;
+            let camera = &self.camera;
+
+            if prev_camera.position != camera.position {
+                prev_camera.position = camera.position;
+                changed = true;
+            }
+            if prev_camera.rotation != camera.rotation {
+                prev_camera.rotation = camera.rotation;
+                changed = true;
+            }
+            if prev_camera.scale != camera.scale {
+                prev_camera.scale = camera.scale;
+                changed = true;
+            }
+        }
+
+        if changed {
+            unsafe {
+                // update mvp
+                self.use_program(self.part_program);
+                self.gl.uniform_matrix_4_f32_slice(
+                    Some(&self.u_mvp),
+                    false,
+                    self.camera.matrix(self.viewport.as_vec2()).as_ref(),
+                );
+            }
+        }
+
+        changed
     }
 
     pub fn render_nodes(&self, sorted_nodes: &[InoxNodeUuid]) {
@@ -475,7 +528,7 @@ where
         let trans = self.trans(node);
 
         unsafe {
-            gl.uniform_2_f32(self.u_trans.as_ref(), trans.x, trans.y);
+            gl.uniform_2_f32(Some(&self.u_trans), trans.x, trans.y);
 
             gl.draw_elements(
                 glow::TRIANGLES,
