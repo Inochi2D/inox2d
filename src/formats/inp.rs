@@ -1,9 +1,10 @@
 use std::io::{self, Read};
 use std::str::Utf8Error;
+use std::string::FromUtf8Error;
 
 use image::ImageFormat;
 
-use crate::model::{Model, ModelTexture};
+use crate::model::{Model, ModelTexture, VendorData};
 
 use super::json::JsonError;
 use super::serialize::{deserialize_puppet, InoxParseError};
@@ -21,6 +22,7 @@ pub enum ParseInpError {
     InvalidTexEncoding(u8),
     Io(#[from] io::Error),
     Utf8(#[from] Utf8Error),
+    FromUtf8(#[from] FromUtf8Error),
     JsonParse(#[from] json::Error),
     InoxParse(#[from] InoxParseError),
     Json(#[from] JsonError),
@@ -67,8 +69,8 @@ pub fn parse_inp<R: Read>(mut data: R) -> Result<Model, ParseInpError> {
     }
 
     // parse json payload into puppet
-    let json_length = read_be_u32(&mut data)? as usize;
-    let payload = read_vec(&mut data, json_length)?;
+    let length = read_be_u32(&mut data)? as usize;
+    let payload = read_vec(&mut data, length)?;
     let payload = std::str::from_utf8(&payload)?;
     let payload = json::parse(payload)?;
     let puppet = deserialize_puppet(&payload)?;
@@ -95,7 +97,31 @@ pub fn parse_inp<R: Read>(mut data: R) -> Result<Model, ParseInpError> {
         textures.push(ModelTexture { format, data });
     }
 
-    // TODO: read EXTended section
+    // read extended section header if present
+    let vendors = match read_n::<_, 8>(&mut data) {
+        Ok(ext_sect) if ext_sect == EXT_SECT => {
+            let ext_count = read_be_u32(&mut data)? as usize;
+            let mut vendors = Vec::with_capacity(ext_count);
+            for _ in 0..ext_count {
+                let length = read_be_u32(&mut data)? as usize;
+                let name = read_vec(&mut data, length)?;
+                let name = String::from_utf8(name)?;
 
-    Ok(Model { puppet, textures })
+                let length = read_be_u32(&mut data)? as usize;
+                let payload = read_vec(&mut data, length)?;
+                let payload = std::str::from_utf8(&payload)?;
+                let payload = json::parse(payload)?;
+
+                vendors.push(VendorData { name, payload });
+            }
+            vendors
+        }
+        _ => Vec::new(),
+    };
+
+    Ok(Model {
+        puppet,
+        textures,
+        vendors,
+    })
 }

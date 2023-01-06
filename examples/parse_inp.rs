@@ -24,8 +24,15 @@ fn main() {
     };
 
     let model = parse_inp(data.as_slice()).unwrap();
-    let puppet = model.puppet;
-    let nodes = &puppet.nodes;
 
-    println!("{nodes}");
+    println!("== Puppet Meta ==\n{}", &model.puppet.meta);
+    println!("== Nodes ==\n{}", &model.puppet.nodes);
+    if model.vendors.is_empty() {
+        println!("(No Vendor Data)\n");
+    } else {
+        println!("== Vendor Data ==");
+        for vendor in &model.vendors {
+            println!("{vendor}");
+        }
+    }
 }
