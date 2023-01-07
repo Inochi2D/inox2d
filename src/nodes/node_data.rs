@@ -98,9 +98,6 @@ pub struct Part {
     pub tex_albedo: usize,
     pub tex_emissive: usize,
     pub tex_bumpmap: usize,
-    #[cfg(feature = "opengl")]
-    pub start_indice: u16,
-    // start_deform: u16,
 }
 
 impl Part {
