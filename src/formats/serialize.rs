@@ -151,8 +151,6 @@ fn deserialize_part(obj: &JsonObject) -> InoxParseResult<Part> {
         tex_albedo,
         tex_emissive,
         tex_bumpmap,
-        #[cfg(feature = "opengl")]
-        start_indice: 0,
     })
 }
 
