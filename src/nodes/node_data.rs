@@ -7,7 +7,7 @@ use super::physics::SimplePhysics;
 
 #[derive(Debug, Clone)]
 pub struct Composite {
-    pub(crate) draw_state: Drawable,
+    pub draw_state: Drawable,
 }
 
 /// Blending mode.
