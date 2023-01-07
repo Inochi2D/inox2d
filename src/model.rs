@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::puppet::ExtPuppet;
+use crate::puppet::Puppet;
 
 #[derive(Debug)]
 pub struct ModelTexture {
@@ -27,12 +27,9 @@ impl fmt::Display for VendorData {
 }
 
 /// Inochi2D model.
-pub type Model = ExtModel<()>;
-
-/// Extensible Inochi2D model.
 #[derive(Debug)]
-pub struct ExtModel<T> {
-    pub puppet: ExtPuppet<T>,
+pub struct Model<T = ()> {
+    pub puppet: Puppet<T>,
     pub textures: Vec<ModelTexture>,
     pub vendors: Vec<VendorData>,
 }

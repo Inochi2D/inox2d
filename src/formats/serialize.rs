@@ -6,15 +6,15 @@ use json::JsonValue;
 
 use crate::math::transform::Transform;
 use crate::mesh::{f32s_as_vec2s, Mesh};
-use crate::nodes::node::{ExtInoxNode, InoxNode, InoxNodeUuid};
+use crate::nodes::node::{InoxNode, InoxNodeUuid};
 use crate::nodes::node_data::{
     BlendMode, Composite, Drawable, InoxData, Mask, MaskMode, Part, UnknownBlendModeError,
     UnknownMaskModeError,
 };
-use crate::nodes::node_tree::ExtInoxNodeTree;
+use crate::nodes::node_tree::InoxNodeTree;
 use crate::nodes::physics::SimplePhysics;
 use crate::puppet::{
-    Binding, BindingValues, ExtPuppet, InterpolateMode, Param, Puppet, PuppetAllowedModification,
+    Binding, BindingValues, InterpolateMode, Param, Puppet, PuppetAllowedModification,
     PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta, PuppetPhysics, PuppetUsageRights,
     UnknownInterpolateModeError, UnknownPuppetAllowedModificationError,
     UnknownPuppetAllowedRedistributionError, UnknownPuppetAllowedUsersError,
@@ -74,9 +74,9 @@ fn default_deserialize_custom<T>(node_type: &str, _obj: &JsonObject) -> InoxPars
 pub fn deserialize_node_ext<T>(
     obj: &JsonObject,
     deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
-) -> InoxParseResult<ExtInoxNode<T>> {
+) -> InoxParseResult<InoxNode<T>> {
     let node_type = obj.get_str("type")?;
-    Ok(ExtInoxNode {
+    Ok(InoxNode {
         uuid: InoxNodeUuid(obj.get_u32("uuid")?),
         name: obj.get_str("name")?.to_owned(),
         enabled: obj.get_bool("enabled")?,
@@ -253,13 +253,13 @@ pub fn deserialize_puppet(val: &json::JsonValue) -> InoxParseResult<Puppet> {
 pub fn deserialize_puppet_ext<T>(
     val: &json::JsonValue,
     deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
-) -> InoxParseResult<ExtPuppet<T>> {
+) -> InoxParseResult<Puppet<T>> {
     let Some(obj) = val.as_object() else {
         return Err(InoxParseError::JsonError(JsonError::ValueIsNotObject("(puppet)".to_owned())));
     };
     let obj = JsonObject(obj);
 
-    Ok(ExtPuppet {
+    Ok(Puppet {
         meta: nested("meta", deserialize_puppet_meta(&obj.get_object("meta")?))?,
         physics: nested(
             "physics",
@@ -375,7 +375,7 @@ fn deserialize_axis_points(vals: &[json::JsonValue]) -> InoxParseResult<[Vec<f32
 fn deserialize_nodes<T>(
     obj: &JsonObject,
     deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
-) -> InoxParseResult<ExtInoxNodeTree<T>> {
+) -> InoxParseResult<InoxNodeTree<T>> {
     let mut arena = Arena::new();
     let mut uuids = BTreeMap::new();
 
@@ -384,7 +384,7 @@ fn deserialize_nodes<T>(
     let root = arena.new_node(root_node);
     uuids.insert(root_uuid, root);
 
-    let mut node_tree = ExtInoxNodeTree { root, arena, uuids };
+    let mut node_tree = InoxNodeTree { root, arena, uuids };
 
     for (i, child) in obj.get_list("children").unwrap_or(&[]).iter().enumerate() {
         let Some(child) = child.as_object() else {
@@ -404,7 +404,7 @@ fn deserialize_nodes<T>(
 fn deserialize_nodes_rec<T>(
     obj: &JsonObject,
     deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
-    node_tree: &mut ExtInoxNodeTree<T>,
+    node_tree: &mut InoxNodeTree<T>,
 ) -> InoxParseResult<indextree::NodeId> {
     let node = deserialize_node_ext(obj, deserialize_node_custom)?;
     let uuid = node.uuid;

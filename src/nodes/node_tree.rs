@@ -3,39 +3,37 @@ use std::fmt::Display;
 
 use indextree::{Arena, NodeId};
 
-use super::node::{ExtInoxNode, InoxNodeUuid};
-
-pub type InoxNodeTree = ExtInoxNodeTree<()>;
+use super::node::{InoxNode, InoxNodeUuid};
 
 #[derive(Debug)]
-pub struct ExtInoxNodeTree<T> {
+pub struct InoxNodeTree<T = ()> {
     pub root: indextree::NodeId,
-    pub arena: Arena<ExtInoxNode<T>>,
+    pub arena: Arena<InoxNode<T>>,
     pub uuids: BTreeMap<InoxNodeUuid, indextree::NodeId>,
 }
 
-impl<T> ExtInoxNodeTree<T> {
-    fn get_internal_node(&self, uuid: InoxNodeUuid) -> Option<&indextree::Node<ExtInoxNode<T>>> {
+impl<T> InoxNodeTree<T> {
+    fn get_internal_node(&self, uuid: InoxNodeUuid) -> Option<&indextree::Node<InoxNode<T>>> {
         self.arena.get(*self.uuids.get(&uuid)?)
     }
     fn get_internal_node_mut(
         &mut self,
         uuid: InoxNodeUuid,
-    ) -> Option<&mut indextree::Node<ExtInoxNode<T>>> {
+    ) -> Option<&mut indextree::Node<InoxNode<T>>> {
         self.arena.get_mut(*self.uuids.get(&uuid)?)
     }
 
     #[allow(clippy::borrowed_box)]
-    pub fn get_node(&self, uuid: InoxNodeUuid) -> Option<&ExtInoxNode<T>> {
+    pub fn get_node(&self, uuid: InoxNodeUuid) -> Option<&InoxNode<T>> {
         Some(self.get_internal_node(uuid)?.get())
     }
 
-    pub fn get_node_mut(&mut self, uuid: InoxNodeUuid) -> Option<&mut ExtInoxNode<T>> {
+    pub fn get_node_mut(&mut self, uuid: InoxNodeUuid) -> Option<&mut InoxNode<T>> {
         Some(self.get_internal_node_mut(uuid)?.get_mut())
     }
 
     #[allow(clippy::borrowed_box)]
-    pub fn get_parent(&self, uuid: InoxNodeUuid) -> Option<&ExtInoxNode<T>> {
+    pub fn get_parent(&self, uuid: InoxNodeUuid) -> Option<&InoxNode<T>> {
         let node = self.get_internal_node(uuid)?;
         Some(self.arena.get(node.parent()?)?.get())
     }
@@ -52,11 +50,11 @@ impl<T> ExtInoxNodeTree<T> {
         )
     }
 
-    pub fn ancestors(&self, uuid: InoxNodeUuid) -> indextree::Ancestors<ExtInoxNode<T>> {
+    pub fn ancestors(&self, uuid: InoxNodeUuid) -> indextree::Ancestors<InoxNode<T>> {
         self.uuids[&uuid].ancestors(&self.arena)
     }
 
-    fn rec_zsorts_from_root(&self, node: &ExtInoxNode<T>, zsort: f32) -> Vec<(InoxNodeUuid, f32)> {
+    fn rec_zsorts_from_root(&self, node: &InoxNode<T>, zsort: f32) -> Vec<(InoxNodeUuid, f32)> {
         let node_state = node;
         let zsort = zsort + node_state.zsort;
         let mut vec = vec![(node_state.uuid, zsort)];
@@ -78,7 +76,7 @@ impl<T> ExtInoxNodeTree<T> {
         uuid_zsorts.into_iter().map(|(uuid, _zsort)| uuid).collect()
     }
 
-    fn sort_by_zsort(&self, node: &ExtInoxNode<T>) -> Vec<InoxNodeUuid> {
+    fn sort_by_zsort(&self, node: &InoxNode<T>) -> Vec<InoxNodeUuid> {
         let uuid_zsorts = self.rec_zsorts_from_root(node, 0.);
         self.sort_uuids_by_zsort(uuid_zsorts)
     }
@@ -93,7 +91,7 @@ fn rec_fmt<T>(
     indent: usize,
     f: &mut std::fmt::Formatter<'_>,
     node_id: NodeId,
-    arena: &Arena<ExtInoxNode<T>>,
+    arena: &Arena<InoxNode<T>>,
 ) -> std::fmt::Result {
     let Some(node) = arena.get(node_id) else {
         return Ok(());
@@ -116,7 +114,7 @@ fn rec_fmt<T>(
     Ok(())
 }
 
-impl<T> Display for ExtInoxNodeTree<T> {
+impl<T> Display for InoxNodeTree<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Some(root_node) = self.arena.get(self.root) else {
             return write!(f, "(empty)");

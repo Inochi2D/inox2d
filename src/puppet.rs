@@ -5,7 +5,7 @@ use std::fmt;
 use glam::Vec2;
 
 use crate::nodes::node::InoxNodeUuid;
-use crate::nodes::node_tree::ExtInoxNodeTree;
+use crate::nodes::node_tree::InoxNodeTree;
 
 /// Who is allowed to use the puppet?
 #[derive(Clone, Copy, Debug, Default)]
@@ -361,13 +361,10 @@ pub struct Param {
 }
 
 /// Inochi2D puppet.
-pub type Puppet = ExtPuppet<()>;
-
-/// Extensible Inochi2D puppet.
 #[derive(Debug)]
-pub struct ExtPuppet<T> {
+pub struct Puppet<T = ()> {
     pub meta: PuppetMeta,
     pub physics: PuppetPhysics,
-    pub nodes: ExtInoxNodeTree<T>,
+    pub nodes: InoxNodeTree<T>,
     pub parameters: Vec<Param>,
 }

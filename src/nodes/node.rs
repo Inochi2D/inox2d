@@ -8,10 +8,8 @@ use super::node_data::InoxData;
 #[repr(transparent)]
 pub struct InoxNodeUuid(pub(crate) u32);
 
-pub type InoxNode = ExtInoxNode<()>;
-
 #[derive(Debug, Clone)]
-pub struct ExtInoxNode<T> {
+pub struct InoxNode<T = ()> {
     pub uuid: InoxNodeUuid,
     pub name: String,
     pub enabled: bool,
@@ -21,7 +19,7 @@ pub struct ExtInoxNode<T> {
     pub data: InoxData<T>,
 }
 
-impl<T> ExtInoxNode<T> {
+impl<T> InoxNode<T> {
     pub fn is_node(&self) -> bool {
         self.data.is_node()
     }
