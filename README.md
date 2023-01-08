@@ -33,7 +33,7 @@ A rewrite of the missing parts is on the way, particularly the OpenGL renderer, 
 
 - [x] Parsing
   - [x] INP format
-  - [ ] INX format
+  - [x] INX format
 - [ ] Rendering
   - [ ] OpenGL
   - [ ] WGPU
