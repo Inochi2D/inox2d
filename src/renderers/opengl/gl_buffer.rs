@@ -34,11 +34,11 @@ impl<T> GlBuffer<T> {
                 slice.as_ptr() as *const u8,
                 slice.len() * core::mem::size_of::<T>(),
             );
-            let vbo = gl.create_buffer().unwrap();
-            gl.bind_buffer(target, Some(vbo));
+            let buffer = gl.create_buffer().unwrap();
+            gl.bind_buffer(target, Some(buffer));
             gl.buffer_data_u8_slice(target, bytes, usage);
 
-            vbo
+            buffer
         }
     }
 }
