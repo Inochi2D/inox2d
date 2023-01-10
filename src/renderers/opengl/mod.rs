@@ -5,6 +5,7 @@ pub mod texture;
 
 use glam::{uvec2, UVec2, Vec2, Vec3};
 use glow::HasContext;
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::math::camera::Camera;
 use crate::model::ModelTexture;
@@ -122,8 +123,22 @@ impl<T> OpenglRenderer<T> {
         &mut self,
         model_textures: &[ModelTexture],
     ) -> Result<(), TextureError> {
-        for mtex in model_textures {
-            let tex = texture::Texture::new(&self.gl, mtex)?;
+        // decode textures in parallel
+        let img_bufs = model_textures
+            .par_iter()
+            .filter_map(|mtex| {
+                Some(
+                    image::load_from_memory_with_format(&mtex.data, mtex.format)
+                        .map_err(TextureError::LoadData)
+                        .ok()?
+                        .into_rgba8(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        // upload textures
+        for img_buf in img_bufs {
+            let tex = texture::Texture::from_image_buffer_rgba(&self.gl, img_buf)?;
             self.textures.push(tex);
         }
 
