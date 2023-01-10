@@ -2,13 +2,16 @@ use glow::HasContext;
 use image::{ImageBuffer, ImageError, Rgba};
 
 use crate::model::ModelTexture;
+use crate::texture::tga::TgaDecodeError;
 
 #[derive(thiserror::Error, Debug)]
 pub enum TextureError {
     #[error("Could not create texture: {0}")]
     Create(String),
     #[error("Could not load image data for texture: {0}")]
-    LoadData(ImageError),
+    LoadData(#[from] ImageError),
+    #[error("Could not load TGA texture: {0}")]
+    LoadTga(#[from] TgaDecodeError)
 }
 
 pub struct Texture {
@@ -40,10 +43,20 @@ impl Texture {
         gl: &glow::Context,
         img_buf: ImageBuffer<Rgba<u8>, Vec<u8>>,
     ) -> Result<Self, TextureError> {
-        let pixel_buf = img_buf.to_vec();
+        let pixels = img_buf.to_vec();
         let width = img_buf.width();
         let height = img_buf.height();
-        let bpp = 8 * (pixel_buf.len() / (width as usize * height as usize)) as u32;
+
+        Self::from_raw_pixels(gl, &pixels, width, height)
+    }
+
+    pub fn from_raw_pixels(
+        gl: &glow::Context,
+        pixels: &[u8],
+        width: u32,
+        height: u32,
+    ) -> Result<Self, TextureError> {
+        let bpp = 8 * (pixels.len() / (width as usize * height as usize)) as u32;
 
         let tex = unsafe { gl.create_texture().map_err(TextureError::Create)? };
         unsafe {
@@ -77,7 +90,7 @@ impl Texture {
                 0,
                 glow::RGBA,
                 glow::UNSIGNED_BYTE,
-                Some(pixel_buf.as_slice()),
+                Some(pixels),
             );
             gl.bind_texture(glow::TEXTURE_2D, None);
         }

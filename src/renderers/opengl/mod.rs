@@ -3,8 +3,11 @@ pub mod shader;
 pub mod shaders;
 pub mod texture;
 
+use std::io;
+
 use glam::{uvec2, UVec2, Vec2, Vec3};
 use glow::HasContext;
+use image::ImageFormat;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::math::camera::Camera;
@@ -12,6 +15,7 @@ use crate::model::ModelTexture;
 use crate::nodes::node::InoxNodeUuid;
 use crate::nodes::node_data::InoxData;
 use crate::nodes::node_tree::InoxNodeTree;
+use crate::texture::tga::read_tga;
 
 use self::gl_buffer::GlBuffer;
 use self::shader::ShaderCompileError;
@@ -124,21 +128,30 @@ impl<T> OpenglRenderer<T> {
         model_textures: &[ModelTexture],
     ) -> Result<(), TextureError> {
         // decode textures in parallel
-        let img_bufs = model_textures
+        let images = model_textures
             .par_iter()
             .filter_map(|mtex| {
-                Some(
-                    image::load_from_memory_with_format(&mtex.data, mtex.format)
+                if mtex.format == ImageFormat::Tga {
+                    let img = read_tga(&mut io::Cursor::new(&mtex.data)).ok()?;
+                    Some((
+                        img.data,
+                        img.header.width() as u32,
+                        img.header.height() as u32,
+                    ))
+                } else {
+                    let img_buf = image::load_from_memory_with_format(&mtex.data, mtex.format)
                         .map_err(TextureError::LoadData)
                         .ok()?
-                        .into_rgba8(),
-                )
+                        .into_rgba8();
+
+                    Some((img_buf.to_vec(), img_buf.width(), img_buf.height()))
+                }
             })
             .collect::<Vec<_>>();
 
         // upload textures
-        for img_buf in img_bufs {
-            let tex = texture::Texture::from_image_buffer_rgba(&self.gl, img_buf)?;
+        for (pixels, width, height) in images {
+            let tex = texture::Texture::from_raw_pixels(&self.gl, &pixels, width, height)?;
             self.textures.push(tex);
         }
 
