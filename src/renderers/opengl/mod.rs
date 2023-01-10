@@ -170,6 +170,8 @@ impl<T> OpenglRenderer<T> {
 
             // textures
             self.textures[part.tex_albedo].bind_on(gl, 0);
+            self.textures[part.tex_bumpmap].bind_on(gl, 1);
+            self.textures[part.tex_emissive].bind_on(gl, 2);
 
             // vert uniforms
             part_shader.set_mvp(gl, mvp);
