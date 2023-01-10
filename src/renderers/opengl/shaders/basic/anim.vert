@@ -19,7 +19,6 @@ uniform float frame;
 out vec2 texUVs;
 
 void main() {
-  gl_Position = mvp * vec4(verts.x - offset.x + deform.x,
-                           verts.y - offset.y + deform.y, 0, 1);
+  gl_Position = mvp * vec4(verts + offset + deform, 0, 1);
   texUVs = vec2((uvs.x / splits.x) * frame, (uvs.y / splits.y) * animation);
 }
