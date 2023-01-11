@@ -104,7 +104,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 debug!("Redrawing");
 
                 renderer.clear();
-                renderer.draw_stuff();
+                renderer.draw_model();
 
                 gl_surface.swap_buffers(&gl_ctx).unwrap();
             }
