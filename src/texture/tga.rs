@@ -278,12 +278,14 @@ pub fn read_tga<R: Read + Seek>(reader: &mut R) -> Result<TgaImage, TgaDecodeErr
                 let gotten = linebuf_size as usize - wanted;
                 let copy_size = wanted.min(packet_len);
                 if is_rle {
-                    reader.read_exact(&mut pixel)?;
+                    let channels = channels as usize;
+                    reader.read_exact(&mut pixel[..channels])?;
+
                     let mut p = gotten;
                     while p < gotten + copy_size {
-                        let mut place = &mut linebuf[p..p + channels as usize];
-                        place.write_all(&pixel)?;
-                        p += channels as usize;
+                        let mut place = &mut linebuf[p..p + channels];
+                        place.write_all(&pixel[..channels])?;
+                        p += channels;
                     }
                 } else {
                     // raw packet
