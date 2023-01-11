@@ -85,6 +85,10 @@ impl<T> InoxNodeTree<T> {
         let root = self.arena.get(self.root).unwrap().get();
         self.sort_by_zsort(root)
     }
+
+    pub fn all_node_ids(&self) -> Vec<InoxNodeUuid> {
+        self.arena.iter().map(|n| n.get().uuid).collect()
+    }
 }
 
 fn rec_fmt<T>(

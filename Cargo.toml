@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-glam = { version = "0.22.0" }
+glam = { version = "0.22.0", features = ["bytemuck"] }
 glutin = { version = "0.30.3", optional = true }
 raw-window-handle = { version = "0.5.0", optional = true }
 glutin-winit = { version = "0.2.1", optional = true }
@@ -20,6 +20,9 @@ thiserror = "1.0.37"
 wgpu = { version = "0.14.2", optional = true }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
+pollster = { version = "0.2.5", optional = true }
+bytemuck = "1.12.3"
+encase = { version = "0.4.1", features = ["glam"] }
 
 [dev-dependencies]
 clap = { version = "4.0.26", features = ["derive"] }
@@ -28,7 +31,7 @@ clap = { version = "4.0.26", features = ["derive"] }
 [features]
 default = ["opengl", "parallel-tex-dec"]
 opengl = ["render", "dep:glow", "dep:glutin", "dep:glutin-winit"]
-wgpu = ["render", "dep:wgpu"]
+wgpu = ["render", "dep:wgpu", "dep:pollster"]
 render = ["dep:raw-window-handle", "dep:winit"]
 owo = ["dep:owo-colors"]
 parallel-tex-dec = []
@@ -36,3 +39,7 @@ parallel-tex-dec = []
 [[example]]
 name = "render_inp"
 required-features = ["opengl"]
+
+[[example]]
+name = "render_wgpu"
+required-features = ["wgpu"]

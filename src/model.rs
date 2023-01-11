@@ -22,7 +22,11 @@ impl fmt::Display for VendorData {
             use owo_colors::OwoColorize;
             name.green()
         };
-        writeln!(f, "{name} {}", json::stringify_pretty(self.payload.clone(), 2))
+        writeln!(
+            f,
+            "{name} {}",
+            json::stringify_pretty(self.payload.clone(), 2)
+        )
     }
 }
 
