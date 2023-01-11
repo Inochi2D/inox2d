@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use glam::{Mat4, Vec2, Vec3};
 use glow::HasContext;
 
@@ -11,6 +13,14 @@ pub struct PartShader {
     u_opacity: Option<glow::NativeUniformLocation>,
     u_mult_color: Option<glow::NativeUniformLocation>,
     u_screen_color: Option<glow::NativeUniformLocation>,
+}
+
+impl Deref for PartShader {
+    type Target = glow::NativeProgram;
+
+    fn deref(&self) -> &Self::Target {
+        &self.program
+    }
 }
 
 impl PartShader {
