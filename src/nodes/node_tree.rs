@@ -76,7 +76,7 @@ impl<T> InoxNodeTree<T> {
         uuid_zsorts.into_iter().map(|(uuid, _zsort)| uuid).collect()
     }
 
-    fn sort_by_zsort(&self, node: &InoxNode<T>) -> Vec<InoxNodeUuid> {
+    pub fn sort_by_zsort(&self, node: &InoxNode<T>) -> Vec<InoxNodeUuid> {
         let uuid_zsorts = self.rec_zsorts_from_root(node, 0.);
         self.sort_uuids_by_zsort(uuid_zsorts)
     }
