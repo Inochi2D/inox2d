@@ -350,11 +350,11 @@ impl<T> OpenglRenderer<T> {
             match ntr {
                 NodeToRender::Part {
                     uuid,
-                    index_offset: start_index,
+                    index_offset,
                 } => {
                     let node = self.nodes.get_node(*uuid).unwrap();
                     if let InoxData::Part(ref part) = node.data {
-                        self.draw_part(node, part, *start_index);
+                        self.draw_part(node, part, *index_offset);
                     }
                 }
             }
@@ -373,7 +373,7 @@ impl<T> OpenglRenderer<T> {
         self.textures[part.tex_emissive].bind_on(gl, 2);
     }
 
-    fn draw_part(&self, node: &InoxNode<T>, part: &Part, start_index: u16) {
+    fn draw_part(&self, node: &InoxNode<T>, part: &Part, index_offset: u16) {
         self.push_debug_group(&node.name);
 
         // Position of current node by adding up its ancestors' positions
@@ -404,7 +404,7 @@ impl<T> OpenglRenderer<T> {
                 glow::TRIANGLES,
                 part.mesh.indices.len() as i32,
                 glow::UNSIGNED_SHORT,
-                start_index as i32 * mem::size_of::<u16>() as i32,
+                index_offset as i32 * mem::size_of::<u16>() as i32,
             );
         }
 
