@@ -57,7 +57,10 @@ impl TryFrom<&str> for BlendMode {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MaskMode {
+    /// The part should be masked by the drawables specified.
     Mask,
+    /// The path should be dodge-masked by the drawables specified.
+    Dodge,
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
@@ -70,6 +73,7 @@ impl TryFrom<&str> for MaskMode {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "Mask" => Ok(MaskMode::Mask),
+            "DodgeMask" => Ok(MaskMode::Dodge),
             unknown => Err(UnknownMaskModeError(unknown.to_owned())),
         }
     }
