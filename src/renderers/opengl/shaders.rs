@@ -5,6 +5,10 @@ use glow::HasContext;
 
 use super::shader::{self, ShaderCompileError};
 
+const PART_VERT: &str = include_str!("shaders/basic/basic.vert");
+const PART_FRAG: &str = include_str!("shaders/basic/basic.frag");
+const PART_MASK_FRAG: &str = include_str!("shaders/basic/basic-mask.frag");
+
 #[derive(Clone)]
 pub struct PartShader {
     program: glow::NativeProgram,
@@ -24,11 +28,8 @@ impl Deref for PartShader {
 }
 
 impl PartShader {
-    const PART_VERT: &str = include_str!("shaders/basic/basic.vert");
-    const PART_FRAG: &str = include_str!("shaders/basic/basic.frag");
-
     pub fn new(gl: &glow::Context) -> Result<Self, ShaderCompileError> {
-        let program = shader::compile(gl, Self::PART_VERT, Self::PART_FRAG)?;
+        let program = shader::compile(gl, PART_VERT, PART_FRAG)?;
 
         Ok(Self {
             program,
@@ -41,62 +42,82 @@ impl PartShader {
     }
 
     /// Binds the shader to OpenGL.
-    ///
-    /// # Safety
-    ///
-    /// This calls `glUseProgram`, apply your OpenGL knowledge to know if it is safe.
     #[inline]
-    pub unsafe fn bind(&self, gl: &glow::Context) {
-        gl.use_program(Some(self.program));
+    pub fn bind(&self, gl: &glow::Context) {
+        unsafe { gl.use_program(Some(self.program)) }
     }
 
     /// Sets the `mvp` uniform of the shader.
-    ///
-    /// # Safety
-    ///
-    /// The uniform exists and the type used to set it is valid as well.
     #[inline]
-    pub unsafe fn set_mvp(&self, gl: &glow::Context, mvp: Mat4) {
-        gl.uniform_matrix_4_f32_slice(self.u_mvp.as_ref(), false, mvp.as_ref());
+    pub fn set_mvp(&self, gl: &glow::Context, mvp: Mat4) {
+        unsafe { gl.uniform_matrix_4_f32_slice(self.u_mvp.as_ref(), false, mvp.as_ref()) };
     }
 
     /// Sets the `offset` uniform of the shader.
-    ///
-    /// # Safety
-    ///
-    /// The uniform exists and the type used to set it is valid as well.
     #[inline]
-    pub unsafe fn set_offset(&self, gl: &glow::Context, offset: Vec2) {
-        gl.uniform_2_f32_slice(self.u_offset.as_ref(), offset.as_ref());
+    pub fn set_offset(&self, gl: &glow::Context, offset: Vec2) {
+        unsafe { gl.uniform_2_f32_slice(self.u_offset.as_ref(), offset.as_ref()) };
     }
 
     /// Sets the `opacity` uniform of the shader.
-    ///
-    /// # Safety
-    ///
-    /// The uniform exists and the type used to set it is valid as well.
     #[inline]
-    pub unsafe fn set_opacity(&self, gl: &glow::Context, opacity: f32) {
-        gl.uniform_1_f32(self.u_opacity.as_ref(), opacity);
+    pub fn set_opacity(&self, gl: &glow::Context, opacity: f32) {
+        unsafe { gl.uniform_1_f32(self.u_opacity.as_ref(), opacity) };
     }
 
     /// Sets the `multColor` uniform of the shader.
-    ///
-    /// # Safety
-    ///
-    /// The uniform exists and the type used to set it is valid as well.
     #[inline]
-    pub unsafe fn set_mult_color(&self, gl: &glow::Context, mult_color: Vec3) {
-        gl.uniform_3_f32_slice(self.u_mult_color.as_ref(), mult_color.as_ref());
+    pub fn set_mult_color(&self, gl: &glow::Context, mult_color: Vec3) {
+        unsafe { gl.uniform_3_f32_slice(self.u_mult_color.as_ref(), mult_color.as_ref()) };
     }
 
     /// Sets the `screenColor` uniform of the shader.
-    ///
-    /// # Safety
-    ///
-    /// The uniform exists and the type used to set it is valid as well.
     #[inline]
-    pub unsafe fn set_screen_color(&self, gl: &glow::Context, screen_color: Vec3) {
-        gl.uniform_3_f32_slice(self.u_screen_color.as_ref(), screen_color.as_ref());
+    pub fn set_screen_color(&self, gl: &glow::Context, screen_color: Vec3) {
+        unsafe { gl.uniform_3_f32_slice(self.u_screen_color.as_ref(), screen_color.as_ref()) };
+    }
+}
+
+pub struct PartMaskShader {
+    program: glow::NativeProgram,
+    u_mvp: Option<glow::NativeUniformLocation>,
+    u_threshold: Option<glow::NativeUniformLocation>,
+}
+
+impl Deref for PartMaskShader {
+    type Target = glow::NativeProgram;
+
+    fn deref(&self) -> &Self::Target {
+        &self.program
+    }
+}
+
+impl PartMaskShader {
+    pub fn new(gl: &glow::Context) -> Result<Self, ShaderCompileError> {
+        let program = shader::compile(gl, PART_VERT, PART_MASK_FRAG)?;
+
+        Ok(Self {
+            program,
+            u_mvp: unsafe { gl.get_uniform_location(program, "mvp") },
+            u_threshold: unsafe { gl.get_uniform_location(program, "threshold") },
+        })
+    }
+
+    /// Binds the shader to OpenGL.
+    #[inline]
+    pub fn bind(&self, gl: &glow::Context) {
+        unsafe { gl.use_program(Some(self.program)) }
+    }
+
+    /// Sets the `mvp` uniform of the shader.
+    #[inline]
+    pub fn set_mvp(&self, gl: &glow::Context, mvp: Mat4) {
+        unsafe { gl.uniform_matrix_4_f32_slice(self.u_mvp.as_ref(), false, mvp.as_ref()) };
+    }
+
+    /// Sets the `threshold` uniform of the shader.
+    #[inline]
+    pub fn set_threshold(&self, gl: &glow::Context, threshold: f32) {
+        unsafe { gl.uniform_1_f32(self.u_threshold.as_ref(), threshold) };
     }
 }

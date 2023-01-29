@@ -95,6 +95,18 @@ pub struct Drawable {
     pub opacity: f32,
 }
 
+impl Drawable {
+    /// Checks whether the drawable has masks of mode `MaskMode::Mask`.
+    pub fn has_masks(&self) -> bool {
+        self.masks.iter().any(|mask| mask.mode == MaskMode::Mask)
+    }
+
+    /// Checks whether the drawable has masks of mode `MaskMode::Dodge`.
+    pub fn has_dodge_masks(&self) -> bool {
+        self.masks.iter().any(|mask| mask.mode == MaskMode::Dodge)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Part {
     pub draw_state: Drawable,

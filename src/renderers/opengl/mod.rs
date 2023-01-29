@@ -4,6 +4,7 @@ pub mod shaders;
 pub mod texture;
 
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::ops::Deref;
 use std::{io, mem};
 
@@ -11,18 +12,18 @@ use glam::{uvec2, UVec2, Vec2};
 use glow::HasContext;
 use image::ImageFormat;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use tracing::{debug, error};
+use tracing::error;
 
 use crate::math::camera::Camera;
 use crate::model::ModelTexture;
 use crate::nodes::node::{InoxNode, InoxNodeUuid};
-use crate::nodes::node_data::{BlendMode, InoxData, Part};
+use crate::nodes::node_data::{BlendMode, InoxData, Mask, MaskMode, Part};
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::texture::tga::read_tga;
 
 use self::gl_buffer::GlBuffer;
 use self::shader::ShaderCompileError;
-use self::shaders::PartShader;
+use self::shaders::{PartMaskShader, PartShader};
 use self::texture::{Texture, TextureError};
 
 #[derive(Debug, thiserror::Error)]
@@ -90,11 +91,19 @@ impl GlCache {
     }
 }
 
-enum NodeToRender {
+enum NodeDrawInfo {
     Part {
         uuid: InoxNodeUuid,
         index_offset: u16,
     },
+}
+
+impl NodeDrawInfo {
+    fn uuid(&self) -> InoxNodeUuid {
+        match self {
+            NodeDrawInfo::Part { uuid, .. } => *uuid,
+        }
+    }
 }
 
 pub struct OpenglRenderer<T = ()> {
@@ -111,11 +120,12 @@ pub struct OpenglRenderer<T = ()> {
     indices: GlBuffer<u16>,
 
     part_shader: PartShader,
+    part_mask_shader: PartMaskShader,
 
     textures: Vec<Texture>,
 
     pub nodes: InoxNodeTree<T>,
-    nodes_to_render: Vec<NodeToRender>,
+    nodes_draw_info: Vec<NodeDrawInfo>,
 }
 
 impl<T> OpenglRenderer<T> {
@@ -131,7 +141,7 @@ impl<T> OpenglRenderer<T> {
         let mut indices = GlBuffer::new();
 
         let sorted_uuids = nodes.zsorted();
-        let mut nodes_to_render = Vec::new();
+        let mut nodes_draw_info = Vec::new();
         let mut index_offset = 0;
         let mut vert_offset = 0;
         for &uuid in &sorted_uuids {
@@ -143,7 +153,7 @@ impl<T> OpenglRenderer<T> {
                 uvs.extend_from_slice(&mesh.uvs);
                 indices.extend(mesh.indices.iter().map(|index| index + vert_offset));
 
-                nodes_to_render.push(NodeToRender::Part { uuid, index_offset });
+                nodes_draw_info.push(NodeDrawInfo::Part { uuid, index_offset });
                 index_offset += mesh.indices.len() as u16;
                 vert_offset += mesh.vertices.len() as u16;
             }
@@ -177,6 +187,7 @@ impl<T> OpenglRenderer<T> {
 
         // Shaders
         let part_shader = PartShader::new(&gl)?;
+        let part_mask_shader = PartMaskShader::new(&gl)?;
 
         Ok(Self {
             gl,
@@ -192,11 +203,12 @@ impl<T> OpenglRenderer<T> {
             indices,
 
             part_shader,
+            part_mask_shader,
 
             textures: Vec::new(),
 
             nodes,
-            nodes_to_render,
+            nodes_draw_info,
         })
     }
 
@@ -295,8 +307,11 @@ impl<T> OpenglRenderer<T> {
 
         let matrix = self.camera.matrix(self.viewport.as_vec2());
 
+        self.bind_shader(&self.part_mask_shader);
+        self.part_mask_shader.set_mvp(&self.gl, matrix);
+
         self.bind_shader(&self.part_shader);
-        unsafe { self.part_shader.set_mvp(&self.gl, matrix) };
+        self.part_shader.set_mvp(&self.gl, matrix);
 
         true
     }
@@ -346,18 +361,8 @@ impl<T> OpenglRenderer<T> {
         self.update_camera();
         unsafe { self.gl.enable(glow::BLEND) };
 
-        for ntr in &self.nodes_to_render {
-            match ntr {
-                NodeToRender::Part {
-                    uuid,
-                    index_offset,
-                } => {
-                    let node = self.nodes.get_node(*uuid).unwrap();
-                    if let InoxData::Part(ref part) = node.data {
-                        self.draw_part(node, part, *index_offset);
-                    }
-                }
-            }
+        for ntr in &self.nodes_draw_info {
+            self.draw_node(ntr, false);
         }
     }
 
@@ -373,8 +378,74 @@ impl<T> OpenglRenderer<T> {
         self.textures[part.tex_emissive].bind_on(gl, 2);
     }
 
-    fn draw_part(&self, node: &InoxNode<T>, part: &Part, index_offset: u16) {
+    fn draw_node(&self, ndi: &NodeDrawInfo, is_mask: bool) {
+        match ndi {
+            NodeDrawInfo::Part { uuid, index_offset } => {
+                let node = self.nodes.get_node(*uuid).unwrap();
+                if let InoxData::Part(ref part) = node.data {
+                    self.draw_part(node, part, *index_offset, is_mask);
+                }
+            }
+        }
+    }
+
+    fn draw_mask(&self, mask: &Mask) {
+        let gl = &self.gl;
+
+        // begin draw mask
+        unsafe {
+            // Enable writing to stencil buffer and disable writing to color buffer
+            gl.color_mask(false, false, false, false);
+            gl.stencil_op(glow::KEEP, glow::KEEP, glow::REPLACE);
+            gl.stencil_func(glow::ALWAYS, (mask.mode == MaskMode::Mask) as i32, 0xff);
+            gl.stencil_mask(0xff);
+        }
+
+        // draw mask
+        // TODO: put masks in part's NodeDrawInfo as a vec of NodeDrawInfos
+        let ndi = self
+            .nodes_draw_info
+            .iter()
+            .find(|ndi| ndi.uuid() == mask.source)
+            .unwrap();
+
+        self.draw_node(ndi, true);
+
+        // end draw mask
+        unsafe {
+            gl.color_mask(true, true, true, true);
+        }
+    }
+
+    fn draw_part(&self, node: &InoxNode<T>, part: &Part, index_offset: u16, is_mask: bool) {
         self.push_debug_group(&node.name);
+
+        let gl = &self.gl;
+        let masks = &part.draw_state.masks;
+
+        if !masks.is_empty() {
+            self.push_debug_group("Masks");
+
+            // begin mask
+            unsafe {
+                // Enable and clear the stencil buffer so we can write our mask to it
+                gl.enable(glow::STENCIL_TEST);
+                gl.clear_stencil(!part.draw_state.has_masks() as i32);
+                gl.clear(glow::STENCIL_BUFFER_BIT);
+            }
+
+            for mask in &part.draw_state.masks {
+                self.draw_mask(mask);
+            }
+
+            self.pop_debug_group();
+
+            // begin mask content
+            unsafe {
+                gl.stencil_func(glow::EQUAL, 1, 0xff);
+                gl.stencil_mask(0x00);
+            }
+        }
 
         // Position of current node by adding up its ancestors' positions
         let offset = self
@@ -387,9 +458,14 @@ impl<T> OpenglRenderer<T> {
         self.bind_part_textures(part);
         self.set_blend_mode(part.draw_state.blend_mode);
 
-        let gl = &self.gl;
-        let part_shader = &self.part_shader;
-        unsafe {
+        if is_mask {
+            let part_mask_shader = &self.part_mask_shader;
+            self.bind_shader(part_mask_shader);
+
+            // frag uniforms
+            part_mask_shader.set_threshold(gl, part.draw_state.mask_threshold.clamp(0.0, 1.0));
+        } else {
+            let part_shader = &self.part_shader;
             self.bind_shader(part_shader);
 
             // vert uniforms
@@ -399,13 +475,25 @@ impl<T> OpenglRenderer<T> {
             part_shader.set_opacity(gl, part.draw_state.opacity);
             part_shader.set_mult_color(gl, part.draw_state.tint);
             part_shader.set_screen_color(gl, part.draw_state.screen_tint);
+        }
 
+        unsafe {
             gl.draw_elements(
                 glow::TRIANGLES,
                 part.mesh.indices.len() as i32,
                 glow::UNSIGNED_SHORT,
                 index_offset as i32 * mem::size_of::<u16>() as i32,
             );
+        }
+
+        if !masks.is_empty() {
+            // end mask
+            unsafe {
+                // We're done stencil testing, disable it again so that we don't accidentally mask more stuff out
+                gl.stencil_mask(0xff);
+                gl.stencil_func(glow::ALWAYS, 1, 0xff);
+                gl.disable(glow::STENCIL_TEST);
+            }
         }
 
         self.pop_debug_group();
