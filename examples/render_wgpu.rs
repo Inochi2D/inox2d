@@ -33,8 +33,8 @@ pub async fn run(puppet: &'static mut Model<()>) {
     let (device, queue) = adapter
         .request_device(
             &wgpu::DeviceDescriptor {
-                features: wgpu::Features::empty(),
-                limits: wgpu::Limits::downlevel_webgl2_defaults(),
+                features: wgpu::Features::ADDRESS_MODE_CLAMP_TO_BORDER,
+                limits: wgpu::Limits::default(),
                 label: None,
             },
             None,
@@ -87,7 +87,7 @@ pub async fn run(puppet: &'static mut Model<()>) {
             let view = output
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
-            renderer.render(&queue, &device, puppet, view);
+            renderer.render(&queue, &device, puppet, &view);
             output.present();
         }
         Event::MainEventsCleared => {

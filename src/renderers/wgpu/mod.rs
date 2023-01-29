@@ -10,9 +10,10 @@ use crate::nodes::node_tree::InoxNodeTree;
 use crate::{model::Model, nodes::node_data::MaskMode};
 
 use encase::ShaderType;
-use glam::{Mat4, Vec2, Vec3};
+use glam::{Vec2, Vec3};
 use wgpu::{util::DeviceExt, *};
 
+use self::node_bundle::PartData;
 use self::pipeline::CameraData;
 use self::{
     buffers::buffers_for_puppet,
@@ -43,6 +44,9 @@ impl Renderer {
             min_filter: FilterMode::Linear,
             mag_filter: FilterMode::Linear,
             mipmap_filter: FilterMode::Linear,
+            address_mode_u: AddressMode::ClampToBorder,
+            address_mode_v: AddressMode::ClampToBorder,
+            border_color: Some(SamplerBorderColor::TransparentBlack),
             ..SamplerDescriptor::default()
         });
 
@@ -109,14 +113,88 @@ impl Renderer {
         }
     }
 
-    // It is a logical error to pass in a different puppet than the one passed to create.
-    pub fn render(
-        &mut self,
-        queue: &Queue,
-        device: &Device,
-        puppet: &mut Model,
-        view: TextureView,
+    fn render_part(
+        &self,
+        puppet: &Model,
+
+        view: &TextureView,
+        mask_view: &TextureView,
+        uniform_group: &BindGroup,
+
+        op: LoadOp<Color>,
+        encoder: &mut CommandEncoder,
+
+        PartData(bundle, masks): &PartData,
     ) {
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Part Render Pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: op,
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &mask_view,
+                depth_ops: None,
+                stencil_ops: Some(Operations {
+                    load: wgpu::LoadOp::Clear(if masks.is_empty() { 0 } else { 1 }),
+                    store: true,
+                }),
+            }),
+        });
+
+        render_pass.set_vertex_buffer(0, self.buffers.vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, self.buffers.uv_buffer.slice(..));
+        render_pass.set_vertex_buffer(2, self.buffers.deform_buffer.slice(..));
+        render_pass.set_index_buffer(
+            self.buffers.index_buffer.slice(..),
+            wgpu::IndexFormat::Uint16,
+        );
+        render_pass.set_pipeline(&self.setup.mask_pipeline);
+
+        for mask in masks {
+            let node = puppet.puppet.nodes.get_node(mask.source).unwrap();
+            let part = if let InoxData::Part(part) = &node.data {
+                part
+            } else {
+                todo!()
+            };
+
+            render_pass.set_bind_group(1, &self.model_texture_binds[part.tex_albedo], &[]);
+            render_pass.set_bind_group(2, &self.model_texture_binds[part.tex_emissive], &[]);
+            render_pass.set_bind_group(3, &self.model_texture_binds[part.tex_bumpmap], &[]);
+
+            render_pass.set_bind_group(
+                0,
+                &uniform_group,
+                &[(self.setup.uniform_alignment_needed
+                    * self.buffers.uniform_index_map[&mask.source]) as u32],
+            );
+
+            match mask.mode {
+                MaskMode::Mask => {
+                    render_pass.set_stencil_reference(0);
+                }
+                MaskMode::Dodge => {
+                    render_pass.set_stencil_reference(1);
+                }
+            }
+
+            let range = self.buffers.part_index_map[&mask.source].clone();
+            render_pass.draw_indexed(range, 0, 0..1);
+        }
+
+        render_pass.set_stencil_reference(0);
+        render_pass.execute_bundles(std::iter::once(bundle));
+
+        drop(render_pass);
+    }
+
+    // It is a logical error to pass in a different puppet than the one passed to create.
+    pub fn render(&mut self, queue: &Queue, device: &Device, puppet: &Model, view: &TextureView) {
         let uniform_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("inox2d uniform bind group"),
             layout: &self.setup.uniform_layout,
@@ -176,6 +254,9 @@ impl Renderer {
             min_filter: FilterMode::Linear,
             mag_filter: FilterMode::Linear,
             mipmap_filter: FilterMode::Linear,
+            address_mode_u: AddressMode::ClampToBorder,
+            address_mode_v: AddressMode::ClampToBorder,
+            border_color: Some(SamplerBorderColor::TransparentBlack),
             ..SamplerDescriptor::default()
         });
 
@@ -240,9 +321,32 @@ impl Renderer {
             };
 
             match bundle {
-                NodeBundle::Part(render_bundle, drawable) => {
+                NodeBundle::Part(data) => {
+                    self.render_part(
+                        puppet,
+                        &view,
+                        &mask_view,
+                        &uniform_group,
+                        op,
+                        &mut encoder,
+                        data,
+                    );
+                }
+                NodeBundle::Composite(parts, uuid) => {
+                    for data in parts {
+                        self.render_part(
+                            puppet,
+                            &composite_view,
+                            &mask_view,
+                            &uniform_group,
+                            op,
+                            &mut encoder,
+                            data,
+                        );
+                    }
+
                     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                        label: Some("Part Render Pass"),
+                        label: Some("Render Pass"),
                         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                             view: &view,
                             resolve_target: None,
@@ -254,154 +358,38 @@ impl Renderer {
                         depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                             view: &mask_view,
                             depth_ops: None,
-                            stencil_ops: Some(Operations {
-                                load: wgpu::LoadOp::Clear(if drawable.masks.is_empty() {
-                                    0
-                                } else {
-                                    1
-                                }),
-                                store: true,
-                            }),
+                            stencil_ops: None,
                         }),
                     });
 
                     render_pass.set_vertex_buffer(0, self.buffers.vertex_buffer.slice(..));
                     render_pass.set_vertex_buffer(1, self.buffers.uv_buffer.slice(..));
                     render_pass.set_vertex_buffer(2, self.buffers.deform_buffer.slice(..));
-                    render_pass.set_index_buffer(
-                        self.buffers.index_buffer.slice(..),
-                        wgpu::IndexFormat::Uint16,
+
+                    let child = puppet.puppet.nodes.get_node(*uuid).unwrap();
+                    let child = if let InoxData::Composite(comp) = &child.data {
+                        comp
+                    } else {
+                        todo!()
+                    };
+
+                    render_pass.set_pipeline(
+                        &self.setup.composite_pipelines[&child.draw_state.blend_mode],
                     );
-                    render_pass.set_pipeline(&self.setup.mask_pipeline);
 
-                    for mask in &drawable.masks {
-                        let node = puppet.puppet.nodes.get_node(mask.source).unwrap();
-                        let part = if let InoxData::Part(part) = &node.data {
-                            part
-                        } else {
-                            todo!()
-                        };
-
-                        render_pass.set_bind_group(
-                            1,
-                            &self.model_texture_binds[part.tex_albedo],
-                            &[],
-                        );
-                        render_pass.set_bind_group(
-                            2,
-                            &self.model_texture_binds[part.tex_emissive],
-                            &[],
-                        );
-                        render_pass.set_bind_group(
-                            3,
-                            &self.model_texture_binds[part.tex_bumpmap],
-                            &[],
-                        );
-
-                        render_pass.set_bind_group(
-                            0,
-                            &uniform_group,
-                            &[(self.setup.uniform_alignment_needed
-                                * self.buffers.uniform_index_map[&mask.source])
-                                as u32],
-                        );
-
-                        match mask.mode {
-                            MaskMode::Mask => {
-                                render_pass.set_stencil_reference(0);
-                            }
-                            MaskMode::Dodge => {
-                                render_pass.set_stencil_reference(1);
-                            }
-                        }
-
-                        let range = self.buffers.part_index_map[&mask.source].clone();
-                        render_pass.draw_indexed(range, 0, 0..1);
-                    }
-
-                    render_pass.set_stencil_reference(0);
-                    render_pass.execute_bundles(std::iter::once(render_bundle));
+                    render_pass.set_bind_group(
+                        0,
+                        &uniform_group,
+                        &[(self.setup.uniform_alignment_needed
+                            * self.buffers.uniform_index_map[&uuid])
+                            as u32],
+                    );
+                    render_pass.set_bind_group(1, &composite_bind, &[]);
+                    render_pass.set_bind_group(2, &composite_bind, &[]);
+                    render_pass.set_bind_group(3, &composite_bind, &[]);
+                    render_pass.draw(0..6, 0..1);
 
                     drop(render_pass);
-                }
-                NodeBundle::Composite(render_bundle, uuid) => {
-                    let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                        label: Some("Composite Render Pass"),
-                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                            view: &composite_view,
-                            resolve_target: None,
-                            ops: wgpu::Operations {
-                                load: wgpu::LoadOp::Load,
-                                store: true,
-                            },
-                        })],
-                        depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                            view: &mask_view,
-                            depth_ops: None,
-                            stencil_ops: Some(Operations {
-                                load: wgpu::LoadOp::Clear(0),
-                                store: true,
-                            }),
-                        }),
-                    });
-
-                    render_pass.set_stencil_reference(0);
-                    render_pass.execute_bundles(std::iter::once(render_bundle));
-
-                    render_pass.insert_debug_marker("AAAAAAA");
-
-                    drop(render_pass);
-
-                    {
-                        let mut render_pass =
-                            encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                                label: Some("Render Pass"),
-                                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                                    view: &view,
-                                    resolve_target: None,
-                                    ops: wgpu::Operations {
-                                        load: op,
-                                        store: true,
-                                    },
-                                })],
-                                depth_stencil_attachment: Some(
-                                    wgpu::RenderPassDepthStencilAttachment {
-                                        view: &mask_view,
-                                        depth_ops: None,
-                                        stencil_ops: None,
-                                    },
-                                ),
-                            });
-
-                        render_pass.set_vertex_buffer(0, self.buffers.vertex_buffer.slice(..));
-                        render_pass.set_vertex_buffer(1, self.buffers.uv_buffer.slice(..));
-                        render_pass.set_vertex_buffer(2, self.buffers.deform_buffer.slice(..));
-
-                        let child = puppet.puppet.nodes.get_node(*uuid).unwrap();
-                        let child = if let InoxData::Composite(comp) = &child.data {
-                            comp
-                        } else {
-                            todo!()
-                        };
-
-                        render_pass.set_pipeline(
-                            &self.setup.composite_pipelines[&child.draw_state.blend_mode],
-                        );
-
-                        render_pass.set_bind_group(
-                            0,
-                            &uniform_group,
-                            &[(self.setup.uniform_alignment_needed
-                                * self.buffers.uniform_index_map[&uuid])
-                                as u32],
-                        );
-                        render_pass.set_bind_group(1, &composite_bind, &[]);
-                        render_pass.set_bind_group(2, &composite_bind, &[]);
-                        render_pass.set_bind_group(3, &composite_bind, &[]);
-                        render_pass.draw(0..6, 0..1);
-
-                        drop(render_pass);
-                    }
                 }
             }
         }
