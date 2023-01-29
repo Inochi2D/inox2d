@@ -4,7 +4,6 @@ pub mod shaders;
 pub mod texture;
 
 use std::cell::RefCell;
-use std::collections::BTreeMap;
 use std::ops::Deref;
 use std::{io, mem};
 
@@ -430,7 +429,8 @@ impl<T> OpenglRenderer<T> {
             unsafe {
                 // Enable and clear the stencil buffer so we can write our mask to it
                 gl.enable(glow::STENCIL_TEST);
-                gl.clear_stencil(!part.draw_state.has_masks() as i32);
+                // gl.clear_stencil(!part.draw_state.has_masks() as i32);
+                gl.clear_stencil(0);
                 gl.clear(glow::STENCIL_BUFFER_BIT);
             }
 
@@ -461,6 +461,9 @@ impl<T> OpenglRenderer<T> {
         if is_mask {
             let part_mask_shader = &self.part_mask_shader;
             self.bind_shader(part_mask_shader);
+
+            // vert uniforms
+            part_mask_shader.set_offset(gl, offset);
 
             // frag uniforms
             part_mask_shader.set_threshold(gl, part.draw_state.mask_threshold.clamp(0.0, 1.0));

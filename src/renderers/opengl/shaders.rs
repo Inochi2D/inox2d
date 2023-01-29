@@ -81,6 +81,7 @@ impl PartShader {
 pub struct PartMaskShader {
     program: glow::NativeProgram,
     u_mvp: Option<glow::NativeUniformLocation>,
+    u_offset: Option<glow::NativeUniformLocation>,
     u_threshold: Option<glow::NativeUniformLocation>,
 }
 
@@ -99,6 +100,7 @@ impl PartMaskShader {
         Ok(Self {
             program,
             u_mvp: unsafe { gl.get_uniform_location(program, "mvp") },
+            u_offset: unsafe { gl.get_uniform_location(program, "offset") },
             u_threshold: unsafe { gl.get_uniform_location(program, "threshold") },
         })
     }
@@ -113,6 +115,12 @@ impl PartMaskShader {
     #[inline]
     pub fn set_mvp(&self, gl: &glow::Context, mvp: Mat4) {
         unsafe { gl.uniform_matrix_4_f32_slice(self.u_mvp.as_ref(), false, mvp.as_ref()) };
+    }
+
+    /// Sets the `offset` uniform of the shader.
+    #[inline]
+    pub fn set_offset(&self, gl: &glow::Context, offset: Vec2) {
+        unsafe { gl.uniform_2_f32_slice(self.u_offset.as_ref(), offset.as_ref()) };
     }
 
     /// Sets the `threshold` uniform of the shader.
