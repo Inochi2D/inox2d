@@ -429,8 +429,7 @@ impl<T> OpenglRenderer<T> {
             unsafe {
                 // Enable and clear the stencil buffer so we can write our mask to it
                 gl.enable(glow::STENCIL_TEST);
-                // gl.clear_stencil(!part.draw_state.has_masks() as i32);
-                gl.clear_stencil(0);
+                gl.clear_stencil(!part.draw_state.has_masks() as i32);
                 gl.clear(glow::STENCIL_BUFFER_BIT);
             }
 
