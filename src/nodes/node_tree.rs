@@ -78,7 +78,6 @@ impl<T> InoxNodeTree<T> {
 
     fn sort_by_zsort(&self, node: &InoxNode<T>, skip_composites: bool) -> Vec<InoxNodeUuid> {
         let uuid_zsorts = self.rec_all_childen_from_node(node, 0.0, skip_composites);
-
         sort_uuids_by_zsort(uuid_zsorts)
     }
 
