@@ -71,6 +71,7 @@ impl Renderer {
                     format: wgpu::TextureFormat::Rgba8Unorm,
                     usage: wgpu::TextureUsages::TEXTURE_BINDING,
                     label: Some("texture"),
+                    view_formats: &[],
                 },
                 &image,
             );
@@ -253,10 +254,7 @@ impl Renderer {
         render_pass.set_bind_group(
             0,
             uniform_group,
-            &[
-                (self.setup.uniform_alignment_needed * self.buffers.uniform_index_map[uuid])
-                    as u32,
-            ],
+            &[(self.setup.uniform_alignment_needed * self.buffers.uniform_index_map[uuid]) as u32],
         );
         render_pass.set_bind_group(1, composite_bind, &[]);
         render_pass.set_bind_group(2, composite_bind, &[]);
@@ -303,6 +301,7 @@ impl Renderer {
             format: wgpu::TextureFormat::Bgra8Unorm,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
             label: Some("texture"),
+            view_formats: &[],
         });
 
         let composite_view = composite_texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -319,6 +318,7 @@ impl Renderer {
             format: wgpu::TextureFormat::Depth24PlusStencil8,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
             label: Some("texture"),
+            view_formats: &[],
         });
 
         let mask_view = mask_texture.create_view(&wgpu::TextureViewDescriptor::default());
