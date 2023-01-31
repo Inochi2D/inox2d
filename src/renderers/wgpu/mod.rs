@@ -129,7 +129,7 @@ impl Renderer {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Part Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &view,
+                view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: op,
@@ -137,10 +137,10 @@ impl Renderer {
                 },
             })],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &mask_view,
+                view: mask_view,
                 depth_ops: None,
                 stencil_ops: Some(Operations {
-                    load: wgpu::LoadOp::Clear(if masks.is_empty() { 0 } else { 1 }),
+                    load: wgpu::LoadOp::Clear(u32::from(!masks.is_empty())),
                     store: true,
                 }),
             }),
@@ -169,7 +169,7 @@ impl Renderer {
 
             render_pass.set_bind_group(
                 0,
-                &uniform_group,
+                uniform_group,
                 &[(self.setup.uniform_alignment_needed
                     * self.buffers.uniform_index_map[&mask.source]) as u32],
             );
@@ -324,7 +324,7 @@ impl Renderer {
                 NodeBundle::Part(data) => {
                     self.render_part(
                         puppet,
-                        &view,
+                        view,
                         &mask_view,
                         &uniform_group,
                         op,

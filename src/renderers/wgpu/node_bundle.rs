@@ -27,7 +27,7 @@ fn part_bundle_for_part(
     device: &Device,
     setup: &InoxPipeline,
     buffers: &InoxBuffers,
-    model_texture_binds: &Vec<BindGroup>,
+    model_texture_binds: &[BindGroup],
     uniform_group: &BindGroup,
 
     uuid: InoxNodeUuid,
@@ -68,14 +68,14 @@ fn part_bundle_for_part(
         label: Some(&format!("part bundle: {:?}", uuid)),
     });
 
-    return PartData(bundle, part.draw_state.masks.clone());
+    PartData(bundle, part.draw_state.masks.clone())
 }
 
 pub fn node_bundles_for_model(
     device: &Device,
     setup: &InoxPipeline,
     buffers: &InoxBuffers,
-    model_texture_binds: &Vec<BindGroup>,
+    model_texture_binds: &[BindGroup],
 
     puppet: &Puppet,
 ) -> Vec<NodeBundle> {
