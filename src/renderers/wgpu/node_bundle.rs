@@ -18,9 +18,12 @@ use super::{
 pub struct PartData(pub RenderBundle, pub Vec<Mask>);
 
 #[derive(Debug)]
+pub struct CompositeData(pub Vec<PartData>, pub InoxNodeUuid);
+
+#[derive(Debug)]
 pub enum NodeBundle {
     Part(PartData),
-    Composite(Vec<PartData>, InoxNodeUuid),
+    Composite(CompositeData),
 }
 
 fn part_bundle_for_part(
@@ -158,7 +161,7 @@ pub fn node_bundles_for_model(
                 }
             }
 
-            out.push(NodeBundle::Composite(bundles, uuid));
+            out.push(NodeBundle::Composite(CompositeData(bundles, uuid)));
         }
     }
 

@@ -13,7 +13,7 @@ use encase::ShaderType;
 use glam::{Vec2, Vec3};
 use wgpu::{util::DeviceExt, *};
 
-use self::node_bundle::PartData;
+use self::node_bundle::{CompositeData, PartData};
 use self::pipeline::CameraData;
 use self::{
     buffers::buffers_for_puppet,
@@ -193,7 +193,80 @@ impl Renderer {
         drop(render_pass);
     }
 
-    // It is a logical error to pass in a different puppet than the one passed to create.
+    fn render_composite(
+        &self,
+        puppet: &Model,
+
+        view: &TextureView,
+        mask_view: &TextureView,
+        uniform_group: &BindGroup,
+
+        op: LoadOp<Color>,
+        encoder: &mut CommandEncoder,
+
+        composite_view: &TextureView,
+        composite_bind: &BindGroup,
+        CompositeData(parts, uuid): &CompositeData,
+    ) {
+        for data in parts {
+            self.render_part(
+                puppet,
+                composite_view,
+                mask_view,
+                uniform_group,
+                op,
+                encoder,
+                data,
+            );
+        }
+
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Render Pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: op,
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: mask_view,
+                depth_ops: None,
+                stencil_ops: None,
+            }),
+        });
+
+        render_pass.set_vertex_buffer(0, self.buffers.vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, self.buffers.uv_buffer.slice(..));
+        render_pass.set_vertex_buffer(2, self.buffers.deform_buffer.slice(..));
+
+        let child = puppet.puppet.nodes.get_node(*uuid).unwrap();
+        let child = if let InoxData::Composite(comp) = &child.data {
+            comp
+        } else {
+            todo!()
+        };
+
+        render_pass.set_pipeline(&self.setup.composite_pipelines[&child.draw_state.blend_mode]);
+
+        render_pass.set_bind_group(
+            0,
+            uniform_group,
+            &[
+                (self.setup.uniform_alignment_needed * self.buffers.uniform_index_map[uuid])
+                    as u32,
+            ],
+        );
+        render_pass.set_bind_group(1, composite_bind, &[]);
+        render_pass.set_bind_group(2, composite_bind, &[]);
+        render_pass.set_bind_group(3, composite_bind, &[]);
+        render_pass.draw(0..6, 0..1);
+
+        drop(render_pass);
+    }
+
+    /// It is a logical error to pass in a different puppet than the one passed to create.
     pub fn render(&mut self, queue: &Queue, device: &Device, puppet: &Model, view: &TextureView) {
         let uniform_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("inox2d uniform bind group"),
@@ -332,64 +405,18 @@ impl Renderer {
                         data,
                     );
                 }
-                NodeBundle::Composite(parts, uuid) => {
-                    for data in parts {
-                        self.render_part(
-                            puppet,
-                            &composite_view,
-                            &mask_view,
-                            &uniform_group,
-                            op,
-                            &mut encoder,
-                            data,
-                        );
-                    }
-
-                    let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                        label: Some("Render Pass"),
-                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                            view: &view,
-                            resolve_target: None,
-                            ops: wgpu::Operations {
-                                load: op,
-                                store: true,
-                            },
-                        })],
-                        depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                            view: &mask_view,
-                            depth_ops: None,
-                            stencil_ops: None,
-                        }),
-                    });
-
-                    render_pass.set_vertex_buffer(0, self.buffers.vertex_buffer.slice(..));
-                    render_pass.set_vertex_buffer(1, self.buffers.uv_buffer.slice(..));
-                    render_pass.set_vertex_buffer(2, self.buffers.deform_buffer.slice(..));
-
-                    let child = puppet.puppet.nodes.get_node(*uuid).unwrap();
-                    let child = if let InoxData::Composite(comp) = &child.data {
-                        comp
-                    } else {
-                        todo!()
-                    };
-
-                    render_pass.set_pipeline(
-                        &self.setup.composite_pipelines[&child.draw_state.blend_mode],
-                    );
-
-                    render_pass.set_bind_group(
-                        0,
+                NodeBundle::Composite(data) => {
+                    self.render_composite(
+                        puppet,
+                        view,
+                        &mask_view,
                         &uniform_group,
-                        &[(self.setup.uniform_alignment_needed
-                            * self.buffers.uniform_index_map[&uuid])
-                            as u32],
+                        op,
+                        &mut encoder,
+                        &composite_view,
+                        &composite_bind,
+                        data,
                     );
-                    render_pass.set_bind_group(1, &composite_bind, &[]);
-                    render_pass.set_bind_group(2, &composite_bind, &[]);
-                    render_pass.set_bind_group(3, &composite_bind, &[]);
-                    render_pass.draw(0..6, 0..1);
-
-                    drop(render_pass);
                 }
             }
         }
