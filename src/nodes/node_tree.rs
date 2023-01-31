@@ -38,7 +38,7 @@ impl<T> InoxNodeTree<T> {
         Some(self.arena.get(node.parent()?)?.get())
     }
 
-    pub fn get_children_uuids(&self, uuid: InoxNodeUuid) -> Option<Vec<InoxNodeUuid>> {
+    pub fn children_uuids(&self, uuid: InoxNodeUuid) -> Option<Vec<InoxNodeUuid>> {
         let node = self.get_internal_node(uuid)?;
         let node_id = self.arena.get_node_id(node)?;
         Some(
@@ -50,20 +50,21 @@ impl<T> InoxNodeTree<T> {
         )
     }
 
-    pub fn ancestors(&self, uuid: InoxNodeUuid) -> indextree::Ancestors<InoxNode<T>> {
-        self.uuids[&uuid].ancestors(&self.arena)
-    }
-
-    fn rec_zsorts_from_root(&self, node: &InoxNode<T>, zsort: f32) -> Vec<(InoxNodeUuid, f32)> {
+    fn rec_all_childen_from_node(
+        &self,
+        node: &InoxNode<T>,
+        zsort: f32,
+        skip_composites: bool,
+    ) -> Vec<(InoxNodeUuid, f32)> {
         let node_state = node;
         let zsort = zsort + node_state.zsort;
         let mut vec = vec![(node_state.uuid, zsort)];
 
         // Skip composite children because they're a special case
-        if !node.data.is_composite() {
-            for child_uuid in self.get_children_uuids(node.uuid).unwrap_or_default() {
+        if !skip_composites || !node.data.is_composite() {
+            for child_uuid in self.children_uuids(node.uuid).unwrap_or_default() {
                 if let Some(child) = self.get_node(child_uuid) {
-                    vec.extend(self.rec_zsorts_from_root(child, zsort));
+                    vec.extend(self.rec_all_childen_from_node(child, zsort, skip_composites));
                 }
             }
         }
@@ -71,19 +72,27 @@ impl<T> InoxNodeTree<T> {
         vec
     }
 
-    fn sort_uuids_by_zsort(&self, mut uuid_zsorts: Vec<(InoxNodeUuid, f32)>) -> Vec<InoxNodeUuid> {
-        uuid_zsorts.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap().reverse());
-        uuid_zsorts.into_iter().map(|(uuid, _zsort)| uuid).collect()
+    pub fn ancestors(&self, uuid: InoxNodeUuid) -> indextree::Ancestors<InoxNode<T>> {
+        self.uuids[&uuid].ancestors(&self.arena)
     }
 
-    pub fn sort_by_zsort(&self, node: &InoxNode<T>) -> Vec<InoxNodeUuid> {
-        let uuid_zsorts = self.rec_zsorts_from_root(node, 0.);
-        self.sort_uuids_by_zsort(uuid_zsorts)
+    fn sort_by_zsort(&self, node: &InoxNode<T>, skip_composites: bool) -> Vec<InoxNodeUuid> {
+        let uuid_zsorts = self.rec_all_childen_from_node(node, 0.0, skip_composites);
+        sort_uuids_by_zsort(uuid_zsorts)
     }
 
-    pub fn zsorted(&self) -> Vec<InoxNodeUuid> {
+    pub fn zsorted_root(&self) -> Vec<InoxNodeUuid> {
         let root = self.arena.get(self.root).unwrap().get();
-        self.sort_by_zsort(root)
+        self.sort_by_zsort(root, true)
+    }
+
+    pub fn zsorted_child(&self, id: InoxNodeUuid) -> Vec<InoxNodeUuid> {
+        let node = self.arena.get(self.uuids[&id]).unwrap().get();
+        self.sort_by_zsort(node, false)
+    }
+
+    pub fn all_node_ids(&self) -> Vec<InoxNodeUuid> {
+        self.arena.iter().map(|n| n.get().uuid).collect()
     }
 }
 
@@ -136,4 +145,9 @@ impl<T> Display for InoxNodeTree<T> {
 
         Ok(())
     }
+}
+
+fn sort_uuids_by_zsort(mut uuid_zsorts: Vec<(InoxNodeUuid, f32)>) -> Vec<InoxNodeUuid> {
+    uuid_zsorts.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap().reverse());
+    uuid_zsorts.into_iter().map(|(uuid, _zsort)| uuid).collect()
 }

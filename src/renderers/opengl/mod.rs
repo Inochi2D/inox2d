@@ -179,7 +179,7 @@ impl<T> OpenglRenderer<T> {
             0, 2, 3,
         ]);
 
-        let sorted_uuids = nodes.zsorted();
+        let sorted_uuids = nodes.zsorted_root();
         let mut nodes_draw_info = Vec::new();
         let mut index_offset = 6;
         let mut vert_offset = 4;
@@ -714,7 +714,7 @@ impl<T> OpenglRenderer<T> {
     fn draw_composite(&self, node: &InoxNode<T>, composite: &Composite) {
         let mut children_uuids = self
             .nodes
-            .get_children_uuids(node.uuid)
+            .children_uuids(node.uuid)
             .unwrap_or_default()
             .into_iter()
             .map(|uuid| {
