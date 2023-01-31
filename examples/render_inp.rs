@@ -117,6 +117,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         NonZeroU32::new(physical_size.width).unwrap(),
                         NonZeroU32::new(physical_size.height).unwrap(),
                     );
+                    window.request_redraw();
                 }
                 WindowEvent::CursorMoved { position, .. } => {
                     mouse_pos = vec2(position.x as f32, position.y as f32);

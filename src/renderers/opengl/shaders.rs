@@ -41,12 +41,6 @@ impl PartShader {
         })
     }
 
-    /// Binds the shader to OpenGL.
-    #[inline]
-    pub fn bind(&self, gl: &glow::Context) {
-        unsafe { gl.use_program(Some(self.program)) }
-    }
-
     /// Sets the `mvp` uniform of the shader.
     #[inline]
     pub fn set_mvp(&self, gl: &glow::Context, mvp: Mat4) {
@@ -105,12 +99,6 @@ impl PartMaskShader {
         })
     }
 
-    /// Binds the shader to OpenGL.
-    #[inline]
-    pub fn bind(&self, gl: &glow::Context) {
-        unsafe { gl.use_program(Some(self.program)) }
-    }
-
     /// Sets the `mvp` uniform of the shader.
     #[inline]
     pub fn set_mvp(&self, gl: &glow::Context, mvp: Mat4) {
@@ -127,5 +115,109 @@ impl PartMaskShader {
     #[inline]
     pub fn set_threshold(&self, gl: &glow::Context, threshold: f32) {
         unsafe { gl.uniform_1_f32(self.u_threshold.as_ref(), threshold) };
+    }
+}
+
+const COMP_VERT: &str = include_str!("shaders/basic/composite.vert");
+const COMP_FRAG: &str = include_str!("shaders/basic/composite.frag");
+const COMP_MASK_FRAG: &str = include_str!("shaders/basic/composite-mask.frag");
+
+pub struct CompositeShader {
+    program: glow::NativeProgram,
+    u_mvp: Option<glow::NativeUniformLocation>,
+    u_opacity: Option<glow::NativeUniformLocation>,
+    u_mult_color: Option<glow::NativeUniformLocation>,
+    u_screen_color: Option<glow::NativeUniformLocation>,
+}
+
+impl Deref for CompositeShader {
+    type Target = glow::NativeProgram;
+
+    fn deref(&self) -> &Self::Target {
+        &self.program
+    }
+}
+
+impl CompositeShader {
+    pub fn new(gl: &glow::Context) -> Result<Self, ShaderCompileError> {
+        let program = shader::compile(gl, COMP_VERT, COMP_FRAG)?;
+
+        Ok(Self {
+            program,
+            u_mvp: unsafe { gl.get_uniform_location(program, "mvp") },
+            u_opacity: unsafe { gl.get_uniform_location(program, "opacity") },
+            u_mult_color: unsafe { gl.get_uniform_location(program, "multColor") },
+            u_screen_color: unsafe { gl.get_uniform_location(program, "screenColor") },
+        })
+    }
+
+    /// Sets the `mvp` uniform of the shader.
+    #[inline]
+    pub fn set_mvp(&self, gl: &glow::Context, mvp: Mat4) {
+        unsafe { gl.uniform_matrix_4_f32_slice(self.u_mvp.as_ref(), false, mvp.as_ref()) };
+    }
+
+    /// Sets the `opacity` uniform of the shader.
+    #[inline]
+    pub fn set_opacity(&self, gl: &glow::Context, opacity: f32) {
+        unsafe { gl.uniform_1_f32(self.u_opacity.as_ref(), opacity) };
+    }
+
+    /// Sets the `multColor` uniform of the shader.
+    #[inline]
+    pub fn set_mult_color(&self, gl: &glow::Context, mult_color: Vec3) {
+        unsafe { gl.uniform_3_f32_slice(self.u_mult_color.as_ref(), mult_color.as_ref()) };
+    }
+
+    /// Sets the `screenColor` uniform of the shader.
+    #[inline]
+    pub fn set_screen_color(&self, gl: &glow::Context, screen_color: Vec3) {
+        unsafe { gl.uniform_3_f32_slice(self.u_screen_color.as_ref(), screen_color.as_ref()) };
+    }
+}
+
+pub struct CompositeMaskShader {
+    program: glow::NativeProgram,
+    u_mvp: Option<glow::NativeUniformLocation>,
+    u_threshold: Option<glow::NativeUniformLocation>,
+    u_opacity: Option<glow::NativeUniformLocation>,
+}
+
+impl Deref for CompositeMaskShader {
+    type Target = glow::NativeProgram;
+
+    fn deref(&self) -> &Self::Target {
+        &self.program
+    }
+}
+
+impl CompositeMaskShader {
+    pub fn new(gl: &glow::Context) -> Result<Self, ShaderCompileError> {
+        let program = shader::compile(gl, COMP_VERT, COMP_MASK_FRAG)?;
+
+        Ok(Self {
+            program,
+            u_mvp: unsafe { gl.get_uniform_location(program, "mvp") },
+            u_threshold: unsafe { gl.get_uniform_location(program, "threshold") },
+            u_opacity: unsafe { gl.get_uniform_location(program, "opacity") },
+        })
+    }
+
+    /// Sets the `mvp` uniform of the shader.
+    #[inline]
+    pub fn set_mvp(&self, gl: &glow::Context, mvp: Mat4) {
+        unsafe { gl.uniform_matrix_4_f32_slice(self.u_mvp.as_ref(), false, mvp.as_ref()) };
+    }
+
+    /// Sets the `threshold` uniform of the shader.
+    #[inline]
+    pub fn set_threshold(&self, gl: &glow::Context, threshold: f32) {
+        unsafe { gl.uniform_1_f32(self.u_threshold.as_ref(), threshold) };
+    }
+
+    /// Sets the `opacity` uniform of the shader.
+    #[inline]
+    pub fn set_opacity(&self, gl: &glow::Context, opacity: f32) {
+        unsafe { gl.uniform_1_f32(self.u_opacity.as_ref(), opacity) };
     }
 }

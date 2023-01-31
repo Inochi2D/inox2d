@@ -3,11 +3,11 @@ pub mod shader;
 pub mod shaders;
 pub mod texture;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::ops::Deref;
 use std::{io, mem};
 
-use glam::{uvec2, UVec2, Vec2};
+use glam::{uvec2, vec2, UVec2, Vec2, Vec3};
 use glow::HasContext;
 use image::ImageFormat;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -16,13 +16,13 @@ use tracing::error;
 use crate::math::camera::Camera;
 use crate::model::ModelTexture;
 use crate::nodes::node::{InoxNode, InoxNodeUuid};
-use crate::nodes::node_data::{BlendMode, InoxData, Mask, MaskMode, Part};
+use crate::nodes::node_data::{BlendMode, Composite, InoxData, Mask, MaskMode, Part};
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::texture::tga::read_tga;
 
 use self::gl_buffer::GlBuffer;
 use self::shader::ShaderCompileError;
-use self::shaders::{PartMaskShader, PartShader};
+use self::shaders::{CompositeMaskShader, CompositeShader, PartMaskShader, PartShader};
 use self::texture::{Texture, TextureError};
 
 #[derive(Debug, thiserror::Error)]
@@ -35,6 +35,7 @@ pub enum OpenglRendererError {
 #[derive(Default, Clone)]
 pub struct GlCache {
     pub camera: Option<Camera>,
+    pub viewport: Option<UVec2>,
     pub blend_mode: Option<BlendMode>,
     pub program: Option<glow::NativeProgram>,
     pub albedo: Option<usize>,
@@ -61,6 +62,14 @@ impl GlCache {
             changed
         } else {
             self.camera = Some(camera.clone());
+            true
+        }
+    }
+
+    pub fn update_viewport(&mut self, viewport: UVec2) -> bool {
+        if let Some(prev_viewport) = self.viewport.replace(viewport) {
+            prev_viewport != viewport
+        } else {
             true
         }
     }
@@ -95,12 +104,16 @@ enum NodeDrawInfo {
         uuid: InoxNodeUuid,
         index_offset: u16,
     },
+    Composite {
+        uuid: InoxNodeUuid,
+    },
 }
 
 impl NodeDrawInfo {
     fn uuid(&self) -> InoxNodeUuid {
         match self {
             NodeDrawInfo::Part { uuid, .. } => *uuid,
+            NodeDrawInfo::Composite { uuid, .. } => *uuid,
         }
     }
 }
@@ -110,6 +123,7 @@ pub struct OpenglRenderer<T = ()> {
     pub camera: Camera,
     pub viewport: UVec2,
     cache: RefCell<GlCache>,
+    is_compositing: Cell<bool>,
 
     vao: glow::NativeVertexArray,
 
@@ -118,8 +132,16 @@ pub struct OpenglRenderer<T = ()> {
     deforms: GlBuffer<Vec2>,
     indices: GlBuffer<u16>,
 
+    composite_framebuffer: glow::NativeFramebuffer,
+    cf_albedo: glow::NativeTexture,
+    cf_emissive: glow::NativeTexture,
+    cf_bump: glow::NativeTexture,
+    cf_stencil: glow::NativeTexture,
+
     part_shader: PartShader,
     part_mask_shader: PartMaskShader,
+    composite_shader: CompositeShader,
+    composite_mask_shader: CompositeMaskShader,
 
     textures: Vec<Texture>,
 
@@ -133,28 +155,52 @@ impl<T> OpenglRenderer<T> {
         viewport: UVec2,
         nodes: InoxNodeTree<T>,
     ) -> Result<Self, OpenglRendererError> {
-        unsafe { gl.viewport(0, 0, viewport.x as i32, viewport.y as i32) };
+        // Vertices and UVs are initialized with data for composite rendering
 
-        let mut verts = GlBuffer::new();
-        let mut uvs = GlBuffer::new();
-        let mut indices = GlBuffer::new();
+        #[rustfmt::skip]
+        let mut verts = GlBuffer::from(vec![
+            vec2(-1.0, -1.0),
+            vec2(-1.0,  1.0),
+            vec2( 1.0, -1.0),
+            vec2( 1.0,  1.0),
+        ]);
+
+        #[rustfmt::skip]
+        let mut uvs = GlBuffer::from(vec![
+            vec2(0.0, 0.0),
+            vec2(0.0, 1.0),
+            vec2(1.0, 0.0),
+            vec2(1.0, 1.0),
+        ]);
+
+        #[rustfmt::skip]
+        let mut indices = GlBuffer::from(vec![
+            0, 1, 2,
+            0, 2, 3,
+        ]);
 
         let sorted_uuids = nodes.zsorted();
         let mut nodes_draw_info = Vec::new();
-        let mut index_offset = 0;
-        let mut vert_offset = 0;
+        let mut index_offset = 6;
+        let mut vert_offset = 4;
         for &uuid in &sorted_uuids {
             let node = nodes.get_node(uuid).unwrap();
 
-            if let InoxData::Part(ref part) = node.data {
-                let mesh = &part.mesh;
-                verts.extend_from_slice(&mesh.vertices);
-                uvs.extend_from_slice(&mesh.uvs);
-                indices.extend(mesh.indices.iter().map(|index| index + vert_offset));
+            match node.data {
+                InoxData::Part(ref part) => {
+                    let mesh = &part.mesh;
+                    verts.extend_from_slice(&mesh.vertices);
+                    uvs.extend_from_slice(&mesh.uvs);
+                    indices.extend(mesh.indices.iter().map(|index| index + vert_offset));
 
-                nodes_draw_info.push(NodeDrawInfo::Part { uuid, index_offset });
-                index_offset += mesh.indices.len() as u16;
-                vert_offset += mesh.vertices.len() as u16;
+                    nodes_draw_info.push(NodeDrawInfo::Part { uuid, index_offset });
+                    index_offset += mesh.indices.len() as u16;
+                    vert_offset += mesh.vertices.len() as u16;
+                }
+                InoxData::Composite(_) => {
+                    nodes_draw_info.push(NodeDrawInfo::Composite { uuid });
+                }
+                _ => (),
             }
         }
 
@@ -184,15 +230,35 @@ impl<T> OpenglRenderer<T> {
             indices.upload(&gl, glow::ELEMENT_ARRAY_BUFFER, glow::STATIC_DRAW);
         }
 
+        // Initialize framebuffers
+        let composite_framebuffer;
+        let cf_albedo;
+        let cf_emissive;
+        let cf_bump;
+        let cf_stencil;
+        unsafe {
+            cf_albedo = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
+            cf_emissive = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
+            cf_bump = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
+            cf_stencil = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
+
+            composite_framebuffer = gl
+                .create_framebuffer()
+                .map_err(OpenglRendererError::Opengl)?;
+        }
+
         // Shaders
         let part_shader = PartShader::new(&gl)?;
         let part_mask_shader = PartMaskShader::new(&gl)?;
+        let composite_shader = CompositeShader::new(&gl)?;
+        let composite_mask_shader = CompositeMaskShader::new(&gl)?;
 
-        Ok(Self {
+        let mut renderer = Self {
             gl,
             camera: Camera::default(),
             viewport,
             cache: RefCell::new(GlCache::default()),
+            is_compositing: Cell::new(false),
 
             vao,
 
@@ -201,14 +267,27 @@ impl<T> OpenglRenderer<T> {
             deforms,
             indices,
 
+            composite_framebuffer,
+            cf_albedo,
+            cf_emissive,
+            cf_bump,
+            cf_stencil,
+
             part_shader,
             part_mask_shader,
+            composite_shader,
+            composite_mask_shader,
 
             textures: Vec::new(),
 
             nodes,
             nodes_draw_info,
-        })
+        };
+
+        renderer.resize(viewport.x, viewport.y);
+        unsafe { renderer.attach_framebuffer_textures() };
+
+        Ok(renderer)
     }
 
     pub fn upload_model_textures(
@@ -258,9 +337,35 @@ impl<T> OpenglRenderer<T> {
         Ok(())
     }
 
-    pub fn resize(&mut self, x: u32, y: u32) {
-        self.viewport = uvec2(x, y);
-        unsafe { self.gl.viewport(0, 0, x as i32, y as i32) };
+    pub fn resize(&mut self, w: u32, h: u32) {
+        self.viewport = uvec2(w, h);
+
+        let gl = &self.gl;
+        unsafe {
+            gl.viewport(0, 0, w as i32, h as i32);
+
+            // Reupload composite framebuffer textures
+            texture::upload_empty(gl, self.cf_albedo, w, h, glow::UNSIGNED_BYTE);
+            texture::upload_empty(gl, self.cf_emissive, w, h, glow::FLOAT);
+            texture::upload_empty(gl, self.cf_bump, w, h, glow::UNSIGNED_BYTE);
+
+            gl.bind_texture(glow::TEXTURE_2D, Some(self.cf_stencil));
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::DEPTH24_STENCIL8 as i32,
+                w as i32,
+                h as i32,
+                0,
+                glow::DEPTH_STENCIL,
+                glow::UNSIGNED_INT_24_8,
+                None,
+            );
+
+            self.attach_framebuffer_textures();
+        }
+
+        self.update_camera();
     }
 
     pub fn clear(&self) {
@@ -300,8 +405,11 @@ impl<T> OpenglRenderer<T> {
 
     /// Updates the camera in the GL cache and returns whether it changed.
     fn update_camera(&self) -> bool {
-        if !self.cache.borrow_mut().update_camera(&self.camera) {
-            return false;
+        {
+            let mut cache = self.cache.borrow_mut();
+            if !cache.update_camera(&self.camera) && !cache.update_viewport(self.viewport) {
+                return false;
+            }
         }
 
         let matrix = self.camera.matrix(self.viewport.as_vec2());
@@ -311,6 +419,12 @@ impl<T> OpenglRenderer<T> {
 
         self.bind_shader(&self.part_shader);
         self.part_shader.set_mvp(&self.gl, matrix);
+
+        self.bind_shader(&self.composite_shader);
+        self.composite_shader.set_mvp(&self.gl, matrix);
+
+        self.bind_shader(&self.composite_mask_shader);
+        self.composite_mask_shader.set_mvp(&self.gl, matrix);
 
         true
     }
@@ -385,10 +499,61 @@ impl<T> OpenglRenderer<T> {
                     self.draw_part(node, part, *index_offset, is_mask);
                 }
             }
+            NodeDrawInfo::Composite { uuid } => {
+                let node = self.nodes.get_node(*uuid).unwrap();
+                if let InoxData::Composite(ref composite) = node.data {
+                    self.draw_composite(node, composite);
+                }
+            }
         }
     }
 
-    fn draw_mask(&self, mask: &Mask) {
+    fn find_draw_info(&self, uuid: InoxNodeUuid) -> Option<&NodeDrawInfo> {
+        // TODO: this feels a bit dumb to have to iterate... Surely there's a better way
+        self.nodes_draw_info.iter().find(|ndi| ndi.uuid() == uuid)
+    }
+
+    unsafe fn attach_framebuffer_textures(&self) {
+        let gl = &self.gl;
+        gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.composite_framebuffer));
+
+        gl.framebuffer_texture_2d(
+            glow::FRAMEBUFFER,
+            glow::COLOR_ATTACHMENT0,
+            glow::TEXTURE_2D,
+            Some(self.cf_albedo),
+            0,
+        );
+        gl.framebuffer_texture_2d(
+            glow::FRAMEBUFFER,
+            glow::COLOR_ATTACHMENT1,
+            glow::TEXTURE_2D,
+            Some(self.cf_emissive),
+            0,
+        );
+        gl.framebuffer_texture_2d(
+            glow::FRAMEBUFFER,
+            glow::COLOR_ATTACHMENT2,
+            glow::TEXTURE_2D,
+            Some(self.cf_bump),
+            0,
+        );
+        gl.framebuffer_texture_2d(
+            glow::FRAMEBUFFER,
+            glow::DEPTH_STENCIL_ATTACHMENT,
+            glow::TEXTURE_2D,
+            Some(self.cf_stencil),
+            0,
+        );
+
+        gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+    }
+
+    ////////////////////////
+    //// Part rendering ////
+    ////////////////////////
+
+    fn draw_part_mask(&self, mask: &Mask) {
         let gl = &self.gl;
 
         // begin draw mask
@@ -401,12 +566,8 @@ impl<T> OpenglRenderer<T> {
         }
 
         // draw mask
-        // TODO: put masks in part's NodeDrawInfo as a vec of NodeDrawInfos
-        let ndi = self
-            .nodes_draw_info
-            .iter()
-            .find(|ndi| ndi.uuid() == mask.source)
-            .unwrap();
+        // TODO: put masks in part's NodeDrawInfo as a vec of NodeDrawInfos?
+        let ndi = self.find_draw_info(mask.source).unwrap();
 
         self.draw_node(ndi, true);
 
@@ -434,7 +595,7 @@ impl<T> OpenglRenderer<T> {
             }
 
             for mask in &part.draw_state.masks {
-                self.draw_mask(mask);
+                self.draw_part_mask(mask);
             }
 
             self.pop_debug_group();
@@ -496,6 +657,120 @@ impl<T> OpenglRenderer<T> {
                 gl.stencil_func(glow::ALWAYS, 1, 0xff);
                 gl.disable(glow::STENCIL_TEST);
             }
+        }
+
+        self.pop_debug_group();
+    }
+
+    /////////////////////////////
+    //// Composite rendering ////
+    /////////////////////////////
+
+    /// Begin a composition step
+    fn begin_composite(&self) {
+        if self.is_compositing.get() {
+            // We don't allow recursive compositing
+            return;
+        }
+        self.is_compositing.set(true);
+
+        let gl = &self.gl;
+        unsafe {
+            gl.bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(self.composite_framebuffer));
+            gl.draw_buffers(&[
+                glow::COLOR_ATTACHMENT0,
+                glow::COLOR_ATTACHMENT1,
+                glow::COLOR_ATTACHMENT2,
+            ]);
+            gl.clear_color(0.0, 0.0, 0.0, 0.0);
+            gl.clear(glow::COLOR_BUFFER_BIT);
+
+            // Everything else is the actual texture used by the meshes at id 0
+            gl.active_texture(glow::TEXTURE0);
+            gl.blend_func(glow::ONE, glow::ONE_MINUS_SRC_ALPHA);
+        }
+    }
+
+    /// End a composition step, re-binding the internal framebuffer
+    fn end_composite(&self) {
+        if !self.is_compositing.get() {
+            // We don't allow recursive compositing
+            return;
+        }
+        self.is_compositing.set(false);
+
+        let gl = &self.gl;
+        unsafe {
+            gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+            gl.draw_buffers(&[
+                glow::COLOR_ATTACHMENT0,
+                glow::COLOR_ATTACHMENT1,
+                glow::COLOR_ATTACHMENT2,
+            ]);
+            gl.flush();
+        }
+    }
+
+    fn draw_composite(&self, node: &InoxNode<T>, composite: &Composite) {
+        let mut children_uuids = self
+            .nodes
+            .get_children_uuids(node.uuid)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|uuid| {
+                let node = self.nodes.get_node(uuid).unwrap();
+                (uuid, node.zsort)
+            })
+            .collect::<Vec<_>>();
+
+        children_uuids.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap().reverse());
+
+        let children_uuids = children_uuids
+            .into_iter()
+            .map(|(uuid, _)| uuid)
+            .collect::<Vec<_>>();
+
+        if children_uuids.is_empty() {
+            // Optimization: Nothing to be drawn, skip context switching
+            return;
+        }
+
+        self.push_debug_group(&node.name);
+
+        self.begin_composite();
+        for child_uuid in children_uuids {
+            // TODO: composite children are not being found here
+            if let Some(ndi) = self.find_draw_info(child_uuid) {
+                self.draw_node(ndi, false);
+            }
+        }
+        self.end_composite();
+
+        let gl = &self.gl;
+        unsafe {
+            gl.active_texture(glow::TEXTURE0);
+            gl.bind_texture(glow::TEXTURE_2D, Some(self.cf_albedo));
+            gl.active_texture(glow::TEXTURE1);
+            gl.bind_texture(glow::TEXTURE_2D, Some(self.cf_emissive));
+            gl.active_texture(glow::TEXTURE2);
+            gl.bind_texture(glow::TEXTURE_2D, Some(self.cf_bump));
+        }
+
+        let comp = &composite.draw_state;
+        self.set_blend_mode(comp.blend_mode);
+
+        let opacity = comp.opacity.clamp(0.0, 1.0);
+        let tint = comp.tint.clamp(Vec3::ZERO, Vec3::ONE);
+        let screen_tint = comp.screen_tint.clamp(Vec3::ZERO, Vec3::ONE);
+
+        self.bind_shader(&self.composite_shader);
+        self.composite_shader.set_opacity(gl, opacity);
+        self.composite_shader.set_mult_color(gl, tint);
+        self.composite_shader.set_screen_color(gl, screen_tint);
+
+        unsafe {
+            // gl.draw_arrays(glow::TRIANGLES, 0, 6);
+            gl.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
         }
 
         self.pop_debug_group();

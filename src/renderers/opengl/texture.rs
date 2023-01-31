@@ -11,7 +11,7 @@ pub enum TextureError {
     #[error("Could not load image data for texture: {0}")]
     LoadData(#[from] ImageError),
     #[error("Could not load TGA texture: {0}")]
-    LoadTga(#[from] TgaDecodeError)
+    LoadTga(#[from] TgaDecodeError),
 }
 
 pub struct Texture {
@@ -129,4 +129,42 @@ impl Texture {
     pub fn bpp(&self) -> u32 {
         self.bpp
     }
+}
+
+
+/// Uploads an empty texture.
+///
+/// # Safety
+///
+/// Make sure `ty` is a valid OpenGL number type
+pub unsafe fn upload_empty(
+    gl: &glow::Context,
+    tex: glow::Texture,
+    width: u32,
+    height: u32,
+    ty: u32,
+) {
+    gl.bind_texture(glow::TEXTURE_2D, Some(tex));
+    gl.tex_parameter_i32(
+        glow::TEXTURE_2D,
+        glow::TEXTURE_MIN_FILTER,
+        glow::LINEAR as i32,
+    );
+    gl.tex_parameter_i32(
+        glow::TEXTURE_2D,
+        glow::TEXTURE_MAG_FILTER,
+        glow::LINEAR as i32,
+    );
+    gl.tex_image_2d(
+        glow::TEXTURE_2D,
+        0,
+        glow::RGBA8 as i32,
+        width as i32,
+        height as i32,
+        0,
+        glow::RGBA,
+        ty,
+        None,
+    );
+    gl.bind_texture(glow::TEXTURE_2D, None);
 }
