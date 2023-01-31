@@ -11,7 +11,7 @@ pub struct Composite {
 }
 
 /// Blending mode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BlendMode {
     /// Normal blending mode.
     Normal,
@@ -32,6 +32,18 @@ pub enum BlendMode {
     /// via a lower rendered area.
     /// (Basically inverse ClipToLower.)
     SliceFromLower,
+}
+
+impl BlendMode {
+    pub const VALUES: [BlendMode; 7] = [
+        BlendMode::Normal,
+        BlendMode::Multiply,
+        BlendMode::ColorDodge,
+        BlendMode::LinearDodge,
+        BlendMode::Screen,
+        BlendMode::ClipToLower,
+        BlendMode::SliceFromLower,
+    ];
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
@@ -58,6 +70,7 @@ impl TryFrom<&str> for BlendMode {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MaskMode {
     Mask,
+    Dodge,
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
