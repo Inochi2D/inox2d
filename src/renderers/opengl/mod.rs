@@ -4,10 +4,11 @@ pub mod shaders;
 pub mod texture;
 
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::ops::Deref;
 use std::{io, mem};
 
-use glam::{uvec2, vec2, UVec2, Vec2, Vec3};
+use glam::{uvec2, UVec2, Vec3};
 use glow::HasContext;
 use image::ImageFormat;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -20,7 +21,7 @@ use crate::nodes::node_data::{BlendMode, Composite, InoxData, Mask, MaskMode, Pa
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::texture::tga::read_tga;
 
-use self::gl_buffer::GlBuffer;
+use self::gl_buffer::{InoxGlBuffers, InoxGlBuffersBuilder};
 use self::shader::ShaderCompileError;
 use self::shaders::{CompositeMaskShader, CompositeShader, PartMaskShader, PartShader};
 use self::texture::{Texture, TextureError};
@@ -99,23 +100,10 @@ impl GlCache {
     }
 }
 
+#[derive(Debug)]
 enum NodeDrawInfo {
-    Part {
-        uuid: InoxNodeUuid,
-        index_offset: u16,
-    },
-    Composite {
-        uuid: InoxNodeUuid,
-    },
-}
-
-impl NodeDrawInfo {
-    fn uuid(&self) -> InoxNodeUuid {
-        match self {
-            NodeDrawInfo::Part { uuid, .. } => *uuid,
-            NodeDrawInfo::Composite { uuid, .. } => *uuid,
-        }
-    }
+    Part { index_offset: u16 },
+    Composite { children: Vec<InoxNodeUuid> },
 }
 
 pub struct OpenglRenderer<T = ()> {
@@ -125,12 +113,8 @@ pub struct OpenglRenderer<T = ()> {
     cache: RefCell<GlCache>,
     is_compositing: Cell<bool>,
 
-    vao: glow::NativeVertexArray,
-
-    verts: GlBuffer<Vec2>,
-    uvs: GlBuffer<Vec2>,
-    deforms: GlBuffer<Vec2>,
-    indices: GlBuffer<u16>,
+    part_bufs: InoxGlBuffers,
+    composite_bufs: InoxGlBuffers,
 
     composite_framebuffer: glow::NativeFramebuffer,
     cf_albedo: glow::NativeTexture,
@@ -146,7 +130,8 @@ pub struct OpenglRenderer<T = ()> {
     textures: Vec<Texture>,
 
     pub nodes: InoxNodeTree<T>,
-    nodes_draw_info: Vec<NodeDrawInfo>,
+    nodes_zsorted: Vec<InoxNodeUuid>,
+    nodes_draw_info: HashMap<InoxNodeUuid, NodeDrawInfo>,
 }
 
 impl<T> OpenglRenderer<T> {
@@ -155,80 +140,48 @@ impl<T> OpenglRenderer<T> {
         viewport: UVec2,
         nodes: InoxNodeTree<T>,
     ) -> Result<Self, OpenglRendererError> {
-        // Vertices and UVs are initialized with data for composite rendering
+        // Composite vertices and UVs are initialized with data for composite rendering
+        let mut composite_bufs = InoxGlBuffersBuilder::with_quad();
+        let mut part_bufs = InoxGlBuffersBuilder::new();
 
-        #[rustfmt::skip]
-        let mut verts = GlBuffer::from(vec![
-            vec2(-1.0, -1.0),
-            vec2(-1.0,  1.0),
-            vec2( 1.0, -1.0),
-            vec2( 1.0,  1.0),
-        ]);
-
-        #[rustfmt::skip]
-        let mut uvs = GlBuffer::from(vec![
-            vec2(0.0, 0.0),
-            vec2(0.0, 1.0),
-            vec2(1.0, 0.0),
-            vec2(1.0, 1.0),
-        ]);
-
-        #[rustfmt::skip]
-        let mut indices = GlBuffer::from(vec![
-            0, 1, 2,
-            0, 2, 3,
-        ]);
-
-        let sorted_uuids = nodes.zsorted_root();
-        let mut nodes_draw_info = Vec::new();
-        let mut index_offset = 6;
-        let mut vert_offset = 4;
-        for &uuid in &sorted_uuids {
+        let nodes_zsorted = nodes.zsorted_root();
+        let mut nodes_draw_info = HashMap::new();
+        for &uuid in &nodes_zsorted {
             let node = nodes.get_node(uuid).unwrap();
 
             match node.data {
                 InoxData::Part(ref part) => {
-                    let mesh = &part.mesh;
-                    verts.extend_from_slice(&mesh.vertices);
-                    uvs.extend_from_slice(&mesh.uvs);
-                    indices.extend(mesh.indices.iter().map(|index| index + vert_offset));
-
-                    nodes_draw_info.push(NodeDrawInfo::Part { uuid, index_offset });
-                    index_offset += mesh.indices.len() as u16;
-                    vert_offset += mesh.vertices.len() as u16;
+                    let index_offset = part_bufs.push(&part.mesh);
+                    nodes_draw_info.insert(uuid, NodeDrawInfo::Part { index_offset });
                 }
                 InoxData::Composite(_) => {
-                    nodes_draw_info.push(NodeDrawInfo::Composite { uuid });
+                    // Children include the parent composite, so we have to filter it out.
+                    // TODO: wait... does it make sense for it to do that?
+                    let children = nodes
+                        .zsorted_child(node.uuid)
+                        .into_iter()
+                        .filter(|uuid| *uuid != node.uuid)
+                        .collect::<Vec<_>>();
+
+                    // put composite children's meshes into composite bufs
+                    for &uuid in &children {
+                        let node = nodes.get_node(uuid).unwrap();
+
+                        if let InoxData::Part(ref part) = node.data {
+                            let index_offset = composite_bufs.push(&part.mesh);
+                            nodes_draw_info.insert(uuid, NodeDrawInfo::Part { index_offset });
+                        }
+                    }
+
+                    nodes_draw_info.insert(uuid, NodeDrawInfo::Composite { children });
                 }
                 _ => (),
             }
         }
 
-        // Initialize deforms to 0
-        let deforms = GlBuffer::from(vec![Vec2::ZERO; verts.len()]);
-
         // Initialize buffers
-        let vao;
-        unsafe {
-            vao = gl
-                .create_vertex_array()
-                .map_err(OpenglRendererError::Opengl)?;
-            gl.bind_vertex_array(Some(vao));
-
-            verts.upload(&gl, glow::ARRAY_BUFFER, glow::STATIC_DRAW);
-            gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, 0, 0);
-            gl.enable_vertex_attrib_array(0);
-
-            uvs.upload(&gl, glow::ARRAY_BUFFER, glow::STATIC_DRAW);
-            gl.vertex_attrib_pointer_f32(1, 2, glow::FLOAT, false, 0, 0);
-            gl.enable_vertex_attrib_array(1);
-
-            deforms.upload(&gl, glow::ARRAY_BUFFER, glow::DYNAMIC_DRAW);
-            gl.vertex_attrib_pointer_f32(2, 2, glow::FLOAT, false, 0, 0);
-            gl.enable_vertex_attrib_array(2);
-
-            indices.upload(&gl, glow::ELEMENT_ARRAY_BUFFER, glow::STATIC_DRAW);
-        }
+        let part_bufs = unsafe { part_bufs.upload(&gl)? };
+        let composite_bufs = unsafe { composite_bufs.upload(&gl)? };
 
         // Initialize framebuffers
         let composite_framebuffer;
@@ -260,12 +213,8 @@ impl<T> OpenglRenderer<T> {
             cache: RefCell::new(GlCache::default()),
             is_compositing: Cell::new(false),
 
-            vao,
-
-            verts,
-            uvs,
-            deforms,
-            indices,
+            part_bufs,
+            composite_bufs,
 
             composite_framebuffer,
             cf_albedo,
@@ -281,6 +230,7 @@ impl<T> OpenglRenderer<T> {
             textures: Vec::new(),
 
             nodes,
+            nodes_zsorted,
             nodes_draw_info,
         };
 
@@ -474,8 +424,10 @@ impl<T> OpenglRenderer<T> {
         self.update_camera();
         unsafe { self.gl.enable(glow::BLEND) };
 
-        for ntr in &self.nodes_draw_info {
-            self.draw_node(ntr, false);
+        for uuid in &self.nodes_zsorted {
+            if let Some(ntr) = self.nodes_draw_info.get(uuid) {
+                self.draw_node(*uuid, ntr, false, false);
+            }
         }
     }
 
@@ -491,26 +443,27 @@ impl<T> OpenglRenderer<T> {
         self.textures[part.tex_emissive].bind_on(gl, 2);
     }
 
-    fn draw_node(&self, ndi: &NodeDrawInfo, is_mask: bool) {
+    fn draw_node(
+        &self,
+        uuid: InoxNodeUuid,
+        ndi: &NodeDrawInfo,
+        is_composite_child: bool,
+        is_mask: bool,
+    ) {
         match ndi {
-            NodeDrawInfo::Part { uuid, index_offset } => {
-                let node = self.nodes.get_node(*uuid).unwrap();
+            NodeDrawInfo::Part { index_offset } => {
+                let node = self.nodes.get_node(uuid).unwrap();
                 if let InoxData::Part(ref part) = node.data {
-                    self.draw_part(node, part, *index_offset, is_mask);
+                    self.draw_part(node, part, *index_offset, is_composite_child, is_mask);
                 }
             }
-            NodeDrawInfo::Composite { uuid } => {
-                let node = self.nodes.get_node(*uuid).unwrap();
+            NodeDrawInfo::Composite { children } => {
+                let node = self.nodes.get_node(uuid).unwrap();
                 if let InoxData::Composite(ref composite) = node.data {
-                    self.draw_composite(node, composite);
+                    self.draw_composite(node, composite, children);
                 }
             }
         }
-    }
-
-    fn find_draw_info(&self, uuid: InoxNodeUuid) -> Option<&NodeDrawInfo> {
-        // TODO: this feels a bit dumb to have to iterate... Surely there's a better way
-        self.nodes_draw_info.iter().find(|ndi| ndi.uuid() == uuid)
     }
 
     unsafe fn attach_framebuffer_textures(&self) {
@@ -553,7 +506,7 @@ impl<T> OpenglRenderer<T> {
     //// Part rendering ////
     ////////////////////////
 
-    fn draw_part_mask(&self, mask: &Mask) {
+    fn draw_part_mask(&self, mask: &Mask, is_composite_child: bool) {
         let gl = &self.gl;
 
         // begin draw mask
@@ -566,10 +519,8 @@ impl<T> OpenglRenderer<T> {
         }
 
         // draw mask
-        // TODO: put masks in part's NodeDrawInfo as a vec of NodeDrawInfos?
-        let ndi = self.find_draw_info(mask.source).unwrap();
-
-        self.draw_node(ndi, true);
+        let ndi = &self.nodes_draw_info[&mask.source];
+        self.draw_node(mask.source, ndi, is_composite_child, true);
 
         // end draw mask
         unsafe {
@@ -577,7 +528,14 @@ impl<T> OpenglRenderer<T> {
         }
     }
 
-    fn draw_part(&self, node: &InoxNode<T>, part: &Part, index_offset: u16, is_mask: bool) {
+    fn draw_part(
+        &self,
+        node: &InoxNode<T>,
+        part: &Part,
+        index_offset: u16,
+        is_composite_child: bool,
+        is_mask: bool,
+    ) {
         self.push_debug_group(&node.name);
 
         let gl = &self.gl;
@@ -595,7 +553,7 @@ impl<T> OpenglRenderer<T> {
             }
 
             for mask in &part.draw_state.masks {
-                self.draw_part_mask(mask);
+                self.draw_part_mask(mask, is_composite_child);
             }
 
             self.pop_debug_group();
@@ -612,8 +570,9 @@ impl<T> OpenglRenderer<T> {
             .nodes
             .ancestors(node.uuid)
             .filter_map(|ancestor| self.nodes.arena.get(ancestor))
-            .map(|node| node.get().transform.translation.truncate())
-            .sum();
+            .map(|node| node.get().transform.translation)
+            .sum::<Vec3>()
+            .truncate();
 
         self.bind_part_textures(part);
         self.set_blend_mode(part.draw_state.blend_mode);
@@ -638,6 +597,12 @@ impl<T> OpenglRenderer<T> {
             part_shader.set_opacity(gl, part.draw_state.opacity);
             part_shader.set_mult_color(gl, part.draw_state.tint);
             part_shader.set_screen_color(gl, part.draw_state.screen_tint);
+        }
+
+        if is_composite_child {
+            self.composite_bufs.bind(gl);
+        } else {
+            self.part_bufs.bind(gl);
         }
 
         unsafe {
@@ -711,26 +676,8 @@ impl<T> OpenglRenderer<T> {
         }
     }
 
-    fn draw_composite(&self, node: &InoxNode<T>, composite: &Composite) {
-        let mut children_uuids = self
-            .nodes
-            .children_uuids(node.uuid)
-            .unwrap_or_default()
-            .into_iter()
-            .map(|uuid| {
-                let node = self.nodes.get_node(uuid).unwrap();
-                (uuid, node.zsort)
-            })
-            .collect::<Vec<_>>();
-
-        children_uuids.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap().reverse());
-
-        let children_uuids = children_uuids
-            .into_iter()
-            .map(|(uuid, _)| uuid)
-            .collect::<Vec<_>>();
-
-        if children_uuids.is_empty() {
+    fn draw_composite(&self, node: &InoxNode<T>, composite: &Composite, children: &[InoxNodeUuid]) {
+        if children.is_empty() {
             // Optimization: Nothing to be drawn, skip context switching
             return;
         }
@@ -738,10 +685,13 @@ impl<T> OpenglRenderer<T> {
         self.push_debug_group(&node.name);
 
         self.begin_composite();
-        for child_uuid in children_uuids {
-            // TODO: composite children are not being found here
-            if let Some(ndi) = self.find_draw_info(child_uuid) {
-                self.draw_node(ndi, false);
+        for uuid in children {
+            if *uuid == node.uuid {
+                // just in case it slips itself in its own children... (r/outofcontext)
+                continue;
+            }
+            if let Some(ndi) = self.nodes_draw_info.get(uuid) {
+                self.draw_node(*uuid, ndi, true, false);
             }
         }
         self.end_composite();
@@ -768,8 +718,8 @@ impl<T> OpenglRenderer<T> {
         self.composite_shader.set_mult_color(gl, tint);
         self.composite_shader.set_screen_color(gl, screen_tint);
 
+        self.composite_bufs.bind(gl);
         unsafe {
-            // gl.draw_arrays(glow::TRIANGLES, 0, 6);
             gl.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
         }
 
