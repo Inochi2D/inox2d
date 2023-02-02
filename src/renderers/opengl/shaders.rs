@@ -11,16 +11,16 @@ const PART_MASK_FRAG: &str = include_str!("shaders/basic/basic-mask.frag");
 
 #[derive(Clone)]
 pub struct PartShader {
-    program: glow::NativeProgram,
-    u_mvp: Option<glow::NativeUniformLocation>,
-    u_offset: Option<glow::NativeUniformLocation>,
-    u_opacity: Option<glow::NativeUniformLocation>,
-    u_mult_color: Option<glow::NativeUniformLocation>,
-    u_screen_color: Option<glow::NativeUniformLocation>,
+    program: glow::Program,
+    u_mvp: Option<glow::UniformLocation>,
+    u_offset: Option<glow::UniformLocation>,
+    u_opacity: Option<glow::UniformLocation>,
+    u_mult_color: Option<glow::UniformLocation>,
+    u_screen_color: Option<glow::UniformLocation>,
 }
 
 impl Deref for PartShader {
-    type Target = glow::NativeProgram;
+    type Target = glow::Program;
 
     fn deref(&self) -> &Self::Target {
         &self.program
@@ -73,14 +73,14 @@ impl PartShader {
 }
 
 pub struct PartMaskShader {
-    program: glow::NativeProgram,
-    u_mvp: Option<glow::NativeUniformLocation>,
-    u_offset: Option<glow::NativeUniformLocation>,
-    u_threshold: Option<glow::NativeUniformLocation>,
+    program: glow::Program,
+    u_mvp: Option<glow::UniformLocation>,
+    u_offset: Option<glow::UniformLocation>,
+    u_threshold: Option<glow::UniformLocation>,
 }
 
 impl Deref for PartMaskShader {
-    type Target = glow::NativeProgram;
+    type Target = glow::Program;
 
     fn deref(&self) -> &Self::Target {
         &self.program
@@ -123,15 +123,15 @@ const COMP_FRAG: &str = include_str!("shaders/basic/composite.frag");
 const COMP_MASK_FRAG: &str = include_str!("shaders/basic/composite-mask.frag");
 
 pub struct CompositeShader {
-    program: glow::NativeProgram,
-    u_mvp: Option<glow::NativeUniformLocation>,
-    u_opacity: Option<glow::NativeUniformLocation>,
-    u_mult_color: Option<glow::NativeUniformLocation>,
-    u_screen_color: Option<glow::NativeUniformLocation>,
+    program: glow::Program,
+    u_mvp: Option<glow::UniformLocation>,
+    u_opacity: Option<glow::UniformLocation>,
+    u_mult_color: Option<glow::UniformLocation>,
+    u_screen_color: Option<glow::UniformLocation>,
 }
 
 impl Deref for CompositeShader {
-    type Target = glow::NativeProgram;
+    type Target = glow::Program;
 
     fn deref(&self) -> &Self::Target {
         &self.program
@@ -177,14 +177,14 @@ impl CompositeShader {
 }
 
 pub struct CompositeMaskShader {
-    program: glow::NativeProgram,
-    u_mvp: Option<glow::NativeUniformLocation>,
-    u_threshold: Option<glow::NativeUniformLocation>,
-    u_opacity: Option<glow::NativeUniformLocation>,
+    program: glow::Program,
+    u_mvp: Option<glow::UniformLocation>,
+    u_threshold: Option<glow::UniformLocation>,
+    u_opacity: Option<glow::UniformLocation>,
 }
 
 impl Deref for CompositeMaskShader {
-    type Target = glow::NativeProgram;
+    type Target = glow::Program;
 
     fn deref(&self) -> &Self::Target {
         &self.program

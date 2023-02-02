@@ -15,7 +15,7 @@ pub enum TextureError {
 }
 
 pub struct Texture {
-    tex: glow::NativeTexture,
+    tex: glow::Texture,
     width: u32,
     height: u32,
     bpp: u32,

@@ -9,7 +9,7 @@ pub(crate) fn compile(
     gl: &glow::Context,
     vertex: &str,
     fragment: &str,
-) -> Result<glow::NativeProgram, ShaderCompileError> {
+) -> Result<glow::Program, ShaderCompileError> {
     unsafe {
         let program = gl.create_program().map_err(ShaderCompileError)?;
 
@@ -38,7 +38,7 @@ pub(crate) fn compile(
 
 unsafe fn verify_shader(
     gl: &glow::Context,
-    shader: glow::NativeShader,
+    shader: glow::Shader,
 ) -> Result<(), ShaderCompileError> {
     if gl.get_shader_compile_status(shader) {
         Ok(())
@@ -49,7 +49,7 @@ unsafe fn verify_shader(
 
 unsafe fn verify_program(
     gl: &glow::Context,
-    program: glow::NativeProgram,
+    program: glow::Program,
 ) -> Result<(), ShaderCompileError> {
     if gl.get_program_link_status(program) {
         Ok(())

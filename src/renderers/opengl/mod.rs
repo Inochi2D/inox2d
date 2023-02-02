@@ -38,7 +38,7 @@ pub struct GlCache {
     pub camera: Option<Camera>,
     pub viewport: Option<UVec2>,
     pub blend_mode: Option<BlendMode>,
-    pub program: Option<glow::NativeProgram>,
+    pub program: Option<glow::Program>,
     pub albedo: Option<usize>,
 }
 
@@ -83,7 +83,7 @@ impl GlCache {
         }
     }
 
-    pub fn update_program(&mut self, program: glow::NativeProgram) -> bool {
+    pub fn update_program(&mut self, program: glow::Program) -> bool {
         if let Some(prev_program) = self.program.replace(program) {
             prev_program != program
         } else {
@@ -116,11 +116,11 @@ pub struct OpenglRenderer<T = ()> {
     part_bufs: InoxGlBuffers,
     composite_bufs: InoxGlBuffers,
 
-    composite_framebuffer: glow::NativeFramebuffer,
-    cf_albedo: glow::NativeTexture,
-    cf_emissive: glow::NativeTexture,
-    cf_bump: glow::NativeTexture,
-    cf_stencil: glow::NativeTexture,
+    composite_framebuffer: glow::Framebuffer,
+    cf_albedo: glow::Texture,
+    cf_emissive: glow::Texture,
+    cf_bump: glow::Texture,
+    cf_stencil: glow::Texture,
 
     part_shader: PartShader,
     part_mask_shader: PartMaskShader,
