@@ -32,7 +32,7 @@ impl<T> GlBuffer<T> {
         Self(buffer)
     }
 
-    pub fn upload(&self, gl: &glow::Context, target: u32, usage: u32) -> glow::NativeBuffer {
+    pub fn upload(&self, gl: &glow::Context, target: u32, usage: u32) -> glow::Buffer {
         let slice = self.as_slice();
         unsafe {
             let bytes: &[u8] = core::slice::from_raw_parts(
@@ -158,7 +158,7 @@ impl InoxGlBuffersBuilder {
 }
 
 pub struct InoxGlBuffers {
-    vao: glow::NativeVertexArray,
+    vao: glow::VertexArray,
     // verts: GlBuffer<Vec2>,
     // uvs: GlBuffer<Vec2>,
     // deforms: GlBuffer<Vec2>,
@@ -169,5 +169,13 @@ impl InoxGlBuffers {
     /// Binds this buffer bundle's vertex array.
     pub fn bind(&self, gl: &glow::Context) {
         unsafe { gl.bind_vertex_array(Some(self.vao)) };
+    }
+}
+
+impl Deref for InoxGlBuffers {
+    type Target = glow::VertexArray;
+
+    fn deref(&self) -> &Self::Target {
+        &self.vao
     }
 }

@@ -39,6 +39,7 @@ pub struct GlCache {
     pub viewport: Option<UVec2>,
     pub blend_mode: Option<BlendMode>,
     pub program: Option<glow::Program>,
+    pub vao: Option<glow::VertexArray>,
     pub albedo: Option<usize>,
 }
 
@@ -86,6 +87,14 @@ impl GlCache {
     pub fn update_program(&mut self, program: glow::Program) -> bool {
         if let Some(prev_program) = self.program.replace(program) {
             prev_program != program
+        } else {
+            true
+        }
+    }
+
+    pub fn update_vao(&mut self, vao: glow::VertexArray) -> bool {
+        if let Some(prev_vao) = self.vao.replace(vao) {
+            prev_vao != vao
         } else {
             true
         }
@@ -322,12 +331,6 @@ impl<T> OpenglRenderer<T> {
         unsafe { self.gl.clear(glow::COLOR_BUFFER_BIT) };
     }
 
-    #[inline]
-    fn bind_shader<S: Deref<Target = glow::NativeProgram>>(&self, shader: &S) {
-        let program = **shader;
-        unsafe { self.gl.use_program(Some(program)) };
-    }
-
     /// Pushes an OpenGL debug group.
     /// This is very useful to debug OpenGL calls per node with `apitrace`, as it will nest calls inside of labels,
     /// making it trivial to know which calls correspond to which nodes.
@@ -420,18 +423,24 @@ impl<T> OpenglRenderer<T> {
         }
     }
 
-    pub fn draw_model(&self) {
-        self.update_camera();
-        unsafe { self.gl.enable(glow::BLEND) };
-
-        for uuid in &self.nodes_zsorted {
-            if let Some(ntr) = self.nodes_draw_info.get(uuid) {
-                self.draw_node(*uuid, ntr, false, false);
-            }
+    fn bind_shader<S: Deref<Target = glow::Program>>(&self, shader: &S) {
+        let program = **shader;
+        if !self.cache.borrow_mut().update_program(program) {
+            return;
         }
+
+        unsafe { self.gl.use_program(Some(program)) };
     }
 
-    #[inline]
+    fn bind_vao<V: Deref<Target = glow::VertexArray>>(&self, vao: &V) {
+        let vao = **vao;
+        if !self.cache.borrow_mut().update_vao(vao) {
+            return;
+        }
+
+        unsafe { self.gl.bind_vertex_array(Some(vao)) };
+    }
+
     fn bind_part_textures(&self, part: &Part) {
         if !self.cache.borrow_mut().update_albedo(part.tex_albedo) {
             return;
@@ -441,29 +450,6 @@ impl<T> OpenglRenderer<T> {
         self.textures[part.tex_albedo].bind_on(gl, 0);
         self.textures[part.tex_bumpmap].bind_on(gl, 1);
         self.textures[part.tex_emissive].bind_on(gl, 2);
-    }
-
-    fn draw_node(
-        &self,
-        uuid: InoxNodeUuid,
-        ndi: &NodeDrawInfo,
-        is_composite_child: bool,
-        is_mask: bool,
-    ) {
-        match ndi {
-            NodeDrawInfo::Part { index_offset } => {
-                let node = self.nodes.get_node(uuid).unwrap();
-                if let InoxData::Part(ref part) = node.data {
-                    self.draw_part(node, part, *index_offset, is_composite_child, is_mask);
-                }
-            }
-            NodeDrawInfo::Composite { children } => {
-                let node = self.nodes.get_node(uuid).unwrap();
-                if let InoxData::Composite(ref composite) = node.data {
-                    self.draw_composite(node, composite, children);
-                }
-            }
-        }
     }
 
     unsafe fn attach_framebuffer_textures(&self) {
@@ -500,6 +486,40 @@ impl<T> OpenglRenderer<T> {
         );
 
         gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+    }
+
+    pub fn draw_model(&self) {
+        self.update_camera();
+        unsafe { self.gl.enable(glow::BLEND) };
+
+        for uuid in &self.nodes_zsorted {
+            if let Some(ntr) = self.nodes_draw_info.get(uuid) {
+                self.draw_node(*uuid, ntr, false, false);
+            }
+        }
+    }
+
+    fn draw_node(
+        &self,
+        uuid: InoxNodeUuid,
+        ndi: &NodeDrawInfo,
+        is_composite_child: bool,
+        is_mask: bool,
+    ) {
+        match ndi {
+            NodeDrawInfo::Part { index_offset } => {
+                let node = self.nodes.get_node(uuid).unwrap();
+                if let InoxData::Part(ref part) = node.data {
+                    self.draw_part(node, part, *index_offset, is_composite_child, is_mask);
+                }
+            }
+            NodeDrawInfo::Composite { children } => {
+                let node = self.nodes.get_node(uuid).unwrap();
+                if let InoxData::Composite(ref composite) = node.data {
+                    self.draw_composite(node, composite, children);
+                }
+            }
+        }
     }
 
     ////////////////////////
@@ -600,9 +620,9 @@ impl<T> OpenglRenderer<T> {
         }
 
         if is_composite_child {
-            self.composite_bufs.bind(gl);
+            self.bind_vao(&self.composite_bufs);
         } else {
-            self.part_bufs.bind(gl);
+            self.bind_vao(&self.part_bufs);
         }
 
         unsafe {
@@ -718,7 +738,7 @@ impl<T> OpenglRenderer<T> {
         self.composite_shader.set_mult_color(gl, tint);
         self.composite_shader.set_screen_color(gl, screen_tint);
 
-        self.composite_bufs.bind(gl);
+        self.bind_vao(&self.composite_bufs);
         unsafe {
             gl.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
         }
