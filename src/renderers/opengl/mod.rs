@@ -687,11 +687,6 @@ impl<T> OpenglRenderer<T> {
         let gl = &self.gl;
         unsafe {
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
-            gl.draw_buffers(&[
-                glow::COLOR_ATTACHMENT0,
-                glow::COLOR_ATTACHMENT1,
-                glow::COLOR_ATTACHMENT2,
-            ]);
             gl.flush();
         }
     }
