@@ -687,7 +687,6 @@ impl<T> OpenglRenderer<T> {
         let gl = &self.gl;
         unsafe {
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
-            gl.flush();
         }
     }
 
@@ -711,6 +710,8 @@ impl<T> OpenglRenderer<T> {
         }
         self.end_composite();
 
+        self.bind_vao(&self.composite_bufs);
+
         let gl = &self.gl;
         unsafe {
             gl.active_texture(glow::TEXTURE0);
@@ -732,8 +733,6 @@ impl<T> OpenglRenderer<T> {
         self.composite_shader.set_opacity(gl, opacity);
         self.composite_shader.set_mult_color(gl, tint);
         self.composite_shader.set_screen_color(gl, screen_tint);
-
-        self.bind_vao(&self.composite_bufs);
         unsafe {
             gl.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
         }
