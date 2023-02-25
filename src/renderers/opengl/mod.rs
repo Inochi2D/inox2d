@@ -122,8 +122,7 @@ pub struct OpenglRenderer<T = ()> {
     cache: RefCell<GlCache>,
     is_compositing: Cell<bool>,
 
-    part_bufs: InoxGlBuffers,
-    composite_bufs: InoxGlBuffers,
+    vert_bufs: InoxGlBuffers,
 
     composite_framebuffer: glow::Framebuffer,
     cf_albedo: glow::Texture,
@@ -151,7 +150,6 @@ impl<T> OpenglRenderer<T> {
     ) -> Result<Self, OpenglRendererError> {
         // Composite vertices and UVs are initialized with data for composite rendering
         let mut composite_bufs = InoxGlBuffersBuilder::with_quad();
-        let mut part_bufs = InoxGlBuffersBuilder::new();
 
         let nodes_zsorted = nodes.zsorted_root();
         let mut nodes_draw_info = HashMap::new();
@@ -160,7 +158,7 @@ impl<T> OpenglRenderer<T> {
 
             match node.data {
                 InoxData::Part(ref part) => {
-                    let index_offset = part_bufs.push(&part.mesh);
+                    let index_offset = composite_bufs.push(&part.mesh);
                     nodes_draw_info.insert(uuid, NodeDrawInfo::Part { index_offset });
                 }
                 InoxData::Composite(_) => {
@@ -189,8 +187,7 @@ impl<T> OpenglRenderer<T> {
         }
 
         // Initialize buffers
-        let part_bufs = unsafe { part_bufs.upload(&gl)? };
-        let composite_bufs = unsafe { composite_bufs.upload(&gl)? };
+        let vert_bufs = unsafe { composite_bufs.upload(&gl)? };
 
         // Initialize framebuffers
         let composite_framebuffer;
@@ -222,8 +219,7 @@ impl<T> OpenglRenderer<T> {
             cache: RefCell::new(GlCache::default()),
             is_compositing: Cell::new(false),
 
-            part_bufs,
-            composite_bufs,
+            vert_bufs,
 
             composite_framebuffer,
             cf_albedo,
@@ -619,12 +615,7 @@ impl<T> OpenglRenderer<T> {
             part_shader.set_screen_color(gl, part.draw_state.screen_tint);
         }
 
-        if is_composite_child {
-            self.bind_vao(&self.composite_bufs);
-        } else {
-            self.bind_vao(&self.part_bufs);
-        }
-
+        self.bind_vao(&self.vert_bufs);
         unsafe {
             gl.draw_elements(
                 glow::TRIANGLES,
@@ -710,7 +701,7 @@ impl<T> OpenglRenderer<T> {
         }
         self.end_composite();
 
-        self.bind_vao(&self.composite_bufs);
+        self.bind_vao(&self.vert_bufs);
 
         let gl = &self.gl;
         unsafe {
