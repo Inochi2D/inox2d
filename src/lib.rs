@@ -5,6 +5,7 @@ pub mod math;
 pub mod mesh;
 pub mod model;
 pub mod nodes;
+pub mod parameter;
 pub mod puppet;
 pub mod renderers;
 pub mod texture;
