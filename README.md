@@ -23,13 +23,9 @@ This repository is purely for developers and is not useful if you're an end user
 
 ## Status
 
-Due to licensing issues, **the library is currently in a broken state.**
-
-Parsing now works again though!
-
 ![Parsed foxgirl](https://0x0.st/o7sM.png)
 
-A rewrite of the missing parts is on the way, particularly the OpenGL renderer, in order to be on-par with the standard Inochi2D implementation.
+A rewrite of the missing parts is on the way, particularly the OpenGL renderer, in order to be on-par with the standard Inochi2D implementation:
 
 - [x] Parsing
   - [x] INP format
