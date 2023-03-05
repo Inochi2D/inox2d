@@ -23,7 +23,11 @@ This repository is purely for developers and is not useful if you're an end user
 
 ## Status
 
+Two core things are in a decent state currently: INP/INX parsing and the WGPU renderer.
+
 ![Parsed foxgirl](https://0x0.st/o7sM.png)
+
+![WGPU-rendered Arch-chan](https://0x0.st/HzET.png)
 
 A rewrite of the missing parts is on the way, particularly the OpenGL renderer, in order to be on-par with the standard Inochi2D implementation:
 
@@ -32,7 +36,7 @@ A rewrite of the missing parts is on the way, particularly the OpenGL renderer, 
   - [x] INX format
 - [ ] Rendering
   - [ ] OpenGL
-  - [ ] WGPU
+  - [x] WGPU
 - [ ] Deform
 - [ ] Physics
 - [ ] Animations
