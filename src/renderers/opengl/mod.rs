@@ -149,7 +149,7 @@ impl<T> OpenglRenderer<T> {
         nodes: InoxNodeTree<T>,
     ) -> Result<Self, OpenglRendererError> {
         // Composite vertices and UVs are initialized with data for composite rendering
-        let mut composite_bufs = InoxGlBuffersBuilder::with_quad();
+        let mut vert_bufs = InoxGlBuffersBuilder::with_quad();
 
         let nodes_zsorted = nodes.zsorted_root();
         let mut nodes_draw_info = HashMap::new();
@@ -158,7 +158,7 @@ impl<T> OpenglRenderer<T> {
 
             match node.data {
                 InoxData::Part(ref part) => {
-                    let index_offset = composite_bufs.push(&part.mesh);
+                    let index_offset = vert_bufs.push(&part.mesh);
                     nodes_draw_info.insert(uuid, NodeDrawInfo::Part { index_offset });
                 }
                 InoxData::Composite(_) => {
@@ -175,7 +175,7 @@ impl<T> OpenglRenderer<T> {
                         let node = nodes.get_node(uuid).unwrap();
 
                         if let InoxData::Part(ref part) = node.data {
-                            let index_offset = composite_bufs.push(&part.mesh);
+                            let index_offset = vert_bufs.push(&part.mesh);
                             nodes_draw_info.insert(uuid, NodeDrawInfo::Part { index_offset });
                         }
                     }
@@ -187,7 +187,7 @@ impl<T> OpenglRenderer<T> {
         }
 
         // Initialize buffers
-        let vert_bufs = unsafe { composite_bufs.upload(&gl)? };
+        let vert_bufs = unsafe { vert_bufs.upload(&gl)? };
 
         // Initialize framebuffers
         let composite_framebuffer;
