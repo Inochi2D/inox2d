@@ -145,6 +145,17 @@ pub unsafe fn upload_empty(
     ty: u32,
 ) {
     gl.bind_texture(glow::TEXTURE_2D, Some(tex));
+    gl.tex_image_2d(
+        glow::TEXTURE_2D,
+        0,
+        glow::RGBA as i32,
+        width as i32,
+        height as i32,
+        0,
+        glow::RGBA,
+        ty,
+        None,
+    );
     gl.tex_parameter_i32(
         glow::TEXTURE_2D,
         glow::TEXTURE_MIN_FILTER,
@@ -154,17 +165,6 @@ pub unsafe fn upload_empty(
         glow::TEXTURE_2D,
         glow::TEXTURE_MAG_FILTER,
         glow::LINEAR as i32,
-    );
-    gl.tex_image_2d(
-        glow::TEXTURE_2D,
-        0,
-        glow::RGBA8 as i32,
-        width as i32,
-        height as i32,
-        0,
-        glow::RGBA,
-        ty,
-        None,
     );
     gl.bind_texture(glow::TEXTURE_2D, None);
 }
