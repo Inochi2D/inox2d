@@ -5,6 +5,7 @@ use std::string::FromUtf8Error;
 use image::ImageFormat;
 
 use crate::model::{Model, ModelTexture, VendorData};
+use crate::{read_n, read_be_u32, read_vec, read_u8};
 
 use super::json::JsonError;
 use super::serialize::{deserialize_puppet, InoxParseError};
@@ -34,32 +35,6 @@ const MAGIC: &[u8] = b"TRNSRTS\0";
 const TEX_SECT: &[u8] = b"TEX_SECT";
 /// Optional EXTended Vendor Data section for app provided settings for the puppet
 const EXT_SECT: &[u8] = b"EXT_SECT";
-
-#[inline]
-fn read_n<R: Read, const N: usize>(data: &mut R) -> Result<[u8; N], ParseInpError> {
-    let mut buf = [0_u8; N];
-    data.read_exact(&mut buf)?;
-    Ok(buf)
-}
-
-#[inline]
-fn read_u8<R: Read>(data: &mut R) -> Result<u8, ParseInpError> {
-    let buf = read_n::<_, 1>(data)?;
-    Ok(u8::from_ne_bytes(buf))
-}
-
-#[inline]
-fn read_be_u32<R: Read>(data: &mut R) -> Result<u32, ParseInpError> {
-    let buf = read_n::<_, 4>(data)?;
-    Ok(u32::from_be_bytes(buf))
-}
-
-#[inline]
-fn read_vec<R: Read>(data: &mut R, n: usize) -> Result<Vec<u8>, ParseInpError> {
-    let mut buf = vec![0_u8; n];
-    data.read_exact(&mut buf)?;
-    Ok(buf)
-}
 
 pub fn parse_inp<R: Read>(mut data: R) -> Result<Model, ParseInpError> {
     // check magic bytes

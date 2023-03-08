@@ -7,7 +7,7 @@ use super::physics::SimplePhysics;
 
 #[derive(Debug, Clone)]
 pub struct Composite {
-    pub(crate) draw_state: Drawable,
+    pub draw_state: Drawable,
 }
 
 /// Blending mode.
@@ -69,7 +69,9 @@ impl TryFrom<&str> for BlendMode {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MaskMode {
+    /// The part should be masked by the drawables specified.
     Mask,
+    /// The path should be dodge-masked by the drawables specified.
     Dodge,
 }
 
@@ -83,6 +85,7 @@ impl TryFrom<&str> for MaskMode {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "Mask" => Ok(MaskMode::Mask),
+            "DodgeMask" => Ok(MaskMode::Dodge),
             unknown => Err(UnknownMaskModeError(unknown.to_owned())),
         }
     }
@@ -104,6 +107,18 @@ pub struct Drawable {
     pub opacity: f32,
 }
 
+impl Drawable {
+    /// Checks whether the drawable has masks of mode `MaskMode::Mask`.
+    pub fn has_masks(&self) -> bool {
+        self.masks.iter().any(|mask| mask.mode == MaskMode::Mask)
+    }
+
+    /// Checks whether the drawable has masks of mode `MaskMode::Dodge`.
+    pub fn has_dodge_masks(&self) -> bool {
+        self.masks.iter().any(|mask| mask.mode == MaskMode::Dodge)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Part {
     pub draw_state: Drawable,
@@ -111,9 +126,6 @@ pub struct Part {
     pub tex_albedo: usize,
     pub tex_emissive: usize,
     pub tex_bumpmap: usize,
-    #[cfg(feature = "opengl")]
-    pub start_indice: u16,
-    // start_deform: u16,
 }
 
 impl Part {

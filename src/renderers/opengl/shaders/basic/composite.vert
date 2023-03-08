@@ -6,6 +6,7 @@
 */
 #version 330
 uniform mat4 mvp;
+
 layout(location = 0) in vec2 verts;
 layout(location = 1) in vec2 uvs;
 
