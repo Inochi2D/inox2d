@@ -23,23 +23,37 @@ This repository is purely for developers and is not useful if you're an end user
 
 ## Status
 
-Two core things are in a decent state currently: INP/INX parsing and the WGPU renderer.
+INP parsing works completely fine, but not INX (bad indexes, wrong reading?).
 
-![Parsed foxgirl](https://0x0.st/o7sM.png)
+Both renderers (OpenGL, WGPU) now work on all models we could test them on (Aka, Midori, Arch-chan).
 
-![WGPU-rendered Arch-chan](https://0x0.st/HzET.png)
+Support for parameters, physics and animations is on the way!
 
-A rewrite of the missing parts is on the way, particularly the OpenGL renderer, in order to be on-par with the standard Inochi2D implementation:
+### Feature tree
 
 - [x] Parsing
   - [x] INP format
-  - [ ] INX format
-- [ ] Rendering
-  - [ ] OpenGL
-  - [x] WGPU
-- [ ] Deform
+- [x] Rendering
+  - [x] OpenGL
+  - [x] WGPU (Camera TBD)
+  - [ ] Draw List
+- [ ] Parameters
+  - [ ] Deforms (mesh vertex offsets)
+  - [ ] Values (node transform offsets)
 - [ ] Physics
 - [ ] Animations
+
+### INP parsing
+
+![Parsed foxgirl](https://0x0.st/o7sM.png)
+
+### OpenGL renderer
+
+![OpenGL-rendered Arch-chan](https://0x0.st/Hio6.png)
+
+### WGPU renderer
+
+![WGPU-rendered Arch-chan](https://0x0.st/HzET.png)
 
 &nbsp;
 
