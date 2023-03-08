@@ -448,6 +448,12 @@ impl<T> OpenglRenderer<T> {
         self.textures[part.tex_emissive].bind_on(gl, 2);
     }
 
+    /// Clear the texture cache
+    /// This one method missing made me pull my hair out for an entire month.
+    pub fn clear_texture_cache(&self) {
+        self.cache.borrow_mut().albedo = None;
+    }
+
     unsafe fn attach_framebuffer_textures(&self) {
         let gl = &self.gl;
         gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.composite_framebuffer));
@@ -655,6 +661,8 @@ impl<T> OpenglRenderer<T> {
         }
         self.is_compositing.set(true);
 
+        self.clear_texture_cache();
+
         let gl = &self.gl;
         unsafe {
             gl.bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(self.composite_framebuffer));
@@ -680,6 +688,8 @@ impl<T> OpenglRenderer<T> {
             return;
         }
         self.is_compositing.set(false);
+
+        self.clear_texture_cache();
 
         let gl = &self.gl;
         unsafe {
