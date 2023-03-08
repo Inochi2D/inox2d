@@ -486,7 +486,12 @@ impl<T> OpenglRenderer<T> {
 
     pub fn draw_model(&self) {
         self.update_camera();
-        unsafe { self.gl.enable(glow::BLEND) };
+
+        let gl = &self.gl;
+        unsafe {
+            gl.enable(glow::BLEND);
+            gl.disable(glow::DEPTH_TEST);
+        }
 
         for uuid in &self.nodes_zsorted {
             if let Some(ntr) = self.nodes_draw_info.get(uuid) {
@@ -653,6 +658,7 @@ impl<T> OpenglRenderer<T> {
         let gl = &self.gl;
         unsafe {
             gl.bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(self.composite_framebuffer));
+            gl.disable(glow::DEPTH_TEST);
             gl.draw_buffers(&[
                 glow::COLOR_ATTACHMENT0,
                 glow::COLOR_ATTACHMENT1,
