@@ -1,9 +1,12 @@
 [package]
 name = "inox2d"
+description = "Officially supported native Rust reimplementation of Inochi2D."
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+repository = "https://github.com/Inochi2D/inox2d"
+license = "BSD-2-Clause"
+keywords = ["gamedev", "graphics", "inochi2d", "vtuber"]
+categories = ["graphics", "rendering"]
 
 [dependencies]
 glam = { version = "0.22.0", features = ["bytemuck"] }
