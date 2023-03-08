@@ -23,23 +23,37 @@ This repository is purely for developers and is not useful if you're an end user
 
 ## Status
 
-Due to licensing issues, **the library is currently in a broken state.**
+INP parsing works completely fine, but not INX (bad indexes, wrong reading?).
 
-Parsing now works again though!
+Both renderers (OpenGL, WGPU) now work on all models we could test them on (Aka, Midori, Arch-chan).
 
-![Parsed foxgirl](https://0x0.st/o7sM.png)
+Support for parameters, physics and animations is on the way!
 
-A rewrite of the missing parts is on the way, particularly the OpenGL renderer, in order to be on-par with the standard Inochi2D implementation.
+### Feature tree
 
 - [x] Parsing
   - [x] INP format
-  - [x] INX format
-- [ ] Rendering
-  - [ ] OpenGL
-  - [ ] WGPU
-- [ ] Deform
+- [x] Rendering
+  - [x] OpenGL
+  - [x] WGPU (Camera TBD)
+  - [ ] Draw List
+- [ ] Parameters
+  - [ ] Deforms (mesh vertex offsets)
+  - [ ] Values (node transform offsets)
 - [ ] Physics
 - [ ] Animations
+
+### INP parsing
+
+![Parsed foxgirl](https://0x0.st/o7sM.png)
+
+### OpenGL renderer
+
+![OpenGL-rendered Arch-chan](https://0x0.st/Hio6.png)
+
+### WGPU renderer
+
+![WGPU-rendered Arch-chan](https://0x0.st/HzET.png)
 
 &nbsp;
 
@@ -51,13 +65,13 @@ Inox2D is designed to be extensible. Nodes are extensible through a generic `Ino
 
 &nbsp;
 
-## Optimization
+## Optimization on OpenGL
 
 | Implementation        | language | OpenGL calls |
 | --------------------- | -------- | ------------ |
 | Inochi2D reference*   | D        | 3076         |
 | Link Mauve's inochi2d | Rust     | 551          |
-| Inox2D                | Rust     | [TBD]        |
+| Inox2D                | Rust     | 1544         |
 
 \* Reference implementation is subject to change as optimisation passes are done, additionally code is more geared towards readability than performance for implementers to be able to more easily use it as reference.
 

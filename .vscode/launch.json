@@ -1,0 +1,138 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'inox2d'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=inox2d"
+                ],
+                "filter": {
+                    "name": "inox2d",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'render_inp'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=render_inp",
+                    "--package=inox2d"
+                ],
+                "filter": {
+                    "name": "render_inp",
+                    "kind": "example"
+                }
+            },
+            "args": ["target/Aka.inp"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'render_inp'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=render_inp",
+                    "--package=inox2d"
+                ],
+                "filter": {
+                    "name": "render_inp",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'render_wgpu'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=render_wgpu",
+                    "--package=inox2d"
+                ],
+                "filter": {
+                    "name": "render_wgpu",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'render_wgpu'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=render_wgpu",
+                    "--package=inox2d"
+                ],
+                "filter": {
+                    "name": "render_wgpu",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'parse_inp'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=parse_inp",
+                    "--package=inox2d"
+                ],
+                "filter": {
+                    "name": "parse_inp",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'parse_inp'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=parse_inp",
+                    "--package=inox2d"
+                ],
+                "filter": {
+                    "name": "parse_inp",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

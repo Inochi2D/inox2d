@@ -19,9 +19,7 @@ use glutin::{
 };
 
 use glutin_winit::ApiPrefence;
-use inox2d::{
-    formats::inp::parse_inp, renderers::opengl::opengl_renderer, texture::decode_textures,
-};
+use inox2d::{formats::inp::parse_inp, renderers::opengl::OpenglRenderer};
 use raw_window_handle::HasRawWindowHandle;
 
 use tracing::{debug, error, info, warn};
@@ -50,7 +48,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     tracing_subscriber::registry()
         .with(fmt::layer())
-        .with(LevelFilter::INFO)
+        .with(LevelFilter::DEBUG)
         .init();
 
     info!("Parsing puppet");
@@ -61,15 +59,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         file.read_to_end(&mut data).unwrap();
         data
     };
-    let mut model = parse_inp(data.as_slice()).unwrap();
+    let model = parse_inp(data.as_slice()).unwrap();
     let puppet = model.puppet;
     info!(
         "Successfully parsed puppet {:?}",
         puppet.meta.name.unwrap_or_default()
     );
-
-    let n_textures = model.textures.len();
-    let rx = decode_textures(&mut model.textures);
 
     info!("Setting up windowing and OpenGL");
     let App {
@@ -84,12 +79,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("Initializing Inox2D renderer");
     let window_size = window.inner_size();
     let viewport = uvec2(window_size.width, window_size.height);
-    let mut renderer = opengl_renderer(gl, viewport, puppet.nodes);
-    renderer.upload_textures(rx, n_textures);
+    let mut renderer = OpenglRenderer::new(gl, viewport, puppet.nodes)?;
+    renderer.upload_model_textures(&model.textures)?;
     renderer.camera.scale = Vec2::splat(0.15);
     info!("Inox2D renderer initialized");
 
-    let zsorted_nodes = renderer.nodes.zsorted();
+    // let zsorted_nodes = renderer.nodes.zsorted();
 
     let mut camera_pos = Vec2::ZERO;
     let mut mouse_pos = Vec2::ZERO;
@@ -109,11 +104,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 debug!("Redrawing");
 
                 renderer.clear();
-                renderer.update_camera(); // Currently need to manually update the camera
-                renderer.render_nodes(&zsorted_nodes);
+                renderer.draw_model();
 
                 gl_surface.swap_buffers(&gl_ctx).unwrap();
-                // window.request_redraw();
             }
             Event::WindowEvent { ref event, .. } => match event {
                 WindowEvent::Resized(physical_size) => {
@@ -124,6 +117,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         NonZeroU32::new(physical_size.width).unwrap(),
                         NonZeroU32::new(physical_size.height).unwrap(),
                     );
+                    window.request_redraw();
                 }
                 WindowEvent::CursorMoved { position, .. } => {
                     mouse_pos = vec2(position.x as f32, position.y as f32);
@@ -154,7 +148,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                         renderer.camera.scale *= 7.0 * my.abs() / 8.0;
                     }
 
-                    renderer.update_camera();
                     window.request_redraw();
                 }
                 _ => (),
