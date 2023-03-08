@@ -65,13 +65,13 @@ Inox2D is designed to be extensible. Nodes are extensible through a generic `Ino
 
 &nbsp;
 
-## Optimization
+## Optimization on OpenGL
 
 | Implementation        | language | OpenGL calls |
 | --------------------- | -------- | ------------ |
 | Inochi2D reference*   | D        | 3076         |
 | Link Mauve's inochi2d | Rust     | 551          |
-| Inox2D                | Rust     | [TBD]        |
+| Inox2D                | Rust     | 1544         |
 
 \* Reference implementation is subject to change as optimisation passes are done, additionally code is more geared towards readability than performance for implementers to be able to more easily use it as reference.
 
