@@ -7,6 +7,7 @@ mod pipeline;
 use crate::nodes::node::InoxNodeUuid;
 use crate::nodes::node_data::InoxData;
 use crate::nodes::node_tree::InoxNodeTree;
+use crate::texture::decode_model_textures;
 use crate::{model::Model, nodes::node_data::MaskMode};
 
 use encase::ShaderType;
@@ -50,14 +51,11 @@ impl Renderer {
             ..SamplerDescriptor::default()
         });
 
-        for tex in &model.textures {
-            let image = image::load_from_memory_with_format(&tex.data, tex.format).unwrap();
-            let image = image.into_rgba8();
-            let dimensions = image.dimensions();
-
+        let shalltexs = decode_model_textures(&model.textures);
+        for shalltex in &shalltexs {
             let texture_size = wgpu::Extent3d {
-                width: dimensions.0,
-                height: dimensions.1,
+                width: shalltex.width(),
+                height: shalltex.height(),
                 depth_or_array_layers: 1,
             };
 
@@ -73,7 +71,7 @@ impl Renderer {
                     label: Some("texture"),
                     view_formats: &[],
                 },
-                &image,
+                shalltex.pixels(),
             );
 
             let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -114,6 +112,7 @@ impl Renderer {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render_part(
         &self,
         puppet: &Model,
@@ -194,6 +193,7 @@ impl Renderer {
         drop(render_pass);
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render_composite(
         &self,
         puppet: &Model,

@@ -6,12 +6,10 @@ pub mod texture;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::ops::Deref;
-use std::{io, mem};
+use std::mem;
 
 use glam::{uvec2, UVec2, Vec3};
 use glow::HasContext;
-use image::ImageFormat;
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use tracing::error;
 
 use crate::math::camera::Camera;
@@ -19,7 +17,7 @@ use crate::model::ModelTexture;
 use crate::nodes::node::{InoxNode, InoxNodeUuid};
 use crate::nodes::node_data::{BlendMode, Composite, InoxData, Mask, MaskMode, Part};
 use crate::nodes::node_tree::InoxNodeTree;
-use crate::texture::tga::read_tga;
+use crate::texture::decode_model_textures;
 
 use self::gl_buffer::{InoxGlBuffers, InoxGlBuffersBuilder};
 use self::shader::ShaderCompileError;
@@ -250,42 +248,11 @@ impl<T> OpenglRenderer<T> {
         model_textures: &[ModelTexture],
     ) -> Result<(), TextureError> {
         // decode textures in parallel
-        let images = model_textures
-            .par_iter()
-            .filter_map(|mtex| {
-                if mtex.format == ImageFormat::Tga {
-                    match read_tga(&mut io::Cursor::new(&mtex.data)) {
-                        Ok(img) => Some((
-                            img.data,
-                            img.header.width() as u32,
-                            img.header.height() as u32,
-                        )),
-                        Err(e) => {
-                            error!("{}", e);
-                            None
-                        }
-                    }
-                } else {
-                    let img_buf = image::load_from_memory_with_format(&mtex.data, mtex.format)
-                        .map_err(TextureError::LoadData);
-
-                    match img_buf {
-                        Ok(img_buf) => {
-                            let img_buf = img_buf.into_rgba8();
-                            Some((img_buf.to_vec(), img_buf.width(), img_buf.height()))
-                        }
-                        Err(e) => {
-                            error!("{}", e);
-                            None
-                        }
-                    }
-                }
-            })
-            .collect::<Vec<_>>();
+        let shalltexs = decode_model_textures(model_textures);
 
         // upload textures
-        for (pixels, width, height) in images {
-            let tex = texture::Texture::from_raw_pixels(&self.gl, &pixels, width, height)?;
+        for shalltex in shalltexs {
+            let tex = texture::Texture::from_shallow_texture(&self.gl, &shalltex)?;
             self.textures.push(tex);
         }
 

@@ -3,6 +3,7 @@ use image::{ImageBuffer, ImageError, Rgba};
 
 use crate::model::ModelTexture;
 use crate::texture::tga::TgaDecodeError;
+use crate::texture::ShallowTexture;
 
 #[derive(thiserror::Error, Debug)]
 pub enum TextureError {
@@ -48,6 +49,13 @@ impl Texture {
         let height = img_buf.height();
 
         Self::from_raw_pixels(gl, &pixels, width, height)
+    }
+
+    pub fn from_shallow_texture(
+        gl: &glow::Context,
+        shalltex: &ShallowTexture,
+    ) -> Result<Self, TextureError> {
+        Self::from_raw_pixels(gl, shalltex.pixels(), shalltex.width(), shalltex.height())
     }
 
     pub fn from_raw_pixels(
@@ -130,7 +138,6 @@ impl Texture {
         self.bpp
     }
 }
-
 
 /// Uploads an empty texture.
 ///
