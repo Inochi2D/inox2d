@@ -51,6 +51,7 @@ fn blend_state_for_blend_mode(mode: BlendMode) -> BlendState {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn create_part_pipeline(
     device: &Device,
     label: Label<'_>,
