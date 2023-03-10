@@ -41,7 +41,7 @@ owo = ["dep:owo-colors"]
 parallel-tex-dec = []
 
 [[example]]
-name = "render_inp"
+name = "render_opengl"
 required-features = ["opengl"]
 
 [[example]]
