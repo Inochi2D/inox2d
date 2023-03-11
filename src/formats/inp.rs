@@ -5,7 +5,7 @@ use std::string::FromUtf8Error;
 use image::ImageFormat;
 
 use crate::model::{Model, ModelTexture, VendorData};
-use crate::{read_n, read_be_u32, read_vec, read_u8};
+use crate::{read_be_u32, read_n, read_u8, read_vec};
 
 use super::json::JsonError;
 use super::serialize::{deserialize_puppet, InoxParseError};

@@ -5,8 +5,8 @@ pub mod texture;
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::mem;
+use std::ops::Deref;
 
 use glam::{uvec2, UVec2, Vec3};
 use glow::HasContext;
