@@ -59,19 +59,3 @@ jobs:
           args: test
         env:
           MIRIFLAGS: "-Zmiri-tag-raw-pointers"
-  loom:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-      - name: Install stable
-        uses: dtolnay/rust-toolchain@stable
-      - name: cargo test --test loom
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --release --test loom
-        env:
-          LOOM_MAX_PREEMPTIONS: 2
-          RUSTFLAGS: "--cfg loom"
