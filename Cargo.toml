@@ -11,7 +11,7 @@ categories = ["graphics", "rendering"]
 [dependencies]
 bytemuck = "1.12.3"
 encase = { version = "0.4.1", features = ["glam"] }
-glam = { version = "0.22.0", features = ["bytemuck"] }
+glam = { version = "0.23.0", features = ["bytemuck"] }
 glow = { version = "0.12.1", optional = true }
 image = "0.24.5"
 indextree = { version = "4.5.0" }
