@@ -5,7 +5,6 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use tracing::error;
 
 use crate::model::ModelTexture;
-use crate::renderers::opengl::texture::TextureError;
 
 use self::tga::{read_tga, TgaImage};
 
@@ -64,8 +63,7 @@ pub(crate) fn decode_model_textures(model_textures: &[ModelTexture]) -> Vec<Shal
                     }
                 }
             } else {
-                let img_buf = image::load_from_memory_with_format(&mtex.data, mtex.format)
-                    .map_err(TextureError::LoadData);
+                let img_buf = image::load_from_memory_with_format(&mtex.data, mtex.format);
 
                 match img_buf {
                     Ok(img_buf) => Some(ShallowTexture::from(img_buf.into_rgba8())),

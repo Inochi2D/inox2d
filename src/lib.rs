@@ -1,4 +1,4 @@
-use std::io::{Read, self};
+use std::io::{self, Read};
 
 pub const INOCHI2D_SPEC_VERSION: &str = "1.0-alpha";
 

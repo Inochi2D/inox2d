@@ -96,7 +96,7 @@ impl Mesh {
     ///
     /// # Example
     ///
-    /// ~~~no_run
+    /// ```ignore
     /// Mesh::quad()
     ///     // Size of texture
     ///     .size(texture.width, texture.height)
@@ -104,7 +104,7 @@ impl Mesh {
     ///     .uv_bounds(vec4(0., 0., 1., 1.))
     ///     // width > height
     ///     .cuts(32, 16)
-    /// ~~~
+    /// ```
     pub fn quad() -> QuadBuilder {
         QuadBuilder::default()
     }

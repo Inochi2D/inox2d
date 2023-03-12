@@ -1,9 +1,8 @@
 //! Port of imagefmt's TGA decoder written in D, licensed under BSD 2-Clause.
 //!
 //! See [LICENSE](https://github.com/tjhann/imagefmt/blob/master/LICENSE)
-//! 
+//!
 //! https://github.com/tjhann/imagefmt
-
 
 use std::io::{self, Read, Seek, Write};
 
