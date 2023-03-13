@@ -13,10 +13,10 @@ use crate::nodes::node_data::{
 };
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::nodes::physics::SimplePhysics;
+use crate::params::{Binding, BindingValues, InterpolateMode, Param, UnknownInterpolateModeError};
 use crate::puppet::{
-    Binding, BindingValues, InterpolateMode, Param, Puppet, PuppetAllowedModification,
-    PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta, PuppetPhysics, PuppetUsageRights,
-    UnknownInterpolateModeError, UnknownPuppetAllowedModificationError,
+    Puppet, PuppetAllowedModification, PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta,
+    PuppetPhysics, PuppetUsageRights, UnknownPuppetAllowedModificationError,
     UnknownPuppetAllowedRedistributionError, UnknownPuppetAllowedUsersError,
 };
 
