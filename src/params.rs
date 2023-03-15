@@ -1,6 +1,7 @@
 use glam::Vec2;
 
 use crate::nodes::node::InoxNodeUuid;
+use crate::math::matrix::Matrix2d;
 
 #[derive(Debug)]
 pub enum InterpolateMode {
@@ -33,15 +34,15 @@ pub struct Binding {
 
 #[derive(Debug)]
 pub enum BindingValues {
-    ZSort(Vec<Vec<f32>>),
-    TransformTX(Vec<Vec<f32>>),
-    TransformTY(Vec<Vec<f32>>),
-    TransformSX(Vec<Vec<f32>>),
-    TransformSY(Vec<Vec<f32>>),
-    TransformRX(Vec<Vec<f32>>),
-    TransformRY(Vec<Vec<f32>>),
-    TransformRZ(Vec<Vec<f32>>),
-    Deform(Vec<Vec<Vec<Vec2>>>),
+    ZSort(Matrix2d<f32>),
+    TransformTX(Matrix2d<f32>),
+    TransformTY(Matrix2d<f32>),
+    TransformSX(Matrix2d<f32>),
+    TransformSY(Matrix2d<f32>),
+    TransformRX(Matrix2d<f32>),
+    TransformRY(Matrix2d<f32>),
+    TransformRZ(Matrix2d<f32>),
+    Deform(Matrix2d<Vec<Vec2>>),
 }
 
 /// Parameter. A simple bounded value that is used to animate nodes through bindings.

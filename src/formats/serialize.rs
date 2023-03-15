@@ -4,6 +4,7 @@ use glam::Vec2;
 use indextree::Arena;
 use json::JsonValue;
 
+use crate::math::matrix::{Matrix2d, Matrix2dFromSliceVecsError};
 use crate::math::transform::Transform;
 use crate::mesh::{f32s_as_vec2s, Mesh};
 use crate::nodes::node::{InoxNode, InoxNodeUuid};
@@ -34,6 +35,8 @@ pub enum InoxParseError {
     UnknownParamName(String),
     #[error("No albedo texture")]
     NoAlbedoTexture,
+    #[error(transparent)]
+    InvalidMatrix2dData(#[from] Matrix2dFromSliceVecsError),
     #[error(transparent)]
     UnknownBlendMode(#[from] UnknownBlendModeError),
     #[error(transparent)]
@@ -317,16 +320,16 @@ fn deserialize_binding_values(
     values: &[JsonValue],
 ) -> InoxParseResult<BindingValues> {
     Ok(match param_name {
-        "zSort" => BindingValues::ZSort(deserialize_inner_binding_values(values)),
-        "transform.t.x" => BindingValues::TransformTX(deserialize_inner_binding_values(values)),
-        "transform.t.y" => BindingValues::TransformTY(deserialize_inner_binding_values(values)),
-        "transform.s.x" => BindingValues::TransformSX(deserialize_inner_binding_values(values)),
-        "transform.s.y" => BindingValues::TransformSY(deserialize_inner_binding_values(values)),
-        "transform.r.x" => BindingValues::TransformRX(deserialize_inner_binding_values(values)),
-        "transform.r.y" => BindingValues::TransformRY(deserialize_inner_binding_values(values)),
-        "transform.r.z" => BindingValues::TransformRZ(deserialize_inner_binding_values(values)),
-        "deform" => BindingValues::Deform(
-            values
+        "zSort" => BindingValues::ZSort(deserialize_inner_binding_values(values)?),
+        "transform.t.x" => BindingValues::TransformTX(deserialize_inner_binding_values(values)?),
+        "transform.t.y" => BindingValues::TransformTY(deserialize_inner_binding_values(values)?),
+        "transform.s.x" => BindingValues::TransformSX(deserialize_inner_binding_values(values)?),
+        "transform.s.y" => BindingValues::TransformSY(deserialize_inner_binding_values(values)?),
+        "transform.r.x" => BindingValues::TransformRX(deserialize_inner_binding_values(values)?),
+        "transform.r.y" => BindingValues::TransformRY(deserialize_inner_binding_values(values)?),
+        "transform.r.z" => BindingValues::TransformRZ(deserialize_inner_binding_values(values)?),
+        "deform" => {
+            let values = values
                 .iter()
                 .enumerate()
                 .filter_map(|(j, vals)| {
@@ -338,21 +341,27 @@ fn deserialize_binding_values(
                             .filter_map(|(i, vals)| {
                                 deserialize_vec2s(as_nested_list(i, vals).ok()?).ok()
                             })
-                            .collect(),
+                            .collect::<Vec<Vec<_>>>(),
                     )
                 })
-                .collect(),
-        ),
+                .collect::<Vec<Vec<_>>>();
+
+            BindingValues::Deform(Matrix2d::from_slice_vecs(&values)?)
+        }
         param_name => return Err(InoxParseError::UnknownParamName(param_name.to_owned())),
     })
 }
 
-fn deserialize_inner_binding_values(values: &[JsonValue]) -> Vec<Vec<f32>> {
-    values
+fn deserialize_inner_binding_values(
+    values: &[JsonValue],
+) -> Result<Matrix2d<f32>, Matrix2dFromSliceVecsError> {
+    let values = values
         .iter()
         .enumerate()
         .filter_map(|(i, vals)| Some(deserialize_f32s(as_nested_list(i, vals).ok()?)))
-        .collect()
+        .collect::<Vec<Vec<_>>>();
+
+    Matrix2d::from_slice_vecs(&values)
 }
 
 fn as_nested_list(index: usize, val: &json::JsonValue) -> InoxParseResult<&[json::JsonValue]> {
