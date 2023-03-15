@@ -115,6 +115,7 @@ enum NodeDrawInfo {
 
 pub struct OpenglRenderer<T = ()> {
     gl: glow::Context,
+    support_debug_extension: bool,
     pub camera: Camera,
     pub viewport: UVec2,
     cache: RefCell<GlCache>,
@@ -210,8 +211,11 @@ impl<T> OpenglRenderer<T> {
         let composite_shader = CompositeShader::new(&gl)?;
         let composite_mask_shader = CompositeMaskShader::new(&gl)?;
 
+        let support_debug_extension = gl.supported_extensions().contains("GL_KHR_debug");
+
         let mut renderer = Self {
             gl,
+            support_debug_extension,
             camera: Camera::default(),
             viewport,
             cache: RefCell::new(GlCache::default()),
@@ -298,24 +302,26 @@ impl<T> OpenglRenderer<T> {
     /// This is very useful to debug OpenGL calls per node with `apitrace`, as it will nest calls inside of labels,
     /// making it trivial to know which calls correspond to which nodes.
     ///
-    /// It is a no-op on platforms that don't support it (only MacOS so far).
+    /// It is a no-op on platforms that don't support it (like Apple *OS).
     #[inline]
     fn push_debug_group(&self, name: &str) {
-        #[cfg(not(target_os = "macos"))]
-        unsafe {
-            self.gl
-                .push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name);
+        if self.support_debug_extension {
+            unsafe {
+                self.gl
+                    .push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name);
+            }
         }
     }
 
     /// Pops the last OpenGL debug group.
     ///
-    /// It is a no-op on platforms that don't support it (only MacOS so far).
+    /// It is a no-op on platforms that don't support it (like Apple *OS).
     #[inline]
     fn pop_debug_group(&self) {
-        #[cfg(not(target_os = "macos"))]
-        unsafe {
-            self.gl.pop_debug_group();
+        if self.support_debug_extension {
+            unsafe {
+                self.gl.pop_debug_group();
+            }
         }
     }
 

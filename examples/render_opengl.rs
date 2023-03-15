@@ -225,32 +225,33 @@ fn launch_opengl_window() -> Result<App, Box<dyn Error>> {
         })
     };
 
-    // MacOS doesn't support debug output. Rip. :(
-    #[cfg(not(target_os = "macos"))]
-    unsafe {
-        gl.debug_message_callback(|_src, ty, _id, sevr, msg| {
-            let ty = match ty {
-                glow::DEBUG_TYPE_ERROR => "Error: ",
-                glow::DEBUG_TYPE_DEPRECATED_BEHAVIOR => "Deprecated Behavior: ",
-                glow::DEBUG_TYPE_MARKER => "Marker: ",
-                glow::DEBUG_TYPE_OTHER => "",
-                glow::DEBUG_TYPE_POP_GROUP => "Pop Group: ",
-                glow::DEBUG_TYPE_PORTABILITY => "Portability: ",
-                glow::DEBUG_TYPE_PUSH_GROUP => "Push Group: ",
-                glow::DEBUG_TYPE_UNDEFINED_BEHAVIOR => "Undefined Behavior: ",
-                glow::DEBUG_TYPE_PERFORMANCE => "Performance: ",
-                ty => unreachable!("unknown debug type {ty}"),
-            };
-            match sevr {
-                glow::DEBUG_SEVERITY_NOTIFICATION => debug!(target: "opengl", "{ty}{msg}"),
-                glow::DEBUG_SEVERITY_LOW => info!(target: "opengl", "{ty}{msg}"),
-                glow::DEBUG_SEVERITY_MEDIUM => warn!(target: "opengl", "{ty}{msg}"),
-                glow::DEBUG_SEVERITY_HIGH => error!(target: "opengl", "{ty}{msg}"),
-                sevr => unreachable!("unknown debug severity {sevr}"),
-            };
-        });
+    // Check for "GL_KHR_debug" support (not present on Apple *OS).
+    if gl.supported_extensions().contains("GL_KHR_debug") {
+        unsafe {
+            gl.debug_message_callback(|_src, ty, _id, sevr, msg| {
+                let ty = match ty {
+                    glow::DEBUG_TYPE_ERROR => "Error: ",
+                    glow::DEBUG_TYPE_DEPRECATED_BEHAVIOR => "Deprecated Behavior: ",
+                    glow::DEBUG_TYPE_MARKER => "Marker: ",
+                    glow::DEBUG_TYPE_OTHER => "",
+                    glow::DEBUG_TYPE_POP_GROUP => "Pop Group: ",
+                    glow::DEBUG_TYPE_PORTABILITY => "Portability: ",
+                    glow::DEBUG_TYPE_PUSH_GROUP => "Push Group: ",
+                    glow::DEBUG_TYPE_UNDEFINED_BEHAVIOR => "Undefined Behavior: ",
+                    glow::DEBUG_TYPE_PERFORMANCE => "Performance: ",
+                    ty => unreachable!("unknown debug type {ty}"),
+                };
+                match sevr {
+                    glow::DEBUG_SEVERITY_NOTIFICATION => debug!(target: "opengl", "{ty}{msg}"),
+                    glow::DEBUG_SEVERITY_LOW => info!(target: "opengl", "{ty}{msg}"),
+                    glow::DEBUG_SEVERITY_MEDIUM => warn!(target: "opengl", "{ty}{msg}"),
+                    glow::DEBUG_SEVERITY_HIGH => error!(target: "opengl", "{ty}{msg}"),
+                    sevr => unreachable!("unknown debug severity {sevr}"),
+                };
+            });
 
-        gl.enable(glow::DEBUG_OUTPUT);
+            gl.enable(glow::DEBUG_OUTPUT);
+        }
     }
 
     Ok(App {
