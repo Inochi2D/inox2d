@@ -89,7 +89,7 @@ impl Mul for Transform {
         Self {
             trs: strs,
             translation: Vec3::new(trans.x, trans.y, trans.z),
-            rotation: self.rotation * rhs.rotation,
+            rotation: self.rotation + rhs.rotation,
             scale: self.scale * rhs.scale,
             pixel_snap: false,
         }
