@@ -13,6 +13,7 @@ use glow::HasContext;
 use tracing::error;
 
 use crate::math::camera::Camera;
+use crate::math::transform::Transform;
 use crate::model::ModelTexture;
 use crate::nodes::node::{InoxNode, InoxNodeUuid};
 use crate::nodes::node_data::{BlendMode, Composite, InoxData, Mask, MaskMode, Part};
@@ -565,14 +566,21 @@ impl<T> OpenglRenderer<T> {
             }
         }
 
-        // Position of current node by adding up its ancestors' positions
-        let offset = self
+        // Position of current node by applying up its ancestors' transforms
+        let mut offset = Transform::default();
+        offset.update();
+
+        for mut trans in self
             .nodes
             .ancestors(node.uuid)
             .filter_map(|ancestor| self.nodes.arena.get(ancestor))
-            .map(|node| node.get().transform.translation)
-            .sum::<Vec3>()
-            .truncate();
+            .map(|node| node.get().transform.clone())
+        {
+            trans.update();
+            offset *= &trans;
+        }
+
+        let offset = offset.translation.truncate();
 
         self.bind_part_textures(part);
         self.set_blend_mode(part.draw_state.blend_mode);
