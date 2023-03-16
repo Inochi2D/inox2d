@@ -303,13 +303,15 @@ fn deserialize_bindings(vals: &[json::JsonValue]) -> Vec<Binding> {
 }
 
 fn deserialize_binding(obj: &JsonObject) -> InoxParseResult<Binding> {
+    let is_set = obj
+        .get_list("isSet")?
+        .iter()
+        .map(|bools| bools.members().map_while(JsonValue::as_bool).collect())
+        .collect::<Vec<Vec<_>>>();
+
     Ok(Binding {
         node: InoxNodeUuid(obj.get_u32("node")?),
-        is_set: obj
-            .get_list("isSet")?
-            .iter()
-            .map(|bools| bools.members().map_while(JsonValue::as_bool).collect())
-            .collect(),
+        is_set: Matrix2d::from_slice_vecs(&is_set)?,
         interpolate_mode: InterpolateMode::try_from(obj.get_str("interpolate_mode")?)?,
         values: deserialize_binding_values(obj.get_str("param_name")?, obj.get_list("values")?)?,
     })

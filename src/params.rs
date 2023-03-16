@@ -27,7 +27,7 @@ impl TryFrom<&str> for InterpolateMode {
 #[derive(Debug)]
 pub struct Binding {
     pub node: InoxNodeUuid,
-    pub is_set: Vec<Vec<bool>>,
+    pub is_set: Matrix2d<bool>,
     pub interpolate_mode: InterpolateMode,
     pub values: BindingValues,
 }
