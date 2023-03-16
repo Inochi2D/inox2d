@@ -1,31 +1,8 @@
 use glam::Vec2;
 
-use crate::nodes::node::InoxNodeUuid;
+use crate::math::interp::InterpolateMode;
 use crate::math::matrix::Matrix2d;
-
-#[derive(Debug)]
-pub enum InterpolateMode {
-    /// Round to nearest
-    Nearest,
-    /// Linear interpolation
-    Linear,
-    // there's more but I'm not adding them for now.
-}
-
-#[derive(Debug, Clone, thiserror::Error)]
-#[error("Unknown interpolate mode {0:?}")]
-pub struct UnknownInterpolateModeError(String);
-
-impl TryFrom<&str> for InterpolateMode {
-    type Error = UnknownInterpolateModeError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value {
-            "Linear" => Ok(InterpolateMode::Linear),
-            unknown => Err(UnknownInterpolateModeError(unknown.to_owned())),
-        }
-    }
-}
+use crate::nodes::node::InoxNodeUuid;
 
 /// Parameter binding to a node. This allows to animate a node based on the value of the parameter that owns it.
 #[derive(Debug)]

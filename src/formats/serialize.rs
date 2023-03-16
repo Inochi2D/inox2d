@@ -4,6 +4,7 @@ use glam::Vec2;
 use indextree::Arena;
 use json::JsonValue;
 
+use crate::math::interp::{InterpolateMode, UnknownInterpolateModeError};
 use crate::math::matrix::{Matrix2d, Matrix2dFromSliceVecsError};
 use crate::math::transform::Transform;
 use crate::mesh::{f32s_as_vec2s, Mesh};
@@ -14,7 +15,7 @@ use crate::nodes::node_data::{
 };
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::nodes::physics::SimplePhysics;
-use crate::params::{Binding, BindingValues, InterpolateMode, Param, UnknownInterpolateModeError};
+use crate::params::{Binding, BindingValues, Param};
 use crate::puppet::{
     Puppet, PuppetAllowedModification, PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta,
     PuppetPhysics, PuppetUsageRights, UnknownPuppetAllowedModificationError,
