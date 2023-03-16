@@ -5,7 +5,11 @@ use crate::math::matrix::Matrix2d;
 
 #[derive(Debug)]
 pub enum InterpolateMode {
+    /// Round to nearest
+    Nearest,
+    /// Linear interpolation
     Linear,
+    // there's more but I'm not adding them for now.
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
