@@ -337,12 +337,6 @@ impl<T> OpenglRenderer<T> {
 
         let matrix = self.camera.matrix(self.viewport.as_vec2());
 
-        self.bind_shader(&self.part_mask_shader);
-        self.part_mask_shader.set_mvp(&self.gl, matrix);
-
-        self.bind_shader(&self.part_shader);
-        self.part_shader.set_mvp(&self.gl, matrix);
-
         self.bind_shader(&self.composite_shader);
         self.composite_shader.set_mvp(&self.gl, matrix);
 
@@ -567,20 +561,20 @@ impl<T> OpenglRenderer<T> {
         }
 
         // Position of current node by applying up its ancestors' transforms
-        let mut offset = Transform::default();
-        offset.update();
+        let mut trans = Transform::default();
+        trans.update();
 
-        for mut trans in self
+        for mut transestor in self
             .nodes
             .ancestors(node.uuid)
             .filter_map(|ancestor| self.nodes.arena.get(ancestor))
             .map(|node| node.get().transform.clone())
         {
-            trans.update();
-            offset *= &trans;
+            transestor.update();
+            trans *= &transestor;
         }
 
-        let offset = offset.translation.truncate();
+        let mvp = self.camera.matrix(self.viewport.as_vec2()) * trans.matrix();
 
         self.bind_part_textures(part);
         self.set_blend_mode(part.draw_state.blend_mode);
@@ -590,7 +584,7 @@ impl<T> OpenglRenderer<T> {
             self.bind_shader(part_mask_shader);
 
             // vert uniforms
-            part_mask_shader.set_offset(gl, offset);
+            part_mask_shader.set_mvp(gl, mvp);
 
             // frag uniforms
             part_mask_shader.set_threshold(gl, part.draw_state.mask_threshold.clamp(0.0, 1.0));
@@ -599,7 +593,7 @@ impl<T> OpenglRenderer<T> {
             self.bind_shader(part_shader);
 
             // vert uniforms
-            part_shader.set_offset(gl, offset);
+            part_shader.set_mvp(gl, mvp);
 
             // frag uniforms
             part_shader.set_opacity(gl, part.draw_state.opacity);

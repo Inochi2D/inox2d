@@ -15,6 +15,6 @@ layout(location = 2) in vec2 deform;
 out vec2 texUVs;
 
 void main() {
-  gl_Position = mvp * vec4(verts + offset + deform, 0, 1);
+  gl_Position = mvp * vec4(verts - offset + deform, 0, 1);
   texUVs = uvs;
 }
