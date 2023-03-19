@@ -101,18 +101,19 @@ impl InoxGlBuffersBuilder {
     }
 
     /// adds the mesh's vertices and UVs to the buffers and returns its index offset.
-    pub fn push(&mut self, mesh: &Mesh) -> u16 {
+    pub fn push(&mut self, mesh: &Mesh) -> (u16, u16) {
         self.verts.extend_from_slice(&mesh.vertices);
         self.uvs.extend_from_slice(&mesh.uvs);
         self.indices
             .extend(mesh.indices.iter().map(|index| index + self.offset_vert));
 
         let offset_index = self.offset_index;
+        let offset_vert = self.offset_vert;
 
         self.offset_index += mesh.indices.len() as u16;
         self.offset_vert += mesh.vertices.len() as u16;
 
-        offset_index
+        (offset_index, offset_vert)
     }
 
     /// Uploads the vertex and index buffers to OpenGL.
@@ -151,7 +152,7 @@ impl InoxGlBuffersBuilder {
             vao,
             // verts: self.verts,
             // uvs: self.uvs,
-            // deforms,
+            deforms,
             // indices: self.indices,
         })
     }
@@ -161,7 +162,7 @@ pub struct InoxGlBuffers {
     vao: glow::VertexArray,
     // verts: GlBuffer<Vec2>,
     // uvs: GlBuffer<Vec2>,
-    // deforms: GlBuffer<Vec2>,
+    pub deforms: GlBuffer<Vec2>,
     // indices: GlBuffer<u16>,
 }
 

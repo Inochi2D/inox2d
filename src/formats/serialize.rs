@@ -15,7 +15,7 @@ use crate::nodes::node_data::{
 };
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::nodes::physics::SimplePhysics;
-use crate::params::{Binding, BindingValues, Param};
+use crate::params::{Binding, BindingValues, Param, AxisPoints};
 use crate::puppet::{
     Puppet, PuppetAllowedModification, PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta,
     PuppetPhysics, PuppetUsageRights, UnknownPuppetAllowedModificationError,
@@ -376,10 +376,10 @@ fn as_nested_list(index: usize, val: &json::JsonValue) -> InoxParseResult<&[json
     }
 }
 
-fn deserialize_axis_points(vals: &[json::JsonValue]) -> InoxParseResult<[Vec<f32>; 2]> {
-    let x_points = deserialize_f32s(as_nested_list(0, &vals[0])?);
-    let y_points = deserialize_f32s(as_nested_list(1, &vals[1])?);
-    Ok([x_points, y_points])
+fn deserialize_axis_points(vals: &[json::JsonValue]) -> InoxParseResult<AxisPoints> {
+    let x = deserialize_f32s(as_nested_list(0, &vals[0])?);
+    let y = deserialize_f32s(as_nested_list(1, &vals[1])?);
+    Ok(AxisPoints { x, y })
 }
 
 fn deserialize_nodes<T>(

@@ -95,7 +95,7 @@ pub fn interpolate_vec2(
     Vec2 { x, y }
 }
 
-pub fn interpolate_f32s(
+pub fn interpolate_f32s_additive(
     t: f32,
     range_in: InterpRange<f32>,
     range_out: InterpRange<&[f32]>,
@@ -103,11 +103,11 @@ pub fn interpolate_f32s(
     out: &mut [f32],
 ) {
     for ((&ob, &oe), o) in range_out.beg.iter().zip(range_out.end).zip(out) {
-        *o = interpolate_f32(t, range_in, InterpRange::new(ob, oe), mode);
+        *o += interpolate_f32(t, range_in, InterpRange::new(ob, oe), mode);
     }
 }
 
-pub fn interpolate_vec2s(
+pub fn interpolate_vec2s_additive(
     t: f32,
     range_in: InterpRange<f32>,
     range_out: InterpRange<&[Vec2]>,
@@ -115,7 +115,7 @@ pub fn interpolate_vec2s(
     out: &mut [Vec2],
 ) {
     for ((&ob, &oe), o) in range_out.beg.iter().zip(range_out.end).zip(out) {
-        *o = interpolate_vec2(t, range_in, InterpRange::new(ob, oe), mode);
+        *o += interpolate_vec2(t, range_in, InterpRange::new(ob, oe), mode);
     }
 }
 
@@ -145,7 +145,7 @@ pub fn bi_interpolate_vec2(
     interpolate_vec2(t.y, range_in.to_y(), InterpRange::new(beg, end), mode)
 }
 
-pub fn bi_interpolate_f32s(
+pub fn bi_interpolate_f32s_additive(
     t: Vec2,
     range_in: InterpRange<Vec2>,
     out_top: InterpRange<&[f32]>,
@@ -157,7 +157,7 @@ pub fn bi_interpolate_f32s(
         .zip(out_bottom.beg.iter().zip(out_bottom.end))
         .zip(out)
     {
-        *o = bi_interpolate_f32(
+        *o += bi_interpolate_f32(
             t,
             range_in,
             InterpRange::new(otb, ote),
@@ -167,7 +167,7 @@ pub fn bi_interpolate_f32s(
     }
 }
 
-pub fn bi_interpolate_vec2s(
+pub fn bi_interpolate_vec2s_additive(
     t: Vec2,
     range_in: InterpRange<Vec2>,
     out_top: InterpRange<&[Vec2]>,
@@ -179,7 +179,7 @@ pub fn bi_interpolate_vec2s(
         .zip(out_bottom.beg.iter().zip(out_bottom.end))
         .zip(out)
     {
-        *o = bi_interpolate_vec2(
+        *o += bi_interpolate_vec2(
             t,
             range_in,
             InterpRange::new(otb, ote),
