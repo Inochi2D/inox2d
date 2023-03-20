@@ -18,7 +18,6 @@ use crate::model::ModelTexture;
 use crate::nodes::node::{InoxNode, InoxNodeUuid};
 use crate::nodes::node_data::{BlendMode, Composite, InoxData, Mask, MaskMode, Part};
 use crate::nodes::node_tree::InoxNodeTree;
-use crate::params::PartOffsets;
 use crate::texture::decode_model_textures;
 
 use self::gl_buffer::{InoxGlBuffers, InoxGlBuffersBuilder};
@@ -112,19 +111,21 @@ impl GlCache {
 #[derive(Debug, Clone)]
 struct PartDrawInfo {
     index_offset: u16,
-    part_offsets: PartOffsets,
+    vert_offset: u16,
+    vert_len: usize,
+    trans_offset: Transform,
 }
 
 // Implemented for parameter bindings to animate the puppet
-impl AsRef<PartOffsets> for PartDrawInfo {
-    fn as_ref(&self) -> &PartOffsets {
-        &self.part_offsets
+impl AsRef<Transform> for PartDrawInfo {
+    fn as_ref(&self) -> &Transform {
+        &self.trans_offset
     }
 }
 
-impl AsMut<PartOffsets> for PartDrawInfo {
-    fn as_mut(&mut self) -> &mut PartOffsets {
-        &mut self.part_offsets
+impl AsMut<Transform> for PartDrawInfo {
+    fn as_mut(&mut self) -> &mut Transform {
+        &mut self.trans_offset
     }
 }
 
@@ -184,11 +185,9 @@ impl<T> OpenglRenderer<T> {
                         uuid,
                         PartDrawInfo {
                             index_offset,
-                            part_offsets: PartOffsets {
-                                vert_offset,
-                                vert_len: part.mesh.vertices.len(),
-                                trans_offset: Transform::default(),
-                            },
+                            vert_offset,
+                            vert_len: part.mesh.vertices.len(),
+                            trans_offset: Transform::default(),
                         },
                     );
                 }
@@ -211,11 +210,9 @@ impl<T> OpenglRenderer<T> {
                                 uuid,
                                 PartDrawInfo {
                                     index_offset,
-                                    part_offsets: PartOffsets {
-                                        vert_offset,
-                                        vert_len: part.mesh.vertices.len(),
-                                        trans_offset: Transform::default(),
-                                    },
+                                    vert_offset,
+                                    vert_len: part.mesh.vertices.len(),
+                                    trans_offset: Transform::default(),
                                 },
                             );
                         }
@@ -592,7 +589,7 @@ impl<T> OpenglRenderer<T> {
         }
 
         // Position of current node by applying up its ancestors' transforms
-        let mut trans = draw_info.part_offsets.trans_offset.clone();
+        let mut trans = draw_info.trans_offset.clone();
         trans.update();
 
         for mut transestor in self
