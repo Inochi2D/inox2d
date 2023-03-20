@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use glam::Vec2;
 use indextree::Arena;
@@ -15,7 +15,7 @@ use crate::nodes::node_data::{
 };
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::nodes::physics::SimplePhysics;
-use crate::params::{Binding, BindingValues, Param, AxisPoints};
+use crate::params::{AxisPoints, Binding, BindingValues, Param};
 use crate::puppet::{
     Puppet, PuppetAllowedModification, PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta,
     PuppetPhysics, PuppetUsageRights, UnknownPuppetAllowedModificationError,
@@ -275,26 +275,30 @@ pub fn deserialize_puppet_ext<T>(
     })
 }
 
-fn deserialize_params(vals: &[json::JsonValue]) -> Vec<Param> {
+fn deserialize_params(vals: &[json::JsonValue]) -> HashMap<String, Param> {
     vals.iter()
         .map_while(|param| deserialize_param(&JsonObject(param.as_object()?)).ok())
         .collect()
 }
 
-fn deserialize_param(obj: &JsonObject) -> InoxParseResult<Param> {
-    Ok(Param {
-        uuid: obj.get_u32("uuid")?,
-        name: obj.get_str("name")?.to_owned(),
-        is_vec2: obj.get_bool("is_vec2")?,
-        min: obj.get_vec2("min")?,
-        max: obj.get_vec2("max")?,
-        defaults: obj.get_vec2("defaults")?,
-        axis_points: nested(
-            "axis_points",
-            deserialize_axis_points(obj.get_list("axis_points")?),
-        )?,
-        bindings: deserialize_bindings(obj.get_list("bindings")?),
-    })
+fn deserialize_param(obj: &JsonObject) -> InoxParseResult<(String, Param)> {
+    let name = obj.get_str("name")?.to_owned();
+    Ok((
+        name.clone(),
+        Param {
+            uuid: obj.get_u32("uuid")?,
+            name,
+            is_vec2: obj.get_bool("is_vec2")?,
+            min: obj.get_vec2("min")?,
+            max: obj.get_vec2("max")?,
+            defaults: obj.get_vec2("defaults")?,
+            axis_points: nested(
+                "axis_points",
+                deserialize_axis_points(obj.get_list("axis_points")?),
+            )?,
+            bindings: deserialize_bindings(obj.get_list("bindings")?),
+        },
+    ))
 }
 
 fn deserialize_bindings(vals: &[json::JsonValue]) -> Vec<Binding> {

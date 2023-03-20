@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use std::collections::HashMap;
 use std::fmt;
 
 use crate::nodes::node_tree::InoxNodeTree;
@@ -309,5 +310,11 @@ pub struct Puppet<T = ()> {
     pub meta: PuppetMeta,
     pub physics: PuppetPhysics,
     pub nodes: InoxNodeTree<T>,
-    pub parameters: Vec<Param>,
+    pub parameters: HashMap<String, Param>,
+}
+
+impl<T> Puppet<T> {
+    pub fn get_param(&self, name: &str) -> Option<&Param> {
+        self.parameters.get(name)
+    }
 }
