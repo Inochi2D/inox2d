@@ -49,11 +49,18 @@ pub struct Param {
     pub bindings: Vec<Binding>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct PartOffsets {
+    pub vert_offset: u16,
+    pub vert_len: usize,
+    pub trans_offset: Transform,
+}
+
 impl Param {
-    pub fn apply<T, Tr: AsMut<Transform>>(
+    pub fn apply<T, Po: AsMut<PartOffsets>>(
         &self,
         val: Vec2,
-        node_offsets: &mut HashMap<InoxNodeUuid, Tr>,
+        node_offsets: &mut HashMap<InoxNodeUuid, Po>,
         deform_buf: &mut [Vec2],
     ) {
         let val = val.clamp(self.min, self.max);
@@ -77,7 +84,7 @@ impl Param {
 
         // Reset all transform and deform offsets before applying bindings
         for node_offset in node_offsets.values_mut() {
-            node_offset.as_mut().clear();
+            node_offset.as_mut().trans_offset.clear();
         }
 
         for v in deform_buf.iter_mut() {
@@ -109,7 +116,7 @@ impl Param {
                         end: matrix[(x_maxdex, y_maxdex)],
                     };
 
-                    part_offsets.translation.x += bi_interpolate_f32(
+                    part_offsets.trans_offset.translation.x += bi_interpolate_f32(
                         val,
                         range_in,
                         out_top,
@@ -127,7 +134,7 @@ impl Param {
                         end: matrix[(x_maxdex, y_maxdex)],
                     };
 
-                    part_offsets.translation.y += bi_interpolate_f32(
+                    part_offsets.trans_offset.translation.y += bi_interpolate_f32(
                         val,
                         range_in,
                         out_top,
@@ -145,7 +152,7 @@ impl Param {
                         end: matrix[(x_maxdex, y_maxdex)],
                     };
 
-                    part_offsets.scale.x *= bi_interpolate_f32(
+                    part_offsets.trans_offset.scale.x *= bi_interpolate_f32(
                         val,
                         range_in,
                         out_top,
@@ -163,7 +170,7 @@ impl Param {
                         end: matrix[(x_maxdex, y_maxdex)],
                     };
 
-                    part_offsets.scale.y *= bi_interpolate_f32(
+                    part_offsets.trans_offset.scale.y *= bi_interpolate_f32(
                         val,
                         range_in,
                         out_top,
@@ -181,7 +188,7 @@ impl Param {
                         end: matrix[(x_maxdex, y_maxdex)],
                     };
 
-                    part_offsets.rotation.x += bi_interpolate_f32(
+                    part_offsets.trans_offset.rotation.x += bi_interpolate_f32(
                         val,
                         range_in,
                         out_top,
@@ -199,7 +206,7 @@ impl Param {
                         end: matrix[(x_maxdex, y_maxdex)],
                     };
 
-                    part_offsets.rotation.y += bi_interpolate_f32(
+                    part_offsets.trans_offset.rotation.y += bi_interpolate_f32(
                         val,
                         range_in,
                         out_top,
@@ -217,7 +224,7 @@ impl Param {
                         end: matrix[(x_maxdex, y_maxdex)],
                     };
 
-                    part_offsets.rotation.z += bi_interpolate_f32(
+                    part_offsets.trans_offset.rotation.z += bi_interpolate_f32(
                         val,
                         range_in,
                         out_top,
