@@ -242,13 +242,16 @@ impl Param {
                         end: matrix[(x_maxdex, y_maxdex)].as_slice(),
                     };
 
+                    let def_beg = part_offsets.vert_offset as usize;
+                    let def_end = def_beg + part_offsets.vert_len;
+
                     bi_interpolate_vec2s_additive(
                         val,
                         range_in,
                         out_top,
                         out_bottom,
                         binding.interpolate_mode,
-                        deform_buf,
+                        &mut deform_buf[def_beg..def_end],
                     );
                 }
             }
