@@ -46,6 +46,17 @@ impl<T> GlBuffer<T> {
             buffer
         }
     }
+
+    pub fn reupload(&self, gl: &glow::Context, target: u32, start_idx: usize, end_idx: usize) {
+        let slice = &self.0[start_idx..end_idx];
+        unsafe {
+            let bytes: &[u8] = core::slice::from_raw_parts(
+                slice.as_ptr() as *const u8,
+                slice.len() * core::mem::size_of::<T>(),
+            );
+            gl.buffer_sub_data_u8_slice(target, start_idx as i32, bytes);
+        }
+    }
 }
 
 impl<T> Default for GlBuffer<T> {

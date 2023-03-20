@@ -316,7 +316,7 @@ fn deserialize_binding(obj: &JsonObject) -> InoxParseResult<Binding> {
 
     Ok(Binding {
         node: InoxNodeUuid(obj.get_u32("node")?),
-        is_set: Matrix2d::from_slice_vecs(&is_set)?,
+        is_set: Matrix2d::from_slice_vecs(&is_set, true)?,
         interpolate_mode: InterpolateMode::try_from(obj.get_str("interpolate_mode")?)?,
         values: deserialize_binding_values(obj.get_str("param_name")?, obj.get_list("values")?)?,
     })
@@ -336,24 +336,17 @@ fn deserialize_binding_values(
         "transform.r.y" => BindingValues::TransformRY(deserialize_inner_binding_values(values)?),
         "transform.r.z" => BindingValues::TransformRZ(deserialize_inner_binding_values(values)?),
         "deform" => {
-            let values = values
-                .iter()
-                .enumerate()
-                .filter_map(|(j, vals)| {
-                    Some(
-                        as_nested_list(j, vals)
-                            .ok()?
-                            .iter()
-                            .enumerate()
-                            .filter_map(|(i, vals)| {
-                                deserialize_vec2s(as_nested_list(i, vals).ok()?).ok()
-                            })
-                            .collect::<Vec<Vec<_>>>(),
-                    )
-                })
-                .collect::<Vec<Vec<_>>>();
+            let mut parsed = Vec::with_capacity(values.len());
+            for (j, vals) in values.iter().enumerate() {
+                let nested = as_nested_list(j, vals)?;
+                let mut nested_parsed = Vec::with_capacity(nested.len());
+                for (i, vals) in nested.iter().enumerate() {
+                    nested_parsed.push(deserialize_vec2s(as_nested_list(i, vals)?)?);
+                }
+                parsed.push(nested_parsed);
+            }
 
-            BindingValues::Deform(Matrix2d::from_slice_vecs(&values)?)
+            BindingValues::Deform(Matrix2d::from_slice_vecs(&parsed, true)?)
         }
         param_name => return Err(InoxParseError::UnknownParamName(param_name.to_owned())),
     })
@@ -368,7 +361,7 @@ fn deserialize_inner_binding_values(
         .filter_map(|(i, vals)| Some(deserialize_f32s(as_nested_list(i, vals).ok()?)))
         .collect::<Vec<Vec<_>>>();
 
-    Matrix2d::from_slice_vecs(&values)
+    Matrix2d::from_slice_vecs(&values, true)
 }
 
 fn as_nested_list(index: usize, val: &json::JsonValue) -> InoxParseResult<&[json::JsonValue]> {

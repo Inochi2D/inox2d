@@ -8,6 +8,7 @@ pub struct Matrix2dFromSliceVecsError(Vec<usize>);
 pub struct Matrix2d<T> {
     width: usize,
     height: usize,
+    transposed: bool,
     data: Vec<T>,
 }
 
@@ -21,6 +22,7 @@ impl<T> Matrix2d<T> {
     }
 
     pub fn get(&self, ix: usize, iy: usize) -> Option<&T> {
+        let (ix, iy) = if self.transposed { (iy, ix) } else { (ix, iy) };
         self.data.get(iy * self.width + ix)
     }
 
@@ -33,6 +35,8 @@ impl<T> Index<(usize, usize)> for Matrix2d<T> {
     type Output = T;
 
     fn index(&self, (ix, iy): (usize, usize)) -> &Self::Output {
+        let (ix, iy) = if self.transposed { (iy, ix) } else { (ix, iy) };
+
         if ix >= self.width || iy >= self.height {
             panic!(
                 "Point index out of bounds: ({}, {}) > ({}, {})",
@@ -45,21 +49,26 @@ impl<T> Index<(usize, usize)> for Matrix2d<T> {
 }
 
 impl<T: Default + Clone> Matrix2d<T> {
-    pub fn default_filled(width: usize, height: usize) -> Self {
+    pub fn default_filled(width: usize, height: usize, transposed: bool) -> Self {
         Self {
             width,
             height,
+            transposed,
             data: vec![T::default(); width * height],
         }
     }
 
-    pub fn from_slice_vecs(ss: &[Vec<T>]) -> Result<Self, Matrix2dFromSliceVecsError> {
+    pub fn from_slice_vecs(
+        ss: &[Vec<T>],
+        transposed: bool,
+    ) -> Result<Self, Matrix2dFromSliceVecsError> {
         let height = ss.len();
 
         if height == 0 {
             Ok(Self {
                 width: 0,
                 height: 0,
+                transposed,
                 data: Vec::new(),
             })
         } else {
@@ -79,6 +88,7 @@ impl<T: Default + Clone> Matrix2d<T> {
             Ok(Self {
                 width,
                 height,
+                transposed,
                 data,
             })
         }

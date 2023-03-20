@@ -57,19 +57,20 @@ pub struct PartOffsets {
 }
 
 impl Param {
-    pub fn apply<T, Po: AsMut<PartOffsets>>(
+    pub fn apply<Po: AsMut<PartOffsets>>(
         &self,
         val: Vec2,
         node_offsets: &mut HashMap<InoxNodeUuid, Po>,
         deform_buf: &mut [Vec2],
     ) {
         let val = val.clamp(self.min, self.max);
+        let val_normed = (val - self.min) / (self.max - self.min);
 
         // calculate axis point indexes
         let x_mindex = self
             .axis_points
             .x
-            .binary_search_by(|x| x.total_cmp(&val.x))
+            .binary_search_by(|x| x.total_cmp(&val_normed.x))
             .map_or_else(identity, identity)
             .clamp(0, self.axis_points.x.len().saturating_sub(2));
         let x_maxdex = x_mindex + 1;
@@ -77,19 +78,10 @@ impl Param {
         let y_mindex = self
             .axis_points
             .y
-            .binary_search_by(|y| y.total_cmp(&val.y))
+            .binary_search_by(|y| y.total_cmp(&val_normed.y))
             .map_or_else(identity, identity)
             .clamp(0, self.axis_points.y.len().saturating_sub(2));
         let y_maxdex = y_mindex + 1;
-
-        // Reset all transform and deform offsets before applying bindings
-        for node_offset in node_offsets.values_mut() {
-            node_offset.as_mut().trans_offset.clear();
-        }
-
-        for v in deform_buf.iter_mut() {
-            *v = Vec2::ZERO;
-        }
 
         // Apply offset on each binding
         for binding in &self.bindings {

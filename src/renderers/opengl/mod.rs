@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::mem;
 use std::ops::Deref;
 
-use glam::{uvec2, UVec2, Vec3};
+use glam::{uvec2, UVec2, Vec2, Vec3};
 use glow::HasContext;
 use tracing::error;
 
@@ -18,7 +18,7 @@ use crate::model::ModelTexture;
 use crate::nodes::node::{InoxNode, InoxNodeUuid};
 use crate::nodes::node_data::{BlendMode, Composite, InoxData, Mask, MaskMode, Part};
 use crate::nodes::node_tree::InoxNodeTree;
-use crate::params::PartOffsets;
+use crate::params::{Param, PartOffsets};
 use crate::texture::decode_model_textures;
 
 use self::gl_buffer::{InoxGlBuffers, InoxGlBuffersBuilder};
@@ -386,6 +386,34 @@ impl<T> OpenglRenderer<T> {
         self.composite_mask_shader.set_mvp(&self.gl, matrix);
 
         true
+    }
+
+    pub fn begin_set_params(&mut self) {
+        // Reset all transform and deform offsets before applying bindings
+        for part_draw_info in self.part_draw_infos.values_mut() {
+            part_draw_info.part_offsets.trans_offset.clear();
+        }
+
+        for v in self.vert_bufs.deforms.iter_mut() {
+            *v = Vec2::ZERO;
+        }
+    }
+
+    pub fn set_param(&mut self, param: &Param, val: Vec2) {
+        param.apply(
+            val,
+            &mut self.part_draw_infos,
+            self.vert_bufs.deforms.as_mut_slice(),
+        );
+    }
+
+    pub fn end_set_params(&self) {
+        self.vert_bufs.deforms.reupload(
+            &self.gl,
+            glow::ARRAY_BUFFER,
+            0,
+            self.vert_bufs.deforms.len(),
+        );
     }
 
     /// Set blending mode. See `BlendMode` for supported blend modes.
