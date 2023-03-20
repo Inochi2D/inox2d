@@ -84,8 +84,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     renderer.camera.scale = Vec2::splat(0.15);
     info!("Inox2D renderer initialized");
 
-    // let zsorted_nodes = renderer.nodes.zsorted();
-
     let mut camera_pos = Vec2::ZERO;
     let mut mouse_pos = Vec2::ZERO;
     let mut mouse_pos_held = mouse_pos;
