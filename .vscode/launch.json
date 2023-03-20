@@ -26,34 +26,34 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug example 'render_inp'",
+            "name": "Debug example 'render_opengl'",
             "cargo": {
                 "args": [
                     "build",
-                    "--example=render_inp",
+                    "--example=render_opengl",
                     "--package=inox2d"
                 ],
                 "filter": {
-                    "name": "render_inp",
+                    "name": "render_opengl",
                     "kind": "example"
                 }
             },
-            "args": ["target/Aka.inp"],
+            "args": ["../Aka.inp"],
             "cwd": "${workspaceFolder}"
         },
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in example 'render_inp'",
+            "name": "Debug unit tests in example 'render_opengl'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--example=render_inp",
+                    "--example=render_opengl",
                     "--package=inox2d"
                 ],
                 "filter": {
-                    "name": "render_inp",
+                    "name": "render_opengl",
                     "kind": "example"
                 }
             },
