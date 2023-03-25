@@ -161,6 +161,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
                 _ => (),
             },
+            Event::MainEventsCleared => {
+                window.request_redraw();
+            }
             _ => (),
         }
 
