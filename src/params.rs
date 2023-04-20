@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::convert::identity;
 
 use glam::{vec2, Vec2};
 
@@ -67,21 +66,31 @@ impl Param {
         let val_normed = (val - self.min) / (self.max - self.min);
 
         // calculate axis point indexes
-        let x_mindex = self
-            .axis_points
-            .x
-            .binary_search_by(|x| x.total_cmp(&val_normed.x))
-            .map_or_else(identity, identity)
-            .clamp(0, self.axis_points.x.len().saturating_sub(2));
-        let x_maxdex = x_mindex + 1;
+        let (x_mindex, x_maxdex) = {
+            let x_temp = self
+                .axis_points
+                .x
+                .binary_search_by(|a| a.total_cmp(&val_normed.x));
+            
+            match x_temp {
+                Ok(ind) if ind == self.axis_points.x.len() - 1 => (ind - 1, ind),
+                Ok(ind) => (ind, ind + 1),
+                Err(ind) => (ind - 1, ind),
+            }
+        };
 
-        let y_mindex = self
-            .axis_points
-            .y
-            .binary_search_by(|y| y.total_cmp(&val_normed.y))
-            .map_or_else(identity, identity)
-            .clamp(0, self.axis_points.y.len().saturating_sub(2));
-        let y_maxdex = y_mindex + 1;
+        let (y_mindex, y_maxdex) = {
+            let y_temp = self
+                .axis_points
+                .y
+                .binary_search_by(|a| a.total_cmp(&val_normed.y));
+            
+            match y_temp {
+                Ok(ind) if ind == self.axis_points.y.len() - 1 => (ind - 1, ind),
+                Ok(ind) => (ind, ind + 1),
+                Err(ind) => (ind - 1, ind),
+            }
+        };
 
         // Apply offset on each binding
         for binding in &self.bindings {
