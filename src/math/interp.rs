@@ -26,14 +26,22 @@ impl TryFrom<&str> for InterpolateMode {
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct InterpRange<T> {
-    pub beg: T,
-    pub end: T,
+    beg: T,
+    end: T,
 }
 
 impl<T> InterpRange<T> {
     #[inline]
     pub fn new(beg: T, end: T) -> Self {
         Self { beg, end }
+    }
+
+    pub fn begin(self) -> T {
+        self.beg
+    }
+
+    pub fn end(self) -> T {
+        self.end
     }
 }
 
@@ -56,7 +64,8 @@ impl InterpRange<Vec2> {
 }
 
 #[inline]
-pub fn interpolate_nearest(t: f32, range_in: InterpRange<f32>, range_out: InterpRange<f32>) -> f32 {
+fn interpolate_nearest(t: f32, range_in: InterpRange<f32>, range_out: InterpRange<f32>) -> f32 {
+    debug_assert!(range_in.beg <= t && t <= range_in.end, "{} <= {} <= {}", range_in.beg, t, range_in.end);
     if (range_in.end - t) < (t - range_in.beg) {
         range_out.end
     } else {
@@ -65,7 +74,8 @@ pub fn interpolate_nearest(t: f32, range_in: InterpRange<f32>, range_out: Interp
 }
 
 #[inline]
-pub fn interpolate_linear(t: f32, range_in: InterpRange<f32>, range_out: InterpRange<f32>) -> f32 {
+fn interpolate_linear(t: f32, range_in: InterpRange<f32>, range_out: InterpRange<f32>) -> f32 {
+    debug_assert!(range_in.beg <= t && t <= range_in.end, "{} <= {} <= {}", range_in.beg, t, range_in.end);
     (t - range_in.beg) * (range_out.end - range_out.beg) / (range_in.end - range_in.beg)
         + range_out.beg
 }
@@ -186,5 +196,18 @@ pub fn bi_interpolate_vec2s_additive(
             InterpRange::new(obb, obe),
             mode,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_linear_interpolation() {
+        assert_eq!(interpolate_linear(0.0, InterpRange::new(0.0, 1.0), InterpRange::new(-5.0, 5.0)), -5.0);
+        assert_eq!(interpolate_linear(1.0, InterpRange::new(0.0, 1.0), InterpRange::new(-5.0, 5.0)), 5.0);
+        assert_eq!(interpolate_linear(0.5, InterpRange::new(0.0, 1.0), InterpRange::new(-5.0, 5.0)), 0.0);
+        assert_eq!(interpolate_linear(0.0, InterpRange::new(0.5, 0.0), InterpRange::new(-5.0, 5.0)), 5.0);
     }
 }

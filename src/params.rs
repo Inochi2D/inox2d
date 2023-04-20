@@ -88,10 +88,10 @@ impl Param {
             let part_offsets = node_offsets.get_mut(&binding.node).unwrap();
             let part_offsets = part_offsets.as_mut();
 
-            let range_in = InterpRange {
-                beg: vec2(self.axis_points.x[x_mindex], self.axis_points.y[y_mindex]),
-                end: vec2(self.axis_points.x[x_maxdex], self.axis_points.y[y_maxdex]),
-            };
+            let range_in = InterpRange::new(
+                vec2(self.axis_points.x[x_mindex], self.axis_points.y[y_mindex]),
+                vec2(self.axis_points.x[x_maxdex], self.axis_points.y[y_maxdex]),
+            );
 
             match binding.values {
                 BindingValues::ZSort(_) => {
@@ -99,17 +99,17 @@ impl Param {
                     // Do nothing for now
                 }
                 BindingValues::TransformTX(ref matrix) => {
-                    let out_top = InterpRange {
-                        beg: matrix[(x_mindex, y_mindex)],
-                        end: matrix[(x_maxdex, y_mindex)],
-                    };
-                    let out_bottom = InterpRange {
-                        beg: matrix[(x_mindex, y_maxdex)],
-                        end: matrix[(x_maxdex, y_maxdex)],
-                    };
+                    let out_top = InterpRange::new(
+                        matrix[(x_mindex, y_mindex)],
+                        matrix[(x_maxdex, y_mindex)],
+                    );
+                    let out_bottom = InterpRange::new(
+                        matrix[(x_mindex, y_maxdex)],
+                        matrix[(x_maxdex, y_maxdex)],
+                    );
 
                     part_offsets.trans_offset.translation.x += bi_interpolate_f32(
-                        val,
+                        val_normed,
                         range_in,
                         out_top,
                         out_bottom,
@@ -117,17 +117,17 @@ impl Param {
                     );
                 }
                 BindingValues::TransformTY(ref matrix) => {
-                    let out_top = InterpRange {
-                        beg: matrix[(x_mindex, y_mindex)],
-                        end: matrix[(x_maxdex, y_mindex)],
-                    };
-                    let out_bottom = InterpRange {
-                        beg: matrix[(x_mindex, y_maxdex)],
-                        end: matrix[(x_maxdex, y_maxdex)],
-                    };
+                    let out_top = InterpRange::new(
+                        matrix[(x_mindex, y_mindex)],
+                        matrix[(x_maxdex, y_mindex)],
+                    );
+                    let out_bottom = InterpRange::new(
+                        matrix[(x_mindex, y_maxdex)],
+                        matrix[(x_maxdex, y_maxdex)],
+                    );
 
                     part_offsets.trans_offset.translation.y += bi_interpolate_f32(
-                        val,
+                        val_normed,
                         range_in,
                         out_top,
                         out_bottom,
@@ -135,17 +135,17 @@ impl Param {
                     );
                 }
                 BindingValues::TransformSX(ref matrix) => {
-                    let out_top = InterpRange {
-                        beg: matrix[(x_mindex, y_mindex)],
-                        end: matrix[(x_maxdex, y_mindex)],
-                    };
-                    let out_bottom = InterpRange {
-                        beg: matrix[(x_mindex, y_maxdex)],
-                        end: matrix[(x_maxdex, y_maxdex)],
-                    };
+                    let out_top = InterpRange::new(
+                        matrix[(x_mindex, y_mindex)],
+                        matrix[(x_maxdex, y_mindex)],
+                    );
+                    let out_bottom = InterpRange::new(
+                        matrix[(x_mindex, y_maxdex)],
+                        matrix[(x_maxdex, y_maxdex)],
+                    );
 
                     part_offsets.trans_offset.scale.x *= bi_interpolate_f32(
-                        val,
+                        val_normed,
                         range_in,
                         out_top,
                         out_bottom,
@@ -153,17 +153,17 @@ impl Param {
                     );
                 }
                 BindingValues::TransformSY(ref matrix) => {
-                    let out_top = InterpRange {
-                        beg: matrix[(x_mindex, y_mindex)],
-                        end: matrix[(x_maxdex, y_mindex)],
-                    };
-                    let out_bottom = InterpRange {
-                        beg: matrix[(x_mindex, y_maxdex)],
-                        end: matrix[(x_maxdex, y_maxdex)],
-                    };
+                    let out_top = InterpRange::new(
+                        matrix[(x_mindex, y_mindex)],
+                        matrix[(x_maxdex, y_mindex)],
+                    );
+                    let out_bottom = InterpRange::new(
+                        matrix[(x_mindex, y_maxdex)],
+                        matrix[(x_maxdex, y_maxdex)],
+                    );
 
                     part_offsets.trans_offset.scale.y *= bi_interpolate_f32(
-                        val,
+                        val_normed,
                         range_in,
                         out_top,
                         out_bottom,
@@ -171,17 +171,17 @@ impl Param {
                     );
                 }
                 BindingValues::TransformRX(ref matrix) => {
-                    let out_top = InterpRange {
-                        beg: matrix[(x_mindex, y_mindex)],
-                        end: matrix[(x_maxdex, y_mindex)],
-                    };
-                    let out_bottom = InterpRange {
-                        beg: matrix[(x_mindex, y_maxdex)],
-                        end: matrix[(x_maxdex, y_maxdex)],
-                    };
+                    let out_top = InterpRange::new(
+                        matrix[(x_mindex, y_mindex)],
+                        matrix[(x_maxdex, y_mindex)],
+                    );
+                    let out_bottom = InterpRange::new(
+                        matrix[(x_mindex, y_maxdex)],
+                        matrix[(x_maxdex, y_maxdex)],
+                    );
 
                     part_offsets.trans_offset.rotation.x += bi_interpolate_f32(
-                        val,
+                        val_normed,
                         range_in,
                         out_top,
                         out_bottom,
@@ -189,17 +189,17 @@ impl Param {
                     );
                 }
                 BindingValues::TransformRY(ref matrix) => {
-                    let out_top = InterpRange {
-                        beg: matrix[(x_mindex, y_mindex)],
-                        end: matrix[(x_maxdex, y_mindex)],
-                    };
-                    let out_bottom = InterpRange {
-                        beg: matrix[(x_mindex, y_maxdex)],
-                        end: matrix[(x_maxdex, y_maxdex)],
-                    };
+                    let out_top = InterpRange::new(
+                        matrix[(x_mindex, y_mindex)],
+                        matrix[(x_maxdex, y_mindex)],
+                    );
+                    let out_bottom = InterpRange::new(
+                        matrix[(x_mindex, y_maxdex)],
+                        matrix[(x_maxdex, y_maxdex)],
+                    );
 
                     part_offsets.trans_offset.rotation.y += bi_interpolate_f32(
-                        val,
+                        val_normed,
                         range_in,
                         out_top,
                         out_bottom,
@@ -207,17 +207,17 @@ impl Param {
                     );
                 }
                 BindingValues::TransformRZ(ref matrix) => {
-                    let out_top = InterpRange {
-                        beg: matrix[(x_mindex, y_mindex)],
-                        end: matrix[(x_maxdex, y_mindex)],
-                    };
-                    let out_bottom = InterpRange {
-                        beg: matrix[(x_mindex, y_maxdex)],
-                        end: matrix[(x_maxdex, y_maxdex)],
-                    };
+                    let out_top = InterpRange::new(
+                        matrix[(x_mindex, y_mindex)],
+                        matrix[(x_maxdex, y_mindex)],
+                    );
+                    let out_bottom = InterpRange::new(
+                        matrix[(x_mindex, y_maxdex)],
+                        matrix[(x_maxdex, y_maxdex)],
+                    );
 
                     part_offsets.trans_offset.rotation.z += bi_interpolate_f32(
-                        val,
+                        val_normed,
                         range_in,
                         out_top,
                         out_bottom,
@@ -225,20 +225,20 @@ impl Param {
                     );
                 }
                 BindingValues::Deform(ref matrix) => {
-                    let out_top = InterpRange {
-                        beg: matrix[(x_mindex, y_mindex)].as_slice(),
-                        end: matrix[(x_maxdex, y_mindex)].as_slice(),
-                    };
-                    let out_bottom = InterpRange {
-                        beg: matrix[(x_mindex, y_maxdex)].as_slice(),
-                        end: matrix[(x_maxdex, y_maxdex)].as_slice(),
-                    };
+                    let out_top = InterpRange::new(
+                        matrix[(x_mindex, y_mindex)].as_slice(),
+                        matrix[(x_maxdex, y_mindex)].as_slice(),
+                    );
+                    let out_bottom = InterpRange::new(
+                        matrix[(x_mindex, y_maxdex)].as_slice(),
+                        matrix[(x_maxdex, y_maxdex)].as_slice(),
+                    );
 
                     let def_beg = part_offsets.vert_offset as usize;
                     let def_end = def_beg + part_offsets.vert_len;
 
                     bi_interpolate_vec2s_additive(
-                        val,
+                        val_normed,
                         range_in,
                         out_top,
                         out_bottom,
