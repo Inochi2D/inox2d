@@ -1,8 +1,8 @@
 use std::ops::{Mul, MulAssign};
 
-use glam::{EulerRot, Mat3, Mat4, Quat, Vec2, Vec3, Vec4};
+use glam::{EulerRot, Mat3, Mat4, Quat, Vec2, Vec3};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Transform {
     trs: Mat4,
     pub translation: Vec3,
@@ -85,12 +85,13 @@ impl Mul for Transform {
 
     fn mul(self, rhs: Self) -> Self::Output {
         let strs = self.trs * rhs.trs;
-        let trans = strs * Vec4::ONE;
+
+        let (trans, rot, scale) = strs.to_scale_rotation_translation();
         Self {
             trs: strs,
-            translation: trans.truncate(),
-            rotation: self.rotation + rhs.rotation,
-            scale: self.scale * rhs.scale,
+            translation: trans,
+            rotation: Vec3::from(rot.to_euler(EulerRot::XYZ)),
+            scale: scale.truncate(),
             pixel_snap: self.pixel_snap,
         }
     }
@@ -98,13 +99,7 @@ impl Mul for Transform {
 
 impl MulAssign<&Transform> for Transform {
     fn mul_assign(&mut self, rhs: &Transform) {
-        let strs = self.trs * rhs.trs;
-        let trans = strs * Vec4::ONE;
-
-        self.trs = strs;
-        self.translation = trans.truncate();
-        self.rotation += rhs.rotation;
-        self.scale *= rhs.scale;
+        *self = *self * *rhs;
     }
 }
 

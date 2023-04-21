@@ -390,8 +390,8 @@ impl<T> OpenglRenderer<T> {
 
     pub fn begin_set_params(&mut self) {
         // Reset all transform and deform offsets before applying bindings
-        for part_draw_info in self.part_draw_infos.values_mut() {
-            part_draw_info.part_offsets.trans_offset.clear();
+        for (key, value) in self.part_draw_infos.iter_mut() {
+            value.part_offsets.trans_offset = self.nodes.get_node(*key).expect("node to be in tree").transform.clone();
         }
 
         for v in self.vert_bufs.deforms.iter_mut() {
@@ -407,7 +407,11 @@ impl<T> OpenglRenderer<T> {
         );
     }
 
-    pub fn end_set_params(&self) {
+    pub fn end_set_params(&mut self) {
+        for part_draw_info in self.part_draw_infos.values_mut() {
+            part_draw_info.part_offsets.trans_offset.update();
+        }
+        
         self.vert_bufs.deforms.reupload(
             &self.gl,
             glow::ARRAY_BUFFER,
@@ -620,19 +624,18 @@ impl<T> OpenglRenderer<T> {
         }
 
         // Position of current node by applying up its ancestors' transforms
-        let mut trans = draw_info.part_offsets.trans_offset.clone();
-        trans.update();
 
-        for mut transestor in self
+        let mut trans = Transform::default();
+
+        for transestor in self
             .nodes
             .ancestors(node.uuid)
             .filter_map(|ancestor| self.nodes.arena.get(ancestor))
-            .map(|node| node.get().transform.clone())
+            .map(|node| self.part_draw_infos.get(&node.get().uuid).map(|n| &n.part_offsets.trans_offset).unwrap_or_else(|| &node.get().transform))
         {
-            transestor.update();
-            trans *= &transestor;
+            trans = transestor.clone() * trans;
         }
-
+        
         let mvp = self.camera.matrix(self.viewport.as_vec2()) * trans.matrix();
 
         self.bind_part_textures(part);
