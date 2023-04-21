@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use glam::Vec2;
+use glam::{vec2, Vec2};
 use indextree::Arena;
 use json::JsonValue;
 
@@ -52,6 +52,8 @@ pub enum InoxParseError {
     UnknownPuppetAllowedModification(#[from] UnknownPuppetAllowedModificationError),
     #[error("Expected even number of floats in list, got {0}")]
     OddNumberOfFloatsInList(usize),
+    #[error("Expected 2 floats in list, got {0}")]
+    Not2FloatsInList(usize),
 }
 
 impl InoxParseError {
@@ -63,7 +65,7 @@ impl InoxParseError {
     }
 }
 
-fn nested<T>(key: &str, res: InoxParseResult<T>) -> InoxParseResult<T> {
+fn vals<T>(key: &str, res: InoxParseResult<T>) -> InoxParseResult<T> {
     res.map_err(|e| e.nested(key))
 }
 
@@ -85,12 +87,12 @@ pub fn deserialize_node_ext<T>(
         name: obj.get_str("name")?.to_owned(),
         enabled: obj.get_bool("enabled")?,
         zsort: obj.get_f32("zsort")?,
-        transform: nested(
+        transform: vals(
             "transform",
             deserialize_transform(&obj.get_object("transform")?),
         )?,
         lock_to_root: obj.get_bool("lockToRoot")?,
-        data: nested(
+        data: vals(
             "data",
             deserialize_node_data(node_type, obj, deserialize_node_custom),
         )?,
@@ -151,7 +153,7 @@ fn deserialize_part(obj: &JsonObject) -> InoxParseResult<Part> {
 
     Ok(Part {
         draw_state: deserialize_drawable(obj)?,
-        mesh: nested("mesh", deserialize_mesh(&obj.get_object("mesh")?))?,
+        mesh: vals("mesh", deserialize_mesh(&obj.get_object("mesh")?))?,
         tex_albedo,
         tex_emissive,
         tex_bumpmap,
@@ -199,8 +201,8 @@ fn deserialize_drawable(obj: &JsonObject) -> InoxParseResult<Drawable> {
 
 fn deserialize_mesh(obj: &JsonObject) -> InoxParseResult<Mesh> {
     Ok(Mesh {
-        vertices: nested("verts", deserialize_vec2s(obj.get_list("verts")?))?,
-        uvs: nested("uvs", deserialize_vec2s(obj.get_list("uvs")?))?,
+        vertices: vals("verts", deserialize_vec2s_flat(obj.get_list("verts")?))?,
+        uvs: vals("uvs", deserialize_vec2s_flat(obj.get_list("uvs")?))?,
         indices: obj
             .get_list("indices")?
             .iter()
@@ -234,7 +236,7 @@ fn deserialize_f32s(val: &[json::JsonValue]) -> Vec<f32> {
     val.iter().filter_map(JsonValue::as_f32).collect::<Vec<_>>()
 }
 
-fn deserialize_vec2s(vals: &[json::JsonValue]) -> InoxParseResult<Vec<Vec2>> {
+fn deserialize_vec2s_flat(vals: &[json::JsonValue]) -> InoxParseResult<Vec<Vec2>> {
     if vals.len() % 2 != 0 {
         return Err(InoxParseError::OddNumberOfFloatsInList(vals.len()));
     }
@@ -244,6 +246,24 @@ fn deserialize_vec2s(vals: &[json::JsonValue]) -> InoxParseResult<Vec<Vec2>> {
     vertices.extend_from_slice(f32s_as_vec2s(&floats));
 
     Ok(vertices)
+}
+
+fn deserialize_vec2(vals: &[json::JsonValue]) -> InoxParseResult<Vec2> {
+    if vals.len() != 2 {
+        return Err(InoxParseError::Not2FloatsInList(vals.len()));
+    }
+
+    let x = vals[0].as_f32().unwrap_or_default();
+    let y = vals[0].as_f32().unwrap_or_default();
+    Ok(vec2(x, y))
+}
+
+fn deserialize_vec2s(vals: &[json::JsonValue]) -> InoxParseResult<Vec<Vec2>> {
+    let mut vec2s = Vec::with_capacity(vals.len());
+    for (i, vals) in vals.iter().enumerate() {
+        vec2s.push(deserialize_vec2(as_nested_list(i, vals)?)?);
+    }
+    Ok(vec2s)
 }
 
 // Puppet deserialization
@@ -262,12 +282,12 @@ pub fn deserialize_puppet_ext<T>(
     let obj = JsonObject(obj);
 
     Ok(Puppet {
-        meta: nested("meta", deserialize_puppet_meta(&obj.get_object("meta")?))?,
-        physics: nested(
+        meta: vals("meta", deserialize_puppet_meta(&obj.get_object("meta")?))?,
+        physics: vals(
             "physics",
             deserialize_puppet_physics(&obj.get_object("physics")?),
         )?,
-        nodes: nested(
+        nodes: vals(
             "nodes",
             deserialize_nodes(&obj.get_object("nodes")?, deserialize_node_custom),
         )?,
@@ -292,7 +312,7 @@ fn deserialize_param(obj: &JsonObject) -> InoxParseResult<(String, Param)> {
             min: obj.get_vec2("min")?,
             max: obj.get_vec2("max")?,
             defaults: obj.get_vec2("defaults")?,
-            axis_points: nested(
+            axis_points: vals(
                 "axis_points",
                 deserialize_axis_points(obj.get_list("axis_points")?),
             )?,
