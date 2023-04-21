@@ -26,22 +26,14 @@ impl TryFrom<&str> for InterpolateMode {
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct InterpRange<T> {
-    beg: T,
-    end: T,
+    pub beg: T,
+    pub end: T,
 }
 
 impl<T> InterpRange<T> {
     #[inline]
     pub fn new(beg: T, end: T) -> Self {
         Self { beg, end }
-    }
-
-    pub fn begin(self) -> T {
-        self.beg
-    }
-
-    pub fn end(self) -> T {
-        self.end
     }
 }
 
