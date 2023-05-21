@@ -21,6 +21,7 @@ use crate::puppet::{
     PuppetPhysics, PuppetUsageRights, UnknownPuppetAllowedModificationError,
     UnknownPuppetAllowedRedistributionError, UnknownPuppetAllowedUsersError,
 };
+use crate::renderless::RenderInfo;
 
 use super::json::{JsonError, JsonObject, SerialExtend};
 
@@ -281,17 +282,21 @@ pub fn deserialize_puppet_ext<T>(
     };
     let obj = JsonObject(obj);
 
+    let nodes = vals(
+        "nodes",
+        deserialize_nodes(&obj.get_object("nodes")?, deserialize_node_custom),
+    )?;
+    let render_info = RenderInfo::new(&nodes);
+
     Ok(Puppet {
         meta: vals("meta", deserialize_puppet_meta(&obj.get_object("meta")?))?,
         physics: vals(
             "physics",
             deserialize_puppet_physics(&obj.get_object("physics")?),
         )?,
-        nodes: vals(
-            "nodes",
-            deserialize_nodes(&obj.get_object("nodes")?, deserialize_node_custom),
-        )?,
+        nodes,
         parameters: deserialize_params(obj.get_list("param")?),
+        render_info,
     })
 }
 

@@ -2,10 +2,13 @@ use std::collections::HashMap;
 
 use glam::{vec2, Vec2};
 
-use crate::math::interp::{bi_interpolate_f32, bi_interpolate_vec2s_additive, InterpRange, InterpolateMode};
+use crate::math::interp::{
+    bi_interpolate_f32, bi_interpolate_vec2s_additive, InterpRange, InterpolateMode,
+};
 use crate::math::matrix::Matrix2d;
 use crate::math::transform::Transform;
 use crate::nodes::node::InoxNodeUuid;
+use crate::puppet::Puppet;
 
 /// Parameter binding to a node. This allows to animate a node based on the value of the parameter that owns it.
 #[derive(Debug, Clone)]
@@ -53,6 +56,7 @@ pub struct PartOffsets {
     pub vert_offset: u16,
     pub vert_len: usize,
     pub trans_offset: Transform,
+    pub trans_abs: Transform,
 }
 
 impl Param {
@@ -71,7 +75,7 @@ impl Param {
                 .axis_points
                 .x
                 .binary_search_by(|a| a.total_cmp(&val_normed.x));
-            
+
             match x_temp {
                 Ok(ind) if ind == self.axis_points.x.len() - 1 => (ind - 1, ind),
                 Ok(ind) => (ind, ind + 1),
@@ -84,7 +88,7 @@ impl Param {
                 .axis_points
                 .y
                 .binary_search_by(|a| a.total_cmp(&val_normed.y));
-            
+
             match y_temp {
                 Ok(ind) if ind == self.axis_points.y.len() - 1 => (ind - 1, ind),
                 Ok(ind) => (ind, ind + 1),
@@ -257,5 +261,44 @@ impl Param {
                 }
             }
         }
+    }
+}
+
+impl Puppet {
+    pub fn get_param(&self, name: &str) -> Option<&Param> {
+        self.parameters.get(name)
+    }
+
+    pub fn begin_set_params(&mut self) {
+        // Reset all transform and deform offsets before applying bindings
+        for (key, value) in self.render_info.part_render_infos.iter_mut() {
+            value.part_offsets.trans_offset = self
+                .nodes
+                .get_node(*key)
+                .expect("node to be in tree")
+                .transform
+                .clone();
+        }
+
+        for v in self.render_info.vertex_info.deforms.iter_mut() {
+            *v = Vec2::ZERO;
+        }
+    }
+
+    pub fn set_param(&mut self, param_name: &str, val: Vec2) {
+        let param = self
+            .parameters
+            .get(param_name)
+            .expect(format!("No parameter named: {}", param_name).as_str());
+
+        param.apply(
+            val,
+            &mut self.render_info.part_render_infos,
+            self.render_info.vertex_info.deforms.as_mut_slice(),
+        );
+    }
+
+    pub fn end_set_params(&mut self) {
+        self.update();
     }
 }

@@ -4,7 +4,8 @@ use std::{
     ffi::CString,
     fs::File,
     io::{BufReader, Read},
-    num::NonZeroU32, time::Instant,
+    num::NonZeroU32,
+    time::Instant,
 };
 
 use glam::{uvec2, vec2, Vec2};
@@ -62,8 +63,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     let model = parse_inp(data.as_slice()).unwrap();
     let puppet = model.puppet;
     info!(
-        "Successfully parsed puppet {:?}",
-        puppet.meta.name.unwrap_or_default()
+        "Successfully parsed puppet: {}",
+        puppet
+            .meta
+            .name
+            .as_deref()
+            .unwrap_or("<no puppet name specified in file>")
     );
 
     info!("Setting up windowing and OpenGL");
@@ -79,7 +84,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("Initializing Inox2D renderer");
     let window_size = window.inner_size();
     let viewport = uvec2(window_size.width, window_size.height);
-    let mut renderer = OpenglRenderer::new(gl, viewport, puppet.nodes)?;
+    let mut renderer = OpenglRenderer::new(gl, viewport, &puppet)?;
     renderer.upload_model_textures(&model.textures)?;
     renderer.camera.scale = Vec2::splat(0.15);
     info!("Inox2D renderer initialized");
@@ -90,7 +95,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut mouse_state = ElementState::Released;
     let start = Instant::now();
 
-    let parameters = puppet.parameters;
+    let mut puppet = puppet;
 
     // Event loop
     events.run(move |event, _, control_flow| {
@@ -105,14 +110,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 debug!("Redrawing");
 
                 renderer.clear();
-                renderer.draw_model();
 
-                if let Some(param) = parameters.get("Head:: Yaw-Pitch") {
-                    renderer.begin_set_params();
-                    let t = start.elapsed().as_secs_f32();
-                    renderer.set_param(param, Vec2::new(t.cos(), t.sin()));
-                    renderer.end_set_params();
-                }
+                puppet.begin_set_params();
+                let t = start.elapsed().as_secs_f32();
+                puppet.set_param("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
+                puppet.end_set_params();
+
+                renderer.render(&puppet);
 
                 gl_surface.swap_buffers(&gl_ctx).unwrap();
                 window.request_redraw();
