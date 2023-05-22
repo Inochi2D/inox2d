@@ -18,8 +18,8 @@ pub struct VertexInfo {
     pub deforms: Vec<Vec2>,
 }
 
-impl VertexInfo {
-    pub fn new() -> Self {
+impl Default for VertexInfo {
+    fn default() -> Self {
         // init with a quad covering the whole viewport
 
         #[rustfmt::skip]
@@ -53,7 +53,9 @@ impl VertexInfo {
             deforms,
         }
     }
+}
 
+impl VertexInfo {
     /// adds the mesh's vertices and UVs to the buffers and returns its index offset.
     pub fn push(&mut self, mesh: &Mesh) -> (u16, u16) {
         let offset_vert = self.verts.len() as u16;
@@ -132,7 +134,7 @@ impl RenderInfo {
     }
 
     pub fn new<T>(nodes: &InoxNodeTree<T>) -> Self {
-        let mut vertex_info = VertexInfo::new();
+        let mut vertex_info = VertexInfo::default();
         let nodes_zsorted = nodes.zsorted_root();
         let mut part_render_infos = HashMap::new();
         let mut composite_render_infos = HashMap::new();
@@ -142,7 +144,7 @@ impl RenderInfo {
 
             match node.data {
                 InoxData::Part(_) => {
-                    Self::add_part(&nodes, uuid, &mut vertex_info, &mut part_render_infos);
+                    Self::add_part(nodes, uuid, &mut vertex_info, &mut part_render_infos);
                 }
                 InoxData::Composite(_) => {
                     // Children include the parent composite, so we have to filter it out.
@@ -155,7 +157,7 @@ impl RenderInfo {
 
                     // put composite children's meshes into composite bufs
                     for &uuid in &children {
-                        Self::add_part(&nodes, uuid, &mut vertex_info, &mut part_render_infos);
+                        Self::add_part(nodes, uuid, &mut vertex_info, &mut part_render_infos);
                     }
 
                     composite_render_infos.insert(uuid, CompositeRenderInfo { children });
@@ -174,7 +176,7 @@ impl RenderInfo {
 }
 
 impl Puppet {
-    pub fn update(self: &mut Self) {
+    pub fn update(&mut self) {
         let root_node = self.nodes.arena[self.nodes.root].get();
         let root_trans = self.render_info.part_render_infos[&root_node.uuid]
             .part_offsets
@@ -189,8 +191,8 @@ impl Puppet {
 
         // Pre-order traversal, just the order to ensure that parents are accessed earlier than children
         // Skip the root
-        let mut traversal = self.nodes.root.descendants(&self.nodes.arena).skip(1);
-        while let Some(id) = traversal.next() {
+        let traversal = self.nodes.root.descendants(&self.nodes.arena).skip(1);
+        for id in traversal {
             let self_tree_node = &self.nodes.arena[id];
             let self_uuid = self_tree_node.get().uuid;
             let parent_uuid = self.nodes.arena[self_tree_node.parent().unwrap()]

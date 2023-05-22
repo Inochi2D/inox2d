@@ -17,7 +17,7 @@ impl RenderInfo {
 
     unsafe fn reupload_array_to_gl<T>(
         gl: &glow::Context,
-        array: &Vec<T>,
+        array: &[T],
         target: u32,
         start_idx: usize,
         end_idx: usize,
@@ -85,6 +85,10 @@ impl RenderInfo {
         Ok(vao)
     }
 
+    /// # Safety
+    ///
+    /// unsafe as initiating GL calls. can be safely called for multiple times,
+    /// but only needed once after deform update and before rendering.
     pub unsafe fn upload_deforms_to_gl(&self, gl: &glow::Context) {
         Self::reupload_array_to_gl(
             gl,

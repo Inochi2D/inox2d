@@ -276,8 +276,7 @@ impl Puppet {
                 .nodes
                 .get_node(*key)
                 .expect("node to be in tree")
-                .transform
-                .clone();
+                .transform;
         }
 
         for v in self.render_info.vertex_info.deforms.iter_mut() {
@@ -289,7 +288,7 @@ impl Puppet {
         let param = self
             .parameters
             .get(param_name)
-            .expect(format!("No parameter named: {}", param_name).as_str());
+            .unwrap_or_else(|| panic!("No parameter named: {}", param_name));
 
         param.apply(
             val,

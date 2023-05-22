@@ -423,7 +423,7 @@ impl OpenglRenderer {
                 self.draw_part(
                     puppet,
                     part,
-                    &draw_info,
+                    draw_info,
                     is_composite_child,
                     is_mask,
                     &node.name,
