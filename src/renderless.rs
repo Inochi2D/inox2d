@@ -59,6 +59,8 @@ impl VertexInfo {
     /// adds the mesh's vertices and UVs to the buffers and returns its index offset.
     pub fn push(&mut self, mesh: &Mesh) -> (u16, u16) {
         let offset_vert = self.verts.len() as u16;
+        let index_offset = self.indices.len() as u16;
+        let vert_offset = self.verts.len() as u16;
 
         self.verts.extend_from_slice(&mesh.vertices);
         self.uvs.extend_from_slice(&mesh.uvs);
@@ -67,7 +69,7 @@ impl VertexInfo {
         let new_deforms = vec![Vec2::ZERO; mesh.vertices.len()];
         self.deforms.extend_from_slice(&new_deforms);
 
-        (self.indices.len() as u16, self.verts.len() as u16)
+        (index_offset, vert_offset)
     }
 }
 
