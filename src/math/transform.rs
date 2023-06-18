@@ -86,7 +86,7 @@ impl Mul for Transform {
     fn mul(self, rhs: Self) -> Self::Output {
         let strs = self.trs * rhs.trs;
 
-        let (trans, rot, scale) = strs.to_scale_rotation_translation();
+        let (scale, rot, trans) = strs.to_scale_rotation_translation();
         Self {
             trs: strs,
             translation: trans,
