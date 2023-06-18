@@ -206,37 +206,34 @@ impl RenderInfo {
 }
 
 impl Puppet {
-    /// Pre-order traversal, just the order to ensure that parents are accessed earlier than children
-    /// Skip the root
-    fn update_node(
-        &mut self,
-        current_uuid: InoxNodeUuid,
-        parent_uuid: InoxNodeUuid,
-        root_trans_abs: &Transform,
-    ) {
-        let node_rinfs = &mut self.render_info.node_render_infos;
-        let parent_trans_abs = node_rinfs[&parent_uuid].trans_abs;
-
-        let node = self.nodes.get_node(current_uuid).unwrap();
-        let node_offset = node_rinfs.get_mut(&current_uuid).unwrap();
-
-        node_offset.trans_offset.update();
-        if node.lock_to_root {
-            node_offset.trans_abs = *root_trans_abs * node_offset.trans_offset;
-        } else {
-            node_offset.trans_abs = parent_trans_abs * node_offset.trans_offset;
-        }
-
-        for child_uuid in self.nodes.children_uuids(current_uuid).unwrap() {
-            self.update_node(child_uuid, current_uuid, root_trans_abs);
-        }
-    }
-
     pub fn update(&mut self) {
         let root_node = self.nodes.arena[self.nodes.root].get();
+        let node_rinfs = &mut self.render_info.node_render_infos;
 
         // The root's absolute transform is its relative transform.
-        let root_trans = root_node.transform;
-        self.update_node(root_node.uuid, root_node.uuid, &root_trans);
+        let root_offset = node_rinfs.get_mut(&root_node.uuid).unwrap();
+        root_offset.trans_abs = root_offset.trans_offset;
+
+        let root_trans = root_offset.trans_abs;
+
+        // Pre-order traversal, just the order to ensure that parents are accessed earlier than children
+        // Skip the root
+        for id in self.nodes.root.descendants(&self.nodes.arena).skip(1) {
+            let node = &self.nodes.arena[id];
+            let parent_node = &self.nodes.arena[node.parent().unwrap()];
+
+            let parent_node = parent_node.get();
+            let parent_trans_abs = node_rinfs[&parent_node.uuid].trans_abs;
+
+            let node = node.get();
+            let node_offset = node_rinfs.get_mut(&node.uuid).unwrap();
+
+            node_offset.trans_offset.update();
+            if node.lock_to_root {
+                node_offset.trans_abs = root_trans * node_offset.trans_offset;
+            } else {
+                node_offset.trans_abs = parent_trans_abs * node_offset.trans_offset;
+            }
+        }
     }
 }
