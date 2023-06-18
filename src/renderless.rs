@@ -129,12 +129,15 @@ impl RenderInfo {
     ) {
         let node = nodes.get_node(uuid).unwrap();
 
+        let mut trans = node.transform;
+        trans.update();
+
         if let InoxData::Part(ref part) = node.data {
             let (index_offset, vert_offset) = vertex_info.push(&part.mesh);
             node_render_infos.insert(
                 uuid,
                 NodeRenderInfo {
-                    trans_offset: node.transform,
+                    trans_offset: trans,
                     trans_abs: Transform::default(),
                     data: NodeDataRenderInfo::Part(PartRenderInfo {
                         index_offset,
@@ -217,16 +220,12 @@ impl Puppet {
         let node = self.nodes.get_node(current_uuid).unwrap();
         let node_offset = node_rinfs.get_mut(&current_uuid).unwrap();
 
+        node_offset.trans_offset.update();
         if node.lock_to_root {
             node_offset.trans_abs = *root_trans_abs * node_offset.trans_offset;
         } else {
             node_offset.trans_abs = parent_trans_abs * node_offset.trans_offset;
         }
-
-        println!(
-            "  node {:?} got pos {} (offset {})",
-            current_uuid, node_offset.trans_abs.translation, node_offset.trans_offset.translation
-        );
 
         for child_uuid in self.nodes.children_uuids(current_uuid).unwrap() {
             self.update_node(child_uuid, current_uuid, root_trans_abs);
@@ -236,11 +235,8 @@ impl Puppet {
     pub fn update(&mut self) {
         let root_node = self.nodes.arena[self.nodes.root].get();
 
-        println!("start updating");
         // The root's absolute transform is its relative transform.
         let root_trans = root_node.transform;
         self.update_node(root_node.uuid, root_node.uuid, &root_trans);
-
-        println!("stop updating");
     }
 }
