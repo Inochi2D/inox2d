@@ -70,7 +70,7 @@ impl RenderInfo {
             gl,
             &self.vertex_info.deforms,
             glow::ARRAY_BUFFER,
-            glow::STATIC_DRAW,
+            glow::DYNAMIC_DRAW,
         );
         gl.vertex_attrib_pointer_f32(2, 2, glow::FLOAT, false, 0, 0);
         gl.enable_vertex_attrib_array(2);
