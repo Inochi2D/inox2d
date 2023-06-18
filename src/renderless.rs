@@ -83,9 +83,7 @@ pub struct PartRenderInfo {
 pub enum NodeDataRenderInfo {
     Node,
     Part(PartRenderInfo),
-    Composite {
-        children: Vec<InoxNodeUuid>,
-    },
+    Composite { children: Vec<InoxNodeUuid> },
 }
 
 #[derive(Debug, Clone)]
@@ -192,7 +190,7 @@ impl RenderInfo {
                             data: NodeDataRenderInfo::Node,
                         },
                     );
-                },
+                }
             }
         }
 
@@ -205,33 +203,44 @@ impl RenderInfo {
 }
 
 impl Puppet {
+    /// Pre-order traversal, just the order to ensure that parents are accessed earlier than children
+    /// Skip the root
+    fn update_node(
+        &mut self,
+        current_uuid: InoxNodeUuid,
+        parent_uuid: InoxNodeUuid,
+        root_trans_abs: &Transform,
+    ) {
+        let node_rinfs = &mut self.render_info.node_render_infos;
+        let parent_trans_abs = node_rinfs[&parent_uuid].trans_abs;
+
+        let node = self.nodes.get_node(current_uuid).unwrap();
+        let node_offset = node_rinfs.get_mut(&current_uuid).unwrap();
+
+        if node.lock_to_root {
+            node_offset.trans_abs = *root_trans_abs * node_offset.trans_offset;
+        } else {
+            node_offset.trans_abs = parent_trans_abs * node_offset.trans_offset;
+        }
+
+        println!(
+            "  node {:?} got pos {} (offset {})",
+            current_uuid, node_offset.trans_abs.translation, node_offset.trans_offset.translation
+        );
+
+        for child_uuid in self.nodes.children_uuids(current_uuid).unwrap() {
+            self.update_node(child_uuid, current_uuid, root_trans_abs);
+        }
+    }
+
     pub fn update(&mut self) {
         let root_node = self.nodes.arena[self.nodes.root].get();
-        let node_render_infos = &mut self.render_info.node_render_infos;
-        let root_render_info = &mut node_render_infos.get_mut(&root_node.uuid).unwrap();
-        let root_trans = root_render_info.trans_offset;
 
+        println!("start updating");
         // The root's absolute transform is its relative transform.
-        root_render_info.trans_abs = root_trans;
+        let root_trans = root_node.transform;
+        self.update_node(root_node.uuid, root_node.uuid, &root_trans);
 
-        // Pre-order traversal, just the order to ensure that parents are accessed earlier than children
-        // Skip the root
-        let traversal = self.nodes.root.descendants(&self.nodes.arena).skip(1);
-        for node_id in traversal {
-            let tree_node = &self.nodes.arena[node_id];
-            let uuid = tree_node.get().uuid;
-            let parent_uuid = self.nodes.arena[tree_node.parent().unwrap()]
-                .get()
-                .uuid;
-
-            let parent_trans_abs = node_render_infos[&parent_uuid].trans_abs;
-            let mut node_offset = node_render_infos.get_mut(&uuid).unwrap();
-
-            if tree_node.get().lock_to_root {
-                node_offset.trans_abs = root_trans * node_offset.trans_offset;
-            } else {
-                node_offset.trans_abs = parent_trans_abs * node_offset.trans_offset;
-            }
-        }
+        println!("stop updating");
     }
 }
