@@ -136,7 +136,7 @@ impl RenderInfo {
             node_render_infos.insert(
                 uuid,
                 NodeRenderInfo {
-                    trans_offset: Transform::default(),
+                    trans_offset: node.transform,
                     trans_abs: Transform::default(),
                     data: NodeDataRenderInfo::Part(PartRenderInfo {
                         index_offset,
@@ -177,7 +177,7 @@ impl RenderInfo {
                     node_render_infos.insert(
                         uuid,
                         NodeRenderInfo {
-                            trans_offset: Transform::default(),
+                            trans_offset: node.transform,
                             trans_abs: Transform::default(),
                             data: NodeDataRenderInfo::Composite { children },
                         },
@@ -187,7 +187,7 @@ impl RenderInfo {
                     node_render_infos.insert(
                         uuid,
                         NodeRenderInfo {
-                            trans_offset: Transform::default(),
+                            trans_offset: node.transform,
                             trans_abs: Transform::default(),
                             data: NodeDataRenderInfo::Node,
                         },
