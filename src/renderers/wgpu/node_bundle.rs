@@ -141,7 +141,7 @@ pub fn node_bundles_for_model(
 
             let mut bundles = Vec::new();
 
-            for child_id in puppet.nodes.zsorted_child(uuid) {
+            for child_id in puppet.nodes.zsorted_children(uuid) {
                 if child_id == uuid {
                     continue;
                 }

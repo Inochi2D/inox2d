@@ -152,7 +152,7 @@ impl RenderInfo {
                     // Children include the parent composite, so we have to filter it out.
                     // TODO: wait... does it make sense for it to do that?
                     let children = nodes
-                        .zsorted_child(node.uuid)
+                        .zsorted_children(node.uuid)
                         .into_iter()
                         .filter(|uuid| *uuid != node.uuid)
                         .collect::<Vec<_>>();

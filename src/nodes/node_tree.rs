@@ -86,7 +86,7 @@ impl<T> InoxNodeTree<T> {
         self.sort_by_zsort(root, true)
     }
 
-    pub fn zsorted_child(&self, id: InoxNodeUuid) -> Vec<InoxNodeUuid> {
+    pub fn zsorted_children(&self, id: InoxNodeUuid) -> Vec<InoxNodeUuid> {
         let node = self.arena.get(self.uuids[&id]).unwrap().get();
         self.sort_by_zsort(node, false)
     }
