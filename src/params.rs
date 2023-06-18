@@ -6,9 +6,9 @@ use crate::math::interp::{
     bi_interpolate_f32, bi_interpolate_vec2s_additive, InterpRange, InterpolateMode,
 };
 use crate::math::matrix::Matrix2d;
-use crate::math::transform::Transform;
 use crate::nodes::node::InoxNodeUuid;
 use crate::puppet::Puppet;
+use crate::renderless::{NodeDataRenderInfo, NodeRenderInfo, PartRenderInfo};
 
 /// Parameter binding to a node. This allows to animate a node based on the value of the parameter that owns it.
 #[derive(Debug, Clone)]
@@ -51,19 +51,11 @@ pub struct Param {
     pub bindings: Vec<Binding>,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct PartOffsets {
-    pub vert_offset: u16,
-    pub vert_len: usize,
-    pub trans_offset: Transform,
-    pub trans_abs: Transform,
-}
-
 impl Param {
-    pub fn apply<Po: AsMut<PartOffsets>>(
+    pub fn apply(
         &self,
         val: Vec2,
-        node_offsets: &mut HashMap<InoxNodeUuid, Po>,
+        node_offsets: &mut HashMap<InoxNodeUuid, NodeRenderInfo>,
         deform_buf: &mut [Vec2],
     ) {
         let val = val.clamp(self.min, self.max);
@@ -98,8 +90,7 @@ impl Param {
 
         // Apply offset on each binding
         for binding in &self.bindings {
-            let part_offsets = node_offsets.get_mut(&binding.node).unwrap();
-            let part_offsets = part_offsets.as_mut();
+            let node_offsets = node_offsets.get_mut(&binding.node).unwrap();
 
             let range_in = InterpRange::new(
                 vec2(self.axis_points.x[x_mindex], self.axis_points.y[y_mindex]),
@@ -121,7 +112,7 @@ impl Param {
                         matrix[(x_maxdex, y_maxdex)],
                     );
 
-                    part_offsets.trans_offset.translation.x += bi_interpolate_f32(
+                    node_offsets.trans_offset.translation.x += bi_interpolate_f32(
                         val_normed,
                         range_in,
                         out_top,
@@ -139,7 +130,7 @@ impl Param {
                         matrix[(x_maxdex, y_maxdex)],
                     );
 
-                    part_offsets.trans_offset.translation.y += bi_interpolate_f32(
+                    node_offsets.trans_offset.translation.y += bi_interpolate_f32(
                         val_normed,
                         range_in,
                         out_top,
@@ -157,7 +148,7 @@ impl Param {
                         matrix[(x_maxdex, y_maxdex)],
                     );
 
-                    part_offsets.trans_offset.scale.x *= bi_interpolate_f32(
+                    node_offsets.trans_offset.scale.x *= bi_interpolate_f32(
                         val_normed,
                         range_in,
                         out_top,
@@ -175,7 +166,7 @@ impl Param {
                         matrix[(x_maxdex, y_maxdex)],
                     );
 
-                    part_offsets.trans_offset.scale.y *= bi_interpolate_f32(
+                    node_offsets.trans_offset.scale.y *= bi_interpolate_f32(
                         val_normed,
                         range_in,
                         out_top,
@@ -193,7 +184,7 @@ impl Param {
                         matrix[(x_maxdex, y_maxdex)],
                     );
 
-                    part_offsets.trans_offset.rotation.x += bi_interpolate_f32(
+                    node_offsets.trans_offset.rotation.x += bi_interpolate_f32(
                         val_normed,
                         range_in,
                         out_top,
@@ -211,7 +202,7 @@ impl Param {
                         matrix[(x_maxdex, y_maxdex)],
                     );
 
-                    part_offsets.trans_offset.rotation.y += bi_interpolate_f32(
+                    node_offsets.trans_offset.rotation.y += bi_interpolate_f32(
                         val_normed,
                         range_in,
                         out_top,
@@ -229,7 +220,7 @@ impl Param {
                         matrix[(x_maxdex, y_maxdex)],
                     );
 
-                    part_offsets.trans_offset.rotation.z += bi_interpolate_f32(
+                    node_offsets.trans_offset.rotation.z += bi_interpolate_f32(
                         val_normed,
                         range_in,
                         out_top,
@@ -247,17 +238,24 @@ impl Param {
                         matrix[(x_maxdex, y_maxdex)].as_slice(),
                     );
 
-                    let def_beg = part_offsets.vert_offset as usize;
-                    let def_end = def_beg + part_offsets.vert_len;
+                    if let NodeDataRenderInfo::Part(PartRenderInfo {
+                        vert_offset,
+                        vert_len,
+                        ..
+                    }) = node_offsets.data
+                    {
+                        let def_beg = vert_offset as usize;
+                        let def_end = def_beg + vert_len;
 
-                    bi_interpolate_vec2s_additive(
-                        val_normed,
-                        range_in,
-                        out_top,
-                        out_bottom,
-                        binding.interpolate_mode,
-                        &mut deform_buf[def_beg..def_end],
-                    );
+                        bi_interpolate_vec2s_additive(
+                            val_normed,
+                            range_in,
+                            out_top,
+                            out_bottom,
+                            binding.interpolate_mode,
+                            &mut deform_buf[def_beg..def_end],
+                        );
+                    }
                 }
             }
         }
@@ -271,8 +269,8 @@ impl Puppet {
 
     pub fn begin_set_params(&mut self) {
         // Reset all transform and deform offsets before applying bindings
-        for (key, value) in self.render_info.part_render_infos.iter_mut() {
-            value.part_offsets.trans_offset = self
+        for (key, value) in self.render_info.node_render_infos.iter_mut() {
+            value.trans_offset = self
                 .nodes
                 .get_node(*key)
                 .expect("node to be in tree")
@@ -292,7 +290,7 @@ impl Puppet {
 
         param.apply(
             val,
-            &mut self.render_info.part_render_infos,
+            &mut self.render_info.node_render_infos,
             self.render_info.vertex_info.deforms.as_mut_slice(),
         );
     }

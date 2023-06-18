@@ -57,7 +57,14 @@ impl InterpRange<Vec2> {
 
 #[inline]
 fn interpolate_nearest(t: f32, range_in: InterpRange<f32>, range_out: InterpRange<f32>) -> f32 {
-    debug_assert!(range_in.beg <= t && t <= range_in.end, "{} <= {} <= {}", range_in.beg, t, range_in.end);
+    debug_assert!(
+        range_in.beg <= t && t <= range_in.end,
+        "{} <= {} <= {}",
+        range_in.beg,
+        t,
+        range_in.end
+    );
+
     if (range_in.end - t) < (t - range_in.beg) {
         range_out.end
     } else {
@@ -67,7 +74,14 @@ fn interpolate_nearest(t: f32, range_in: InterpRange<f32>, range_out: InterpRang
 
 #[inline]
 fn interpolate_linear(t: f32, range_in: InterpRange<f32>, range_out: InterpRange<f32>) -> f32 {
-    debug_assert!(range_in.beg <= t && t <= range_in.end, "{} <= {} <= {}", range_in.beg, t, range_in.end);
+    debug_assert!(
+        range_in.beg <= t && t <= range_in.end,
+        "{} <= {} <= {}",
+        range_in.beg,
+        t,
+        range_in.end
+    );
+
     (t - range_in.beg) * (range_out.end - range_out.beg) / (range_in.end - range_in.beg)
         + range_out.beg
 }
@@ -197,9 +211,21 @@ mod tests {
 
     #[test]
     fn test_linear_interpolation() {
-        assert_eq!(interpolate_linear(0.0, InterpRange::new(0.0, 1.0), InterpRange::new(-5.0, 5.0)), -5.0);
-        assert_eq!(interpolate_linear(1.0, InterpRange::new(0.0, 1.0), InterpRange::new(-5.0, 5.0)), 5.0);
-        assert_eq!(interpolate_linear(0.5, InterpRange::new(0.0, 1.0), InterpRange::new(-5.0, 5.0)), 0.0);
-        assert_eq!(interpolate_linear(0.0, InterpRange::new(0.5, 0.0), InterpRange::new(-5.0, 5.0)), 5.0);
+        assert_eq!(
+            interpolate_linear(0.0, InterpRange::new(0.0, 1.0), InterpRange::new(-5.0, 5.0)),
+            -5.0
+        );
+        assert_eq!(
+            interpolate_linear(1.0, InterpRange::new(0.0, 1.0), InterpRange::new(-5.0, 5.0)),
+            5.0
+        );
+        assert_eq!(
+            interpolate_linear(0.5, InterpRange::new(0.0, 1.0), InterpRange::new(-5.0, 5.0)),
+            0.0
+        );
+        assert_eq!(
+            interpolate_linear(0.0, InterpRange::new(0.5, 0.0), InterpRange::new(-5.0, 5.0)),
+            5.0
+        );
     }
 }

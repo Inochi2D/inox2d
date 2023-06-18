@@ -16,7 +16,7 @@ use crate::model::ModelTexture;
 use crate::nodes::node::InoxNodeUuid;
 use crate::nodes::node_data::{BlendMode, Composite, InoxData, Mask, MaskMode, Part};
 use crate::puppet::Puppet;
-use crate::renderless::PartRenderInfo;
+use crate::renderless::{NodeDataRenderInfo, PartRenderInfo, NodeRenderInfo};
 use crate::texture::decode_model_textures;
 
 use self::shader::ShaderCompileError;
@@ -417,22 +417,28 @@ impl OpenglRenderer {
         is_mask: bool,
     ) {
         let node = puppet.nodes.get_node(uuid).unwrap();
-        match node.data {
-            InoxData::Part(ref part) => {
-                let draw_info = &puppet.render_info.part_render_infos[&uuid];
+        let node_render_info = &puppet.render_info.node_render_infos[&uuid];
+
+        match (&node.data, &node_render_info.data) {
+            (InoxData::Part(ref part), NodeDataRenderInfo::Part(ref part_render_info)) => {
                 self.draw_part(
                     puppet,
                     part,
-                    draw_info,
+                    node_render_info,
+                    part_render_info,
                     is_composite_child,
                     is_mask,
                     &node.name,
                 );
             }
-            InoxData::Composite(ref composite) => {
-                let draw_info = &puppet.render_info.composite_render_infos[&uuid];
-                self.draw_composite(puppet, composite, &draw_info.children, &node.name);
+
+            (
+                InoxData::Composite(ref composite),
+                NodeDataRenderInfo::Composite { ref children },
+            ) => {
+                self.draw_composite(puppet, composite, children, &node.name);
             }
+
             _ => (),
         }
     }
@@ -466,7 +472,8 @@ impl OpenglRenderer {
         &self,
         puppet: &Puppet,
         part: &Part,
-        render_info: &PartRenderInfo,
+        node_render_info: &NodeRenderInfo,
+        part_render_info: &PartRenderInfo,
         is_composite_child: bool,
         is_mask: bool,
         debug_label: &str,
@@ -501,7 +508,7 @@ impl OpenglRenderer {
         }
 
         let mvp = self.camera.matrix(self.viewport.as_vec2())
-            * render_info.part_offsets.trans_abs.matrix();
+            * node_render_info.trans_abs.matrix();
 
         self.bind_part_textures(part);
         self.set_blend_mode(part.draw_state.blend_mode);
@@ -534,7 +541,7 @@ impl OpenglRenderer {
                 glow::TRIANGLES,
                 part.mesh.indices.len() as i32,
                 glow::UNSIGNED_SHORT,
-                render_info.index_offset as i32 * mem::size_of::<u16>() as i32,
+                part_render_info.index_offset as i32 * mem::size_of::<u16>() as i32,
             );
         }
 
