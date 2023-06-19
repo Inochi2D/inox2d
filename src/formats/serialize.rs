@@ -255,7 +255,7 @@ fn deserialize_vec2(vals: &[json::JsonValue]) -> InoxParseResult<Vec2> {
     }
 
     let x = vals[0].as_f32().unwrap_or_default();
-    let y = vals[0].as_f32().unwrap_or_default();
+    let y = vals[1].as_f32().unwrap_or_default();
     Ok(vec2(x, y))
 }
 
