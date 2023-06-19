@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use glam::{vec2, Vec2};
 
 use crate::math::interp::{
@@ -8,7 +6,7 @@ use crate::math::interp::{
 use crate::math::matrix::Matrix2d;
 use crate::nodes::node::InoxNodeUuid;
 use crate::puppet::Puppet;
-use crate::renderless::{NodeDataRenderInfo, NodeRenderInfo, PartRenderInfo};
+use crate::renderless::{NodeDataRenderInfo, NodeRenderInfos, PartRenderInfo};
 
 /// Parameter binding to a node. This allows to animate a node based on the value of the parameter that owns it.
 #[derive(Debug, Clone)]
@@ -67,7 +65,7 @@ impl Param {
     pub fn apply(
         &self,
         val: Vec2,
-        node_offsets: &mut HashMap<InoxNodeUuid, NodeRenderInfo>,
+        node_render_infos: &mut NodeRenderInfos,
         deform_buf: &mut [Vec2],
     ) {
         let val = val.clamp(self.min, self.max);
@@ -102,7 +100,7 @@ impl Param {
 
         // Apply offset on each binding
         for binding in &self.bindings {
-            let node_offsets = node_offsets.get_mut(&binding.node).unwrap();
+            let node_offsets = node_render_infos.get_mut(&binding.node).unwrap();
 
             let range_in = InterpRange::new(
                 vec2(self.axis_points.x[x_mindex], self.axis_points.y[y_mindex]),
@@ -244,7 +242,7 @@ impl Puppet {
                 .nodes
                 .get_node(*key)
                 .expect("node to be in tree")
-                .transform;
+                .trans_offset;
         }
 
         for v in self.render_info.vertex_info.deforms.iter_mut() {

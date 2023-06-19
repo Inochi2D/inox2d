@@ -16,7 +16,7 @@ use crate::model::ModelTexture;
 use crate::nodes::node::InoxNodeUuid;
 use crate::nodes::node_data::{BlendMode, Composite, InoxData, Mask, MaskMode, Part};
 use crate::puppet::Puppet;
-use crate::renderless::{NodeDataRenderInfo, PartRenderInfo, NodeRenderInfo};
+use crate::renderless::{NodeDataRenderInfo, NodeRenderInfo, PartRenderInfo};
 use crate::texture::decode_model_textures;
 
 use self::shader::ShaderCompileError;
@@ -507,8 +507,7 @@ impl OpenglRenderer {
             }
         }
 
-        let mvp = self.camera.matrix(self.viewport.as_vec2())
-            * node_render_info.trans_abs.matrix();
+        let mvp = self.camera.matrix(self.viewport.as_vec2()) * node_render_info.trans;
 
         self.bind_part_textures(part);
         self.set_blend_mode(part.draw_state.blend_mode);

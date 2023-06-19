@@ -6,7 +6,7 @@ use json::JsonValue;
 
 use crate::math::interp::{InterpolateMode, UnknownInterpolateModeError};
 use crate::math::matrix::{Matrix2d, Matrix2dFromSliceVecsError};
-use crate::math::transform::Transform;
+use crate::math::transform::TransformOffset;
 use crate::mesh::{f32s_as_vec2s, Mesh};
 use crate::nodes::node::{InoxNode, InoxNodeUuid};
 use crate::nodes::node_data::{
@@ -88,7 +88,7 @@ pub fn deserialize_node_ext<T>(
         name: obj.get_str("name")?.to_owned(),
         enabled: obj.get_bool("enabled")?,
         zsort: obj.get_f32("zsort")?,
-        transform: vals(
+        trans_offset: vals(
             "transform",
             deserialize_transform(&obj.get_object("transform")?),
         )?,
@@ -220,13 +220,13 @@ fn deserialize_mask(obj: &JsonObject) -> InoxParseResult<Mask> {
     })
 }
 
-fn deserialize_transform(obj: &JsonObject) -> InoxParseResult<Transform> {
+fn deserialize_transform(obj: &JsonObject) -> InoxParseResult<TransformOffset> {
     let translation = obj.get_vec3("trans")?;
     let rotation = obj.get_vec3("rot")?;
     let scale = obj.get_vec2("scale")?;
     let pixel_snap = obj.get_bool("pixel_snap").unwrap_or_default();
 
-    Ok(Transform::new()
+    Ok(TransformOffset::new()
         .with_translation(translation)
         .with_rotation(rotation)
         .with_scale(scale)

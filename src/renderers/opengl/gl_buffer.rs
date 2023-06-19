@@ -23,10 +23,8 @@ impl RenderInfo {
         end_idx: usize,
     ) {
         let slice = &array[start_idx..end_idx];
-        let bytes: &[u8] = core::slice::from_raw_parts(
-            slice.as_ptr() as *const u8,
-            slice.len() * core::mem::size_of::<T>(),
-        );
+        let bytes: &[u8] =
+            core::slice::from_raw_parts(slice.as_ptr() as *const u8, core::mem::size_of_val(slice));
         gl.buffer_sub_data_u8_slice(target, start_idx as i32, bytes);
     }
 

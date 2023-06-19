@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use glam::{vec2, Vec2};
+use glam::{vec2, Mat4, Vec2};
 
-use crate::math::transform::Transform;
+use crate::math::transform::TransformOffset;
 use crate::mesh::Mesh;
 use crate::nodes::node::InoxNodeUuid;
 use crate::nodes::node_data::InoxData;
@@ -86,10 +86,10 @@ pub enum NodeDataRenderInfo {
     Composite { children: Vec<InoxNodeUuid> },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct NodeRenderInfo {
-    pub trans_offset: Transform,
-    pub trans_abs: Transform,
+    pub trans: Mat4,
+    pub trans_offset: TransformOffset,
     pub data: NodeDataRenderInfo,
 }
 
@@ -111,7 +111,7 @@ pub struct CompositeRenderInfo {
     pub children: Vec<InoxNodeUuid>,
 }
 
-type NodeRenderInfos = HashMap<InoxNodeUuid, NodeRenderInfo>;
+pub type NodeRenderInfos = HashMap<InoxNodeUuid, NodeRenderInfo>;
 
 #[derive(Debug)]
 pub struct RenderInfo {
@@ -129,16 +129,13 @@ impl RenderInfo {
     ) {
         let node = nodes.get_node(uuid).unwrap();
 
-        let mut trans = node.transform;
-        trans.update();
-
         if let InoxData::Part(ref part) = node.data {
             let (index_offset, vert_offset) = vertex_info.push(&part.mesh);
             node_render_infos.insert(
                 uuid,
                 NodeRenderInfo {
-                    trans_offset: trans,
-                    trans_abs: Transform::default(),
+                    trans: Mat4::default(),
+                    trans_offset: node.trans_offset,
                     data: NodeDataRenderInfo::Part(PartRenderInfo {
                         index_offset,
                         vert_offset,
@@ -178,8 +175,8 @@ impl RenderInfo {
                     node_render_infos.insert(
                         uuid,
                         NodeRenderInfo {
-                            trans_offset: node.transform,
-                            trans_abs: Transform::default(),
+                            trans: Mat4::default(),
+                            trans_offset: node.trans_offset,
                             data: NodeDataRenderInfo::Composite { children },
                         },
                     );
@@ -188,8 +185,8 @@ impl RenderInfo {
                     node_render_infos.insert(
                         uuid,
                         NodeRenderInfo {
-                            trans_offset: node.transform,
-                            trans_abs: Transform::default(),
+                            trans: Mat4::default(),
+                            trans_offset: node.trans_offset,
                             data: NodeDataRenderInfo::Node,
                         },
                     );
@@ -211,28 +208,27 @@ impl Puppet {
         let node_rinfs = &mut self.render_info.node_render_infos;
 
         // The root's absolute transform is its relative transform.
-        let root_offset = node_rinfs.get_mut(&root_node.uuid).unwrap();
-        root_offset.trans_abs = root_offset.trans_offset;
-
-        let root_trans = root_offset.trans_abs;
+        let root_trans = node_rinfs
+            .get(&root_node.uuid)
+            .unwrap()
+            .trans_offset
+            .to_matrix();
 
         // Pre-order traversal, just the order to ensure that parents are accessed earlier than children
         // Skip the root
         for id in self.nodes.root.descendants(&self.nodes.arena).skip(1) {
-            let node = &self.nodes.arena[id];
-            let parent_node = &self.nodes.arena[node.parent().unwrap()];
+            let node_index = &self.nodes.arena[id];
+            let node = node_index.get();
 
-            let parent_node = parent_node.get();
-            let parent_trans_abs = node_rinfs[&parent_node.uuid].trans_abs;
-
-            let node = node.get();
-            let node_offset = node_rinfs.get_mut(&node.uuid).unwrap();
-
-            node_offset.trans_offset.update();
             if node.lock_to_root {
-                node_offset.trans_abs = root_trans * node_offset.trans_offset;
+                let node_render_info = node_rinfs.get_mut(&node.uuid).unwrap();
+                node_render_info.trans = root_trans * node_render_info.trans_offset.to_matrix();
             } else {
-                node_offset.trans_abs = parent_trans_abs * node_offset.trans_offset;
+                let parent = &self.nodes.arena[node_index.parent().unwrap()].get();
+                let parent_trans = node_rinfs.get(&parent.uuid).unwrap().trans;
+
+                let node_render_info = node_rinfs.get_mut(&node.uuid).unwrap();
+                node_render_info.trans = parent_trans * node_render_info.trans_offset.to_matrix();
             }
         }
     }
