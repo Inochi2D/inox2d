@@ -4,7 +4,7 @@ use std::{
     ffi::CString,
     fs::File,
     io::{BufReader, Read},
-    num::NonZeroU32,
+    num::NonZeroU32, time::Instant,
 };
 
 use glam::{uvec2, vec2, Vec2};
@@ -48,7 +48,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     tracing_subscriber::registry()
         .with(fmt::layer())
-        .with(LevelFilter::DEBUG)
+        .with(LevelFilter::INFO)
         .init();
 
     info!("Parsing puppet");
@@ -84,12 +84,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     renderer.camera.scale = Vec2::splat(0.15);
     info!("Inox2D renderer initialized");
 
-    // let zsorted_nodes = renderer.nodes.zsorted();
-
     let mut camera_pos = Vec2::ZERO;
     let mut mouse_pos = Vec2::ZERO;
     let mut mouse_pos_held = mouse_pos;
     let mut mouse_state = ElementState::Released;
+    let start = Instant::now();
+
+    let parameters = puppet.parameters;
 
     // Event loop
     events.run(move |event, _, control_flow| {
@@ -106,7 +107,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                 renderer.clear();
                 renderer.draw_model();
 
+                if let Some(param) = parameters.get("Head:: Yaw-Pitch") {
+                    renderer.begin_set_params();
+                    let t = start.elapsed().as_secs_f32();
+                    renderer.set_param(param, Vec2::new(t.cos(), t.sin()));
+                    renderer.end_set_params();
+                }
+
                 gl_surface.swap_buffers(&gl_ctx).unwrap();
+                window.request_redraw();
             }
             Event::WindowEvent { ref event, .. } => match event {
                 WindowEvent::Resized(physical_size) => {
@@ -152,6 +161,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
                 _ => (),
             },
+            Event::MainEventsCleared => {
+                window.request_redraw();
+            }
             _ => (),
         }
 

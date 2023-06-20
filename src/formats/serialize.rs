@@ -1,9 +1,11 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
-use glam::Vec2;
+use glam::{vec2, Vec2};
 use indextree::Arena;
 use json::JsonValue;
 
+use crate::math::interp::{InterpolateMode, UnknownInterpolateModeError};
+use crate::math::matrix::{Matrix2d, Matrix2dFromSliceVecsError};
 use crate::math::transform::Transform;
 use crate::mesh::{f32s_as_vec2s, Mesh};
 use crate::nodes::node::{InoxNode, InoxNodeUuid};
@@ -13,10 +15,10 @@ use crate::nodes::node_data::{
 };
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::nodes::physics::SimplePhysics;
+use crate::params::{AxisPoints, Binding, BindingValues, Param};
 use crate::puppet::{
-    Binding, BindingValues, InterpolateMode, Param, Puppet, PuppetAllowedModification,
-    PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta, PuppetPhysics, PuppetUsageRights,
-    UnknownInterpolateModeError, UnknownPuppetAllowedModificationError,
+    Puppet, PuppetAllowedModification, PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta,
+    PuppetPhysics, PuppetUsageRights, UnknownPuppetAllowedModificationError,
     UnknownPuppetAllowedRedistributionError, UnknownPuppetAllowedUsersError,
 };
 
@@ -35,6 +37,8 @@ pub enum InoxParseError {
     #[error("No albedo texture")]
     NoAlbedoTexture,
     #[error(transparent)]
+    InvalidMatrix2dData(#[from] Matrix2dFromSliceVecsError),
+    #[error(transparent)]
     UnknownBlendMode(#[from] UnknownBlendModeError),
     #[error(transparent)]
     UnknownMaskMode(#[from] UnknownMaskModeError),
@@ -48,6 +52,8 @@ pub enum InoxParseError {
     UnknownPuppetAllowedModification(#[from] UnknownPuppetAllowedModificationError),
     #[error("Expected even number of floats in list, got {0}")]
     OddNumberOfFloatsInList(usize),
+    #[error("Expected 2 floats in list, got {0}")]
+    Not2FloatsInList(usize),
 }
 
 impl InoxParseError {
@@ -59,7 +65,7 @@ impl InoxParseError {
     }
 }
 
-fn nested<T>(key: &str, res: InoxParseResult<T>) -> InoxParseResult<T> {
+fn vals<T>(key: &str, res: InoxParseResult<T>) -> InoxParseResult<T> {
     res.map_err(|e| e.nested(key))
 }
 
@@ -81,12 +87,12 @@ pub fn deserialize_node_ext<T>(
         name: obj.get_str("name")?.to_owned(),
         enabled: obj.get_bool("enabled")?,
         zsort: obj.get_f32("zsort")?,
-        transform: nested(
+        transform: vals(
             "transform",
             deserialize_transform(&obj.get_object("transform")?),
         )?,
         lock_to_root: obj.get_bool("lockToRoot")?,
-        data: nested(
+        data: vals(
             "data",
             deserialize_node_data(node_type, obj, deserialize_node_custom),
         )?,
@@ -147,7 +153,7 @@ fn deserialize_part(obj: &JsonObject) -> InoxParseResult<Part> {
 
     Ok(Part {
         draw_state: deserialize_drawable(obj)?,
-        mesh: nested("mesh", deserialize_mesh(&obj.get_object("mesh")?))?,
+        mesh: vals("mesh", deserialize_mesh(&obj.get_object("mesh")?))?,
         tex_albedo,
         tex_emissive,
         tex_bumpmap,
@@ -195,8 +201,8 @@ fn deserialize_drawable(obj: &JsonObject) -> InoxParseResult<Drawable> {
 
 fn deserialize_mesh(obj: &JsonObject) -> InoxParseResult<Mesh> {
     Ok(Mesh {
-        vertices: nested("verts", deserialize_vec2s(obj.get_list("verts")?))?,
-        uvs: nested("uvs", deserialize_vec2s(obj.get_list("uvs")?))?,
+        vertices: vals("verts", deserialize_vec2s_flat(obj.get_list("verts")?))?,
+        uvs: vals("uvs", deserialize_vec2s_flat(obj.get_list("uvs")?))?,
         indices: obj
             .get_list("indices")?
             .iter()
@@ -230,7 +236,7 @@ fn deserialize_f32s(val: &[json::JsonValue]) -> Vec<f32> {
     val.iter().filter_map(JsonValue::as_f32).collect::<Vec<_>>()
 }
 
-fn deserialize_vec2s(vals: &[json::JsonValue]) -> InoxParseResult<Vec<Vec2>> {
+fn deserialize_vec2s_flat(vals: &[json::JsonValue]) -> InoxParseResult<Vec<Vec2>> {
     if vals.len() % 2 != 0 {
         return Err(InoxParseError::OddNumberOfFloatsInList(vals.len()));
     }
@@ -240,6 +246,24 @@ fn deserialize_vec2s(vals: &[json::JsonValue]) -> InoxParseResult<Vec<Vec2>> {
     vertices.extend_from_slice(f32s_as_vec2s(&floats));
 
     Ok(vertices)
+}
+
+fn deserialize_vec2(vals: &[json::JsonValue]) -> InoxParseResult<Vec2> {
+    if vals.len() != 2 {
+        return Err(InoxParseError::Not2FloatsInList(vals.len()));
+    }
+
+    let x = vals[0].as_f32().unwrap_or_default();
+    let y = vals[0].as_f32().unwrap_or_default();
+    Ok(vec2(x, y))
+}
+
+fn deserialize_vec2s(vals: &[json::JsonValue]) -> InoxParseResult<Vec<Vec2>> {
+    let mut vec2s = Vec::with_capacity(vals.len());
+    for (i, vals) in vals.iter().enumerate() {
+        vec2s.push(deserialize_vec2(as_nested_list(i, vals)?)?);
+    }
+    Ok(vec2s)
 }
 
 // Puppet deserialization
@@ -258,12 +282,12 @@ pub fn deserialize_puppet_ext<T>(
     let obj = JsonObject(obj);
 
     Ok(Puppet {
-        meta: nested("meta", deserialize_puppet_meta(&obj.get_object("meta")?))?,
-        physics: nested(
+        meta: vals("meta", deserialize_puppet_meta(&obj.get_object("meta")?))?,
+        physics: vals(
             "physics",
             deserialize_puppet_physics(&obj.get_object("physics")?),
         )?,
-        nodes: nested(
+        nodes: vals(
             "nodes",
             deserialize_nodes(&obj.get_object("nodes")?, deserialize_node_custom),
         )?,
@@ -271,26 +295,30 @@ pub fn deserialize_puppet_ext<T>(
     })
 }
 
-fn deserialize_params(vals: &[json::JsonValue]) -> Vec<Param> {
+fn deserialize_params(vals: &[json::JsonValue]) -> HashMap<String, Param> {
     vals.iter()
         .map_while(|param| deserialize_param(&JsonObject(param.as_object()?)).ok())
         .collect()
 }
 
-fn deserialize_param(obj: &JsonObject) -> InoxParseResult<Param> {
-    Ok(Param {
-        uuid: obj.get_u32("uuid")?,
-        name: obj.get_str("name")?.to_owned(),
-        is_vec2: obj.get_bool("is_vec2")?,
-        min: obj.get_vec2("min")?,
-        max: obj.get_vec2("max")?,
-        defaults: obj.get_vec2("defaults")?,
-        axis_points: nested(
-            "axis_points",
-            deserialize_axis_points(obj.get_list("axis_points")?),
-        )?,
-        bindings: deserialize_bindings(obj.get_list("bindings")?),
-    })
+fn deserialize_param(obj: &JsonObject) -> InoxParseResult<(String, Param)> {
+    let name = obj.get_str("name")?.to_owned();
+    Ok((
+        name.clone(),
+        Param {
+            uuid: obj.get_u32("uuid")?,
+            name,
+            is_vec2: obj.get_bool("is_vec2")?,
+            min: obj.get_vec2("min")?,
+            max: obj.get_vec2("max")?,
+            defaults: obj.get_vec2("defaults")?,
+            axis_points: vals(
+                "axis_points",
+                deserialize_axis_points(obj.get_list("axis_points")?),
+            )?,
+            bindings: deserialize_bindings(obj.get_list("bindings")?),
+        },
+    ))
 }
 
 fn deserialize_bindings(vals: &[json::JsonValue]) -> Vec<Binding> {
@@ -300,13 +328,15 @@ fn deserialize_bindings(vals: &[json::JsonValue]) -> Vec<Binding> {
 }
 
 fn deserialize_binding(obj: &JsonObject) -> InoxParseResult<Binding> {
+    let is_set = obj
+        .get_list("isSet")?
+        .iter()
+        .map(|bools| bools.members().map_while(JsonValue::as_bool).collect())
+        .collect::<Vec<Vec<_>>>();
+
     Ok(Binding {
         node: InoxNodeUuid(obj.get_u32("node")?),
-        is_set: obj
-            .get_list("isSet")?
-            .iter()
-            .map(|bools| bools.members().map_while(JsonValue::as_bool).collect())
-            .collect(),
+        is_set: Matrix2d::from_slice_vecs(&is_set, true)?,
         interpolate_mode: InterpolateMode::try_from(obj.get_str("interpolate_mode")?)?,
         values: deserialize_binding_values(obj.get_str("param_name")?, obj.get_list("values")?)?,
     })
@@ -317,42 +347,41 @@ fn deserialize_binding_values(
     values: &[JsonValue],
 ) -> InoxParseResult<BindingValues> {
     Ok(match param_name {
-        "zSort" => BindingValues::ZSort(deserialize_inner_binding_values(values)),
-        "transform.t.x" => BindingValues::TransformTX(deserialize_inner_binding_values(values)),
-        "transform.t.y" => BindingValues::TransformTY(deserialize_inner_binding_values(values)),
-        "transform.s.x" => BindingValues::TransformSX(deserialize_inner_binding_values(values)),
-        "transform.s.y" => BindingValues::TransformSY(deserialize_inner_binding_values(values)),
-        "transform.r.x" => BindingValues::TransformRX(deserialize_inner_binding_values(values)),
-        "transform.r.y" => BindingValues::TransformRY(deserialize_inner_binding_values(values)),
-        "transform.r.z" => BindingValues::TransformRZ(deserialize_inner_binding_values(values)),
-        "deform" => BindingValues::Deform(
-            values
-                .iter()
-                .enumerate()
-                .filter_map(|(j, vals)| {
-                    Some(
-                        as_nested_list(j, vals)
-                            .ok()?
-                            .iter()
-                            .enumerate()
-                            .filter_map(|(i, vals)| {
-                                deserialize_vec2s(as_nested_list(i, vals).ok()?).ok()
-                            })
-                            .collect(),
-                    )
-                })
-                .collect(),
-        ),
+        "zSort" => BindingValues::ZSort(deserialize_inner_binding_values(values)?),
+        "transform.t.x" => BindingValues::TransformTX(deserialize_inner_binding_values(values)?),
+        "transform.t.y" => BindingValues::TransformTY(deserialize_inner_binding_values(values)?),
+        "transform.s.x" => BindingValues::TransformSX(deserialize_inner_binding_values(values)?),
+        "transform.s.y" => BindingValues::TransformSY(deserialize_inner_binding_values(values)?),
+        "transform.r.x" => BindingValues::TransformRX(deserialize_inner_binding_values(values)?),
+        "transform.r.y" => BindingValues::TransformRY(deserialize_inner_binding_values(values)?),
+        "transform.r.z" => BindingValues::TransformRZ(deserialize_inner_binding_values(values)?),
+        "deform" => {
+            let mut parsed = Vec::with_capacity(values.len());
+            for (j, vals) in values.iter().enumerate() {
+                let nested = as_nested_list(j, vals)?;
+                let mut nested_parsed = Vec::with_capacity(nested.len());
+                for (i, vals) in nested.iter().enumerate() {
+                    nested_parsed.push(deserialize_vec2s(as_nested_list(i, vals)?)?);
+                }
+                parsed.push(nested_parsed);
+            }
+
+            BindingValues::Deform(Matrix2d::from_slice_vecs(&parsed, true)?)
+        }
         param_name => return Err(InoxParseError::UnknownParamName(param_name.to_owned())),
     })
 }
 
-fn deserialize_inner_binding_values(values: &[JsonValue]) -> Vec<Vec<f32>> {
-    values
+fn deserialize_inner_binding_values(
+    values: &[JsonValue],
+) -> Result<Matrix2d<f32>, Matrix2dFromSliceVecsError> {
+    let values = values
         .iter()
         .enumerate()
         .filter_map(|(i, vals)| Some(deserialize_f32s(as_nested_list(i, vals).ok()?)))
-        .collect()
+        .collect::<Vec<Vec<_>>>();
+
+    Matrix2d::from_slice_vecs(&values, true)
 }
 
 fn as_nested_list(index: usize, val: &json::JsonValue) -> InoxParseResult<&[json::JsonValue]> {
@@ -364,10 +393,10 @@ fn as_nested_list(index: usize, val: &json::JsonValue) -> InoxParseResult<&[json
     }
 }
 
-fn deserialize_axis_points(vals: &[json::JsonValue]) -> InoxParseResult<[Vec<f32>; 2]> {
-    let x_points = deserialize_f32s(as_nested_list(0, &vals[0])?);
-    let y_points = deserialize_f32s(as_nested_list(1, &vals[1])?);
-    Ok([x_points, y_points])
+fn deserialize_axis_points(vals: &[json::JsonValue]) -> InoxParseResult<AxisPoints> {
+    let x = deserialize_f32s(as_nested_list(0, &vals[0])?);
+    let y = deserialize_f32s(as_nested_list(1, &vals[1])?);
+    Ok(AxisPoints { x, y })
 }
 
 fn deserialize_nodes<T>(
