@@ -6,7 +6,7 @@ use crate::math::interp::{
 use crate::math::matrix::Matrix2d;
 use crate::nodes::node::InoxNodeUuid;
 use crate::puppet::Puppet;
-use crate::renderless::{NodeDataRenderInfo, NodeRenderInfos, PartRenderInfo};
+use crate::renderless::{RenderInfoKind, NodeRenderInfos, PartRenderInfo};
 
 /// Parameter binding to a node. This allows to animate a node based on the value of the parameter that owns it.
 #[derive(Debug, Clone)]
@@ -206,11 +206,11 @@ impl Param {
                         matrix[(x_maxdex, y_maxdex)].as_slice(),
                     );
 
-                    if let NodeDataRenderInfo::Part(PartRenderInfo {
+                    if let RenderInfoKind::Part(PartRenderInfo {
                         vert_offset,
                         vert_len,
                         ..
-                    }) = node_offsets.data
+                    }) = node_offsets.kind
                     {
                         let def_beg = vert_offset as usize;
                         let def_end = def_beg + vert_len;

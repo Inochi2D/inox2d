@@ -80,17 +80,17 @@ pub struct PartRenderInfo {
 }
 
 #[derive(Debug, Clone)]
-pub enum NodeDataRenderInfo {
+pub enum RenderInfoKind {
     Node,
     Part(PartRenderInfo),
-    Composite { children: Vec<InoxNodeUuid> },
+    Composite(Vec<InoxNodeUuid>),
 }
 
 #[derive(Debug)]
 pub struct NodeRenderInfo {
     pub trans: Mat4,
     pub trans_offset: TransformOffset,
-    pub data: NodeDataRenderInfo,
+    pub kind: RenderInfoKind,
 }
 
 // Implemented for parameter bindings to animate the puppet
@@ -136,7 +136,7 @@ impl RenderInfo {
                 NodeRenderInfo {
                     trans: Mat4::default(),
                     trans_offset: node.trans_offset,
-                    data: NodeDataRenderInfo::Part(PartRenderInfo {
+                    kind: RenderInfoKind::Part(PartRenderInfo {
                         index_offset,
                         vert_offset,
                         vert_len: part.mesh.vertices.len(),
@@ -177,7 +177,7 @@ impl RenderInfo {
                         NodeRenderInfo {
                             trans: Mat4::default(),
                             trans_offset: node.trans_offset,
-                            data: NodeDataRenderInfo::Composite { children },
+                            kind: RenderInfoKind::Composite(children),
                         },
                     );
                 }
@@ -187,7 +187,7 @@ impl RenderInfo {
                         NodeRenderInfo {
                             trans: Mat4::default(),
                             trans_offset: node.trans_offset,
-                            data: NodeDataRenderInfo::Node,
+                            kind: RenderInfoKind::Node,
                         },
                     );
                 }
