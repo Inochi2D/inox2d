@@ -89,11 +89,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     renderer.camera.scale = Vec2::splat(0.15);
     info!("Inox2D renderer initialized");
 
+    // variables and state for camera position and mouse interactions
     let mut camera_pos = Vec2::ZERO;
     let mut mouse_pos = Vec2::ZERO;
     let mut mouse_pos_held = mouse_pos;
     let mut mouse_state = ElementState::Released;
+
+    // variables and state for smooth scrolling
+    let scroll_speed: f32 = 3.0;
+    let mut hard_scale = renderer.camera.scale;
+
+    // variables and state for FPS-independent interactions
     let start = Instant::now();
+    let mut prev_elapsed: f32 = 0.0;
+    let mut current_elapsed: f32 = 0.0;
 
     let mut puppet = puppet;
 
@@ -109,10 +118,14 @@ fn main() -> Result<(), Box<dyn Error>> {
             Event::RedrawRequested(_) => {
                 debug!("Redrawing");
 
+                let time_delta = current_elapsed - prev_elapsed;
+                renderer.camera.scale = renderer.camera.scale
+                    + time_delta.powf(0.6) * (hard_scale - renderer.camera.scale);
+
                 renderer.clear();
 
                 puppet.begin_set_params();
-                let t = start.elapsed().as_secs_f32();
+                let t = current_elapsed;
                 puppet.set_param("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
                 puppet.end_set_params();
 
@@ -120,6 +133,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                 gl_surface.swap_buffers(&gl_ctx).unwrap();
                 window.request_redraw();
+
+                prev_elapsed = current_elapsed;
+                current_elapsed = start.elapsed().as_secs_f32();
             }
             Event::WindowEvent { ref event, .. } => match event {
                 WindowEvent::Resized(physical_size) => {
@@ -151,15 +167,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 WindowEvent::MouseWheel { delta, .. } => {
                     // Handle mouse wheel (zoom)
                     let my = match delta {
-                        MouseScrollDelta::LineDelta(_, y) => *y,
+                        MouseScrollDelta::LineDelta(_, y) => *y * 12.,
                         MouseScrollDelta::PixelDelta(pos) => pos.y as f32,
                     };
 
-                    if my.is_sign_positive() {
-                        renderer.camera.scale *= 8.0 * my.abs() / 7.0;
-                    } else {
-                        renderer.camera.scale *= 7.0 * my.abs() / 8.0;
-                    }
+                    let time_delta = current_elapsed - prev_elapsed;
+                    hard_scale *= 10_f32.powf(scroll_speed * time_delta * my);
 
                     window.request_redraw();
                 }
