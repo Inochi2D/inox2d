@@ -65,8 +65,8 @@ impl VertexInfo {
         self.uvs.extend_from_slice(&mesh.uvs);
         self.indices
             .extend(mesh.indices.iter().map(|index| index + offset_vert));
-        let new_deforms = vec![Vec2::ZERO; mesh.vertices.len()];
-        self.deforms.extend_from_slice(&new_deforms);
+        self.deforms
+            .resize(self.deforms.len() + mesh.vertices.len(), Vec2::ZERO);
 
         (index_offset, vert_offset)
     }
