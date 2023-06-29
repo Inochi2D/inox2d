@@ -118,9 +118,18 @@ fn main() -> Result<(), Box<dyn Error>> {
             Event::RedrawRequested(_) => {
                 debug!("Redrawing");
 
-                let time_delta = current_elapsed - prev_elapsed;
-                renderer.camera.scale = renderer.camera.scale
-                    + time_delta.powf(0.6) * (hard_scale - renderer.camera.scale);
+                // Smooth scrolling
+                {
+                    let time_delta = current_elapsed - prev_elapsed;
+                    renderer.camera.scale = renderer.camera.scale
+                        + time_delta.powf(0.6) * (hard_scale - renderer.camera.scale);
+                }
+
+                // Mouse dragging
+                if mouse_state == ElementState::Pressed {
+                    renderer.camera.position =
+                        camera_pos + (mouse_pos - mouse_pos_held) / renderer.camera.scale;
+                }
 
                 renderer.clear();
 
@@ -150,10 +159,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
                 WindowEvent::CursorMoved { position, .. } => {
                     mouse_pos = vec2(position.x as f32, position.y as f32);
-                    if mouse_state == ElementState::Pressed {
-                        renderer.camera.position =
-                            camera_pos + (mouse_pos - mouse_pos_held) / renderer.camera.scale;
 
+                    if mouse_state == ElementState::Pressed {
                         window.request_redraw();
                     }
                 }
