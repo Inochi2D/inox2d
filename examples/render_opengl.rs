@@ -218,7 +218,7 @@ fn launch_opengl_window() -> Result<App, Box<dyn Error>> {
         .with_transparent(true)
         .with_resizable(true)
         .with_inner_size(winit::dpi::PhysicalSize::new(600, 800))
-        .with_title("Render Inochi2D Puppet");
+        .with_title("Render Inochi2D Puppet (OpenGL)");
 
     let (window, gl_config) = glutin_winit::DisplayBuilder::new()
         .with_preference(ApiPrefence::FallbackEgl)

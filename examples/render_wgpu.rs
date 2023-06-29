@@ -16,6 +16,8 @@ pub async fn run(puppet: Model) {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_inner_size(winit::dpi::LogicalSize::new(2048, 2048))
+        .with_transparent(true)
+        .with_title("Render Inochi2D Puppet (WGPU)")
         .build(&event_loop)
         .unwrap();
 
