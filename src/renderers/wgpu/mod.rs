@@ -428,6 +428,6 @@ fn node_absolute_translation<T>(nodes: &InoxNodeTree<T>, uuid: InoxNodeUuid) -> 
     nodes
         .ancestors(uuid)
         .filter_map(|n| nodes.arena.get(n))
-        .map(|n| n.get().transform.translation)
+        .map(|n| n.get().trans_offset.translation)
         .sum::<Vec3>()
 }
