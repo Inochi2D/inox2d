@@ -1,7 +1,7 @@
 use std::{collections::HashMap, ops::Range};
 
 use encase::ShaderType;
-use glam::Vec2;
+use glam::{Vec2, vec2};
 use wgpu::{util::DeviceExt, Buffer, BufferDescriptor, BufferUsages, Device};
 
 use crate::{
@@ -31,24 +31,21 @@ pub fn buffers_for_puppet(
     let mut parts = 0;
 
     let mut verts: Vec<Vec2> = vec![
-        Vec2::new(-1.0, -1.0),
-        Vec2::new(-1.0, 1.0),
-        Vec2::new(1.0, -1.0),
-        Vec2::new(1.0, -1.0),
-        Vec2::new(-1.0, 1.0),
-        Vec2::new(1.0, 1.0),
+        vec2(-1.0, -1.0),
+        vec2(-1.0,  1.0),
+        vec2( 1.0, -1.0),
+        vec2( 1.0,  1.0),
     ];
-    let mut uvs: Vec<Vec2> = vec![
-        Vec2::new(0.0, 0.0),
-        Vec2::new(0.0, 1.0),
-        Vec2::new(1.0, 0.0),
-        Vec2::new(1.0, 0.0),
-        Vec2::new(0.0, 1.0),
-        Vec2::new(1.0, 1.0),
-    ];
-    let mut deforms: Vec<Vec2> = vec![Vec2::ZERO; 6];
 
-    let mut indexes: Vec<u16> = Vec::new();
+    let mut uvs: Vec<Vec2> = vec![
+        vec2(0.0, 0.0),
+        vec2(0.0, 1.0),
+        vec2(1.0, 0.0),
+        vec2(1.0, 1.0),
+    ];
+
+    let mut deforms: Vec<Vec2> = vec![Vec2::ZERO; 4];
+    let mut indexes: Vec<u16> = vec![0, 1, 2, 0, 2, 3];
 
     let mut uniform_index_map: HashMap<InoxNodeUuid, u64> = HashMap::new();
     let mut part_index_map: HashMap<InoxNodeUuid, Range<u32>> = HashMap::new();
