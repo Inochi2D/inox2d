@@ -93,24 +93,6 @@ pub struct NodeRenderInfo {
     pub kind: RenderInfoKind,
 }
 
-// Implemented for parameter bindings to animate the puppet
-// impl AsRef<PartOffsets> for PartRenderInfo {
-//     fn as_ref(&self) -> &PartOffsets {
-//         &self.part_offsets
-//     }
-// }
-
-// impl AsMut<PartOffsets> for PartRenderInfo {
-//     fn as_mut(&mut self) -> &mut PartOffsets {
-//         &mut self.part_offsets
-//     }
-// }
-
-#[derive(Debug, Clone)]
-pub struct CompositeRenderInfo {
-    pub children: Vec<InoxNodeUuid>,
-}
-
 pub type NodeRenderInfos = HashMap<InoxNodeUuid, NodeRenderInfo>;
 
 #[derive(Debug)]

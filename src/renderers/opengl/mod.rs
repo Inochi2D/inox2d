@@ -465,6 +465,7 @@ impl OpenglRenderer {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_part(
         &self,
         puppet: &Puppet,
