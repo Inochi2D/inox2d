@@ -14,7 +14,7 @@ name: Continuous Integration
 
 jobs:
   build:
-    name: Build (${{ matrix.config.name }})
+    name: Build [${{ matrix.config.name }}]
     runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
