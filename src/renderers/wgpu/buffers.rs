@@ -1,21 +1,16 @@
-use std::{collections::HashMap, ops::Range};
+use std::collections::HashMap;
 
 use encase::ShaderType;
-use glam::{Vec2, vec2};
 use wgpu::{util::DeviceExt, Buffer, BufferDescriptor, BufferUsages, Device};
 
-use crate::{
-    nodes::{node::InoxNodeUuid, node_data::InoxData},
-    puppet::Puppet,
-};
+use crate::{nodes::node::InoxNodeUuid, puppet::Puppet};
 
 use super::pipeline::CameraData;
 
 pub struct InoxBuffers {
     pub camera_buffer: Buffer,
     pub uniform_buffer: Buffer,
-    pub uniform_index_map: HashMap<InoxNodeUuid, u64>,
-    pub part_index_map: HashMap<InoxNodeUuid, Range<u32>>,
+    pub uniform_index_map: HashMap<InoxNodeUuid, usize>,
 
     pub vertex_buffer: Buffer,
     pub uv_buffer: Buffer,
@@ -26,54 +21,16 @@ pub struct InoxBuffers {
 pub fn buffers_for_puppet(
     device: &Device,
     puppet: &Puppet,
-    uniform_alignment_needed: u64,
+    uniform_alignment_needed: usize,
 ) -> InoxBuffers {
-    let mut parts = 0;
+    let mut uniform_index_map: HashMap<InoxNodeUuid, usize> = HashMap::new();
 
-    let mut verts: Vec<Vec2> = vec![
-        vec2(-1.0, -1.0),
-        vec2(-1.0,  1.0),
-        vec2( 1.0, -1.0),
-        vec2( 1.0,  1.0),
-    ];
-
-    let mut uvs: Vec<Vec2> = vec![
-        vec2(0.0, 0.0),
-        vec2(0.0, 1.0),
-        vec2(1.0, 0.0),
-        vec2(1.0, 1.0),
-    ];
-
-    let mut deforms: Vec<Vec2> = vec![Vec2::ZERO; 4];
-    let mut indexes: Vec<u16> = vec![0, 1, 2, 0, 2, 3];
-
-    let mut uniform_index_map: HashMap<InoxNodeUuid, u64> = HashMap::new();
-    let mut part_index_map: HashMap<InoxNodeUuid, Range<u32>> = HashMap::new();
-
-    for node in puppet.nodes.arena.iter() {
-        match &node.get().data {
-            InoxData::Part(part) => {
-                let mesh = &part.mesh;
-                let offset = verts.len() as u16;
-
-                let num_verts = mesh.vertices.len();
-                assert_eq!(num_verts, mesh.uvs.len());
-
-                verts.extend_from_slice(&mesh.vertices);
-                uvs.extend_from_slice(&mesh.uvs);
-                deforms.resize(deforms.len() + num_verts, Vec2::ZERO);
-
-                let start_len = indexes.len() as u32;
-                let end_len = (indexes.len() + mesh.indices.len()) as u32;
-                part_index_map.insert(node.get().uuid, start_len..end_len);
-                indexes.extend(mesh.indices.iter().map(|index| index + offset));
-            }
-            InoxData::Composite(_) => {}
-            _ => continue,
-        }
-
-        uniform_index_map.insert(node.get().uuid, parts);
-        parts += 1;
+    for (i, node) in (puppet.nodes.arena.iter())
+        .map(|arena_node| arena_node.get())
+        .filter(|node| node.is_part() || node.is_composite())
+        .enumerate()
+    {
+        uniform_index_map.insert(node.uuid, i);
     }
 
     let camera_buffer = device.create_buffer(&BufferDescriptor {
@@ -85,32 +42,32 @@ pub fn buffers_for_puppet(
 
     let uniform_buffer = device.create_buffer(&BufferDescriptor {
         label: Some("inox2d uniform buffer"),
-        size: uniform_alignment_needed * parts,
+        size: (uniform_alignment_needed * uniform_index_map.len()) as u64,
         usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
 
     let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("vertex buffer"),
-        contents: bytemuck::cast_slice(&verts),
+        contents: bytemuck::cast_slice(&puppet.render_info.vertex_info.verts),
         usage: wgpu::BufferUsages::VERTEX,
     });
 
     let uv_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("uv buffer"),
-        contents: bytemuck::cast_slice(&uvs),
+        contents: bytemuck::cast_slice(&puppet.render_info.vertex_info.uvs),
         usage: wgpu::BufferUsages::VERTEX,
     });
 
     let deform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("deform buffer"),
-        contents: bytemuck::cast_slice(&deforms),
+        contents: bytemuck::cast_slice(&puppet.render_info.vertex_info.deforms),
         usage: wgpu::BufferUsages::VERTEX,
     });
 
     let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("index buffer"),
-        contents: bytemuck::cast_slice(&indexes),
+        contents: bytemuck::cast_slice(&puppet.render_info.vertex_info.indices),
         usage: wgpu::BufferUsages::INDEX,
     });
 
@@ -118,7 +75,6 @@ pub fn buffers_for_puppet(
         camera_buffer,
         uniform_buffer,
         uniform_index_map,
-        part_index_map,
 
         vertex_buffer,
         uv_buffer,

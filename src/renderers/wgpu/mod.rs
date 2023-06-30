@@ -7,11 +7,14 @@ mod pipeline;
 use crate::nodes::node::InoxNodeUuid;
 use crate::nodes::node_data::InoxData;
 use crate::nodes::node_tree::InoxNodeTree;
+use crate::puppet::Puppet;
+use crate::renderless::RenderInfoKind;
 use crate::texture::decode_model_textures;
 use crate::{model::Model, nodes::node_data::MaskMode};
 
 use encase::ShaderType;
 use glam::{Vec2, Vec3};
+use tracing::warn;
 use wgpu::{util::DeviceExt, *};
 
 use self::node_bundle::{CompositeData, PartData};
@@ -115,7 +118,7 @@ impl Renderer {
     #[allow(clippy::too_many_arguments)]
     fn render_part(
         &self,
-        puppet: &Model,
+        puppet: &Puppet,
 
         view: &TextureView,
         mask_view: &TextureView,
@@ -156,7 +159,7 @@ impl Renderer {
         render_pass.set_pipeline(&self.setup.mask_pipeline);
 
         for mask in masks {
-            let node = puppet.puppet.nodes.get_node(mask.source).unwrap();
+            let node = puppet.nodes.get_node(mask.source).unwrap();
             let part = if let InoxData::Part(part) = &node.data {
                 part
             } else {
@@ -183,8 +186,17 @@ impl Renderer {
                 }
             }
 
-            let range = self.buffers.part_index_map[&mask.source].clone();
-            render_pass.draw_indexed(range, 0, 0..1);
+            let node_rinf = &puppet.render_info.node_render_infos[&mask.source];
+            if let RenderInfoKind::Part(pinf) = &node_rinf.kind {
+                let range =
+                    (pinf.index_offset as u32)..(pinf.index_offset as u32 + pinf.index_len as u32);
+                render_pass.draw_indexed(range, 0, 0..1);
+            } else {
+                warn!(
+                    "Node mask {:?} is not a part but is trying to get rendered as one",
+                    mask.source
+                );
+            }
         }
 
         render_pass.set_stencil_reference(0);
@@ -196,7 +208,7 @@ impl Renderer {
     #[allow(clippy::too_many_arguments)]
     fn render_composite(
         &self,
-        puppet: &Model,
+        puppet: &Puppet,
 
         view: &TextureView,
         mask_view: &TextureView,
@@ -241,8 +253,12 @@ impl Renderer {
         render_pass.set_vertex_buffer(0, self.buffers.vertex_buffer.slice(..));
         render_pass.set_vertex_buffer(1, self.buffers.uv_buffer.slice(..));
         render_pass.set_vertex_buffer(2, self.buffers.deform_buffer.slice(..));
+        render_pass.set_index_buffer(
+            self.buffers.index_buffer.slice(..),
+            wgpu::IndexFormat::Uint16,
+        );
 
-        let child = puppet.puppet.nodes.get_node(*uuid).unwrap();
+        let child = puppet.nodes.get_node(*uuid).unwrap();
         let child = if let InoxData::Composite(comp) = &child.data {
             comp
         } else {
@@ -259,13 +275,13 @@ impl Renderer {
         render_pass.set_bind_group(1, composite_bind, &[]);
         render_pass.set_bind_group(2, composite_bind, &[]);
         render_pass.set_bind_group(3, composite_bind, &[]);
-        render_pass.draw(0..6, 0..1);
+        render_pass.draw_indexed(0..6, 0, 0..1);
 
         drop(render_pass);
     }
 
     /// It is a logical error to pass in a different puppet than the one passed to create.
-    pub fn render(&mut self, queue: &Queue, device: &Device, puppet: &Model, view: &TextureView) {
+    pub fn render(&mut self, queue: &Queue, device: &Device, puppet: &Puppet, view: &TextureView) {
         let uniform_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("inox2d uniform bind group"),
             layout: &self.setup.uniform_layout,
@@ -348,8 +364,8 @@ impl Renderer {
             label: Some("texture bind group"),
         });
 
-        for id in puppet.puppet.nodes.all_node_ids() {
-            let node = puppet.puppet.nodes.get_node(id).unwrap();
+        for uuid in puppet.nodes.all_node_ids() {
+            let node = puppet.nodes.get_node(uuid).unwrap();
 
             let unif = match &node.data {
                 InoxData::Part(_) => Uniform {
@@ -357,7 +373,7 @@ impl Renderer {
                     mult_color: Vec3::ONE,
                     screen_color: Vec3::ZERO,
                     emission_strength: 0.0,
-                    offset: node_absolute_translation(&puppet.puppet.nodes, node.uuid).truncate(),
+                    offset: node_absolute_translation(&puppet.nodes, node.uuid).truncate(),
                 },
                 InoxData::Composite(_) => Uniform {
                     opacity: 1.0,
@@ -373,7 +389,8 @@ impl Renderer {
             buffer.write(&unif).unwrap();
             queue.write_buffer(
                 &self.buffers.uniform_buffer,
-                self.setup.uniform_alignment_needed * self.buffers.uniform_index_map[&id],
+                (self.setup.uniform_alignment_needed * self.buffers.uniform_index_map[&uuid])
+                    as u64,
                 buffer.as_ref(),
             );
         }

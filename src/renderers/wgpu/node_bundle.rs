@@ -1,4 +1,5 @@
 use encase::ShaderType;
+use tracing::warn;
 use wgpu::{BindGroup, Device, RenderBundle};
 
 use crate::{
@@ -7,6 +8,7 @@ use crate::{
         node_data::{InoxData, Mask, Part},
     },
     puppet::Puppet,
+    renderless::RenderInfoKind,
 };
 
 use super::{
@@ -26,6 +28,7 @@ pub enum NodeBundle {
     Composite(CompositeData),
 }
 
+#[allow(clippy::too_many_arguments)]
 fn part_bundle_for_part(
     device: &Device,
     setup: &InoxPipeline,
@@ -35,6 +38,7 @@ fn part_bundle_for_part(
 
     uuid: InoxNodeUuid,
     part: &Part,
+    puppet: &Puppet,
 ) -> PartData {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: Some(&format!("part encoder: {:?}", uuid)),
@@ -64,8 +68,16 @@ fn part_bundle_for_part(
     encoder.set_bind_group(2, &model_texture_binds[part.tex_emissive], &[]);
     encoder.set_bind_group(3, &model_texture_binds[part.tex_bumpmap], &[]);
 
-    let range = buffers.part_index_map[&uuid].clone();
-    encoder.draw_indexed(range, 0, 0..1);
+    let node_rinf = &puppet.render_info.node_render_infos[&uuid];
+    if let RenderInfoKind::Part(pinf) = &node_rinf.kind {
+        let range = (pinf.index_offset as u32)..(pinf.index_offset as u32 + pinf.index_len as u32);
+        encoder.draw_indexed(range, 0, 0..1);
+    } else {
+        warn!(
+            "Node {:?} is not a part but is trying to get rendered as one",
+            uuid
+        );
+    }
 
     let bundle = encoder.finish(&wgpu::RenderBundleDescriptor {
         label: Some(&format!("part bundle: {:?}", uuid)),
@@ -119,6 +131,7 @@ pub fn node_bundles_for_model(
                 &uniform_group,
                 uuid,
                 part,
+                puppet,
             )));
         } else if let InoxData::Composite(_) = &node.data {
             let mut encoder =
@@ -156,6 +169,7 @@ pub fn node_bundles_for_model(
                         &uniform_group,
                         child_id,
                         part,
+                        puppet,
                     );
                     bundles.push(bundle);
                 }

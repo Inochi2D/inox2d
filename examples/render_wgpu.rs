@@ -12,7 +12,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 
-pub async fn run(puppet: Model) {
+pub async fn run(model: Model) {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_inner_size(winit::dpi::LogicalSize::new(2048, 2048))
@@ -55,7 +55,7 @@ pub async fn run(puppet: Model) {
     };
     surface.configure(&device, &config);
 
-    let mut renderer = Renderer::new(&device, &queue, wgpu::TextureFormat::Bgra8Unorm, &puppet);
+    let mut renderer = Renderer::new(&device, &queue, wgpu::TextureFormat::Bgra8Unorm, &model);
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
@@ -90,7 +90,7 @@ pub async fn run(puppet: Model) {
             let view = output
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
-            renderer.render(&queue, &device, &puppet, &view);
+            renderer.render(&queue, &device, &model.puppet, &view);
             output.present();
         }
         Event::MainEventsCleared => {

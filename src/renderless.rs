@@ -57,14 +57,13 @@ impl Default for VertexInfo {
 impl VertexInfo {
     /// adds the mesh's vertices and UVs to the buffers and returns its index offset.
     pub fn push(&mut self, mesh: &Mesh) -> (u16, u16) {
-        let offset_vert = self.verts.len() as u16;
         let index_offset = self.indices.len() as u16;
         let vert_offset = self.verts.len() as u16;
 
         self.verts.extend_from_slice(&mesh.vertices);
         self.uvs.extend_from_slice(&mesh.uvs);
         self.indices
-            .extend(mesh.indices.iter().map(|index| index + offset_vert));
+            .extend(mesh.indices.iter().map(|index| index + vert_offset));
         self.deforms
             .resize(self.deforms.len() + mesh.vertices.len(), Vec2::ZERO);
 
@@ -76,6 +75,7 @@ impl VertexInfo {
 pub struct PartRenderInfo {
     pub index_offset: u16,
     pub vert_offset: u16,
+    pub index_len: usize,
     pub vert_len: usize,
 }
 
@@ -121,6 +121,7 @@ impl RenderInfo {
                     kind: RenderInfoKind::Part(PartRenderInfo {
                         index_offset,
                         vert_offset,
+                        index_len: part.mesh.indices.len(),
                         vert_len: part.mesh.vertices.len(),
                     }),
                 },
