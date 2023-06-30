@@ -14,11 +14,14 @@ name: Continuous Integration
 
 jobs:
   build:
-    name: Build [${{ matrix.config.name }}]
+    name: Build [${{ matrix.renderer }} | ${{ matrix.config.name }}]
     runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
       matrix:
+        renderer:
+          - OpenGL
+          - WGPU
         config:
           - { name: Linux (ARM), os: ubuntu-latest,  target: "aarch64-unknown-linux-gnu" }
           - { name: Linux (x86), os: ubuntu-latest,  target: "x86_64-unknown-linux-gnu" }
@@ -27,9 +30,6 @@ jobs:
           - { name: MacOS (ARM), os: macos-latest,   target: "aarch64-apple-ios" }
           - { name: iOS,         os: macos-latest,   target: "x86_64-apple-ios" }
           - { name: Windows,     os: windows-latest, target: "x86_64-pc-windows-msvc" }
-        renderer:
-          - opengl
-          - wgpu
 
     steps:
       - name: Checkout
@@ -49,28 +49,28 @@ jobs:
           echo "linker = \"aarch64-linux-gnu-gcc\"" >> ~/.cargo/config
 
       - name: Build (OpenGL)
-        if: matrix.renderer == 'opengl'
+        if: matrix.renderer == 'OpenGL'
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --no-default-features --features opengl,owo --all-targets --target=${{ matrix.config.target }}
 
       - name: Build Example (OpenGL)
-        if: matrix.renderer == 'opengl'
+        if: matrix.renderer == 'OpenGL'
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --example render_opengl --no-default-features --features opengl,owo --all-targets --target=${{ matrix.config.target }}
 
       - name: Build (WGPU)
-        if: matrix.renderer == 'wgpu'
+        if: matrix.renderer == 'WGPU'
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --no-default-features --features wgpu,owo --all-targets --target=${{ matrix.config.target }}
 
       - name: Build Example (WGPU)
-        if: matrix.renderer == 'wgpu'
+        if: matrix.renderer == 'WGPU'
         uses: actions-rs/cargo@v1
         with:
           command: build
