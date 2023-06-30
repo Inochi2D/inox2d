@@ -41,6 +41,6 @@ pub mod model;
 pub mod nodes;
 pub mod params;
 pub mod puppet;
-pub mod renderers;
+pub mod render;
 pub mod renderless;
 pub mod texture;

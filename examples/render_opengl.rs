@@ -20,7 +20,7 @@ use glutin::{
 };
 
 use glutin_winit::ApiPrefence;
-use inox2d::{formats::inp::parse_inp, renderers::opengl::OpenglRenderer};
+use inox2d::{formats::inp::parse_inp, render::opengl::OpenglRenderer};
 use raw_window_handle::HasRawWindowHandle;
 
 use tracing::{debug, error, info, warn};

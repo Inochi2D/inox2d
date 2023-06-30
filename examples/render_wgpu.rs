@@ -5,7 +5,7 @@ use winit::{
 };
 
 use inox2d::formats::inp::parse_inp;
-use inox2d::{model::Model, renderers::wgpu::Renderer};
+use inox2d::{model::Model, render::wgpu::Renderer};
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
