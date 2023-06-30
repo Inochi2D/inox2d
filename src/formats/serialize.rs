@@ -286,7 +286,7 @@ pub fn deserialize_puppet_ext<T>(
         "nodes",
         deserialize_nodes(&obj.get_object("nodes")?, deserialize_node_custom),
     )?;
-    let render_info = RenderCtx::new(&nodes);
+    let render_ctx = RenderCtx::new(&nodes);
 
     Ok(Puppet {
         meta: vals("meta", deserialize_puppet_meta(&obj.get_object("meta")?))?,
@@ -296,7 +296,7 @@ pub fn deserialize_puppet_ext<T>(
         )?,
         nodes,
         parameters: deserialize_params(obj.get_list("param")?),
-        render_info,
+        render_ctx,
     })
 }
 

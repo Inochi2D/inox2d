@@ -136,7 +136,7 @@ impl OpenglRenderer {
         viewport: UVec2,
         puppet: &Puppet,
     ) -> Result<Self, OpenglRendererError> {
-        let vao = unsafe { puppet.render_info.setup_gl_buffers(&gl)? };
+        let vao = unsafe { puppet.render_ctx.setup_gl_buffers(&gl)? };
 
         // Initialize framebuffers
         let composite_framebuffer;
@@ -399,12 +399,12 @@ impl OpenglRenderer {
 
         let gl = &self.gl;
         unsafe {
-            puppet.render_info.upload_deforms_to_gl(gl);
+            puppet.render_ctx.upload_deforms_to_gl(gl);
             gl.enable(glow::BLEND);
             gl.disable(glow::DEPTH_TEST);
         }
 
-        for &uuid in &puppet.render_info.nodes_zsorted {
+        for &uuid in &puppet.render_ctx.nodes_zsorted {
             self.draw_node(puppet, uuid, false, false);
         }
     }
@@ -417,15 +417,15 @@ impl OpenglRenderer {
         is_mask: bool,
     ) {
         let node = puppet.nodes.get_node(uuid).unwrap();
-        let node_render_info = &puppet.render_info.node_render_infos[&uuid];
+        let node_render_ctx = &puppet.render_ctx.node_render_ctxs[&uuid];
 
-        match (&node.data, &node_render_info.kind) {
-            (InoxData::Part(ref part), RenderCtxKind::Part(ref part_render_info)) => {
+        match (&node.data, &node_render_ctx.kind) {
+            (InoxData::Part(ref part), RenderCtxKind::Part(ref part_render_ctx)) => {
                 self.draw_part(
                     puppet,
                     part,
-                    node_render_info,
-                    part_render_info,
+                    node_render_ctx,
+                    part_render_ctx,
                     is_composite_child,
                     is_mask,
                     &node.name,
@@ -470,8 +470,8 @@ impl OpenglRenderer {
         &self,
         puppet: &Puppet,
         part: &Part,
-        node_render_info: &NodeRenderCtx,
-        part_render_info: &PartRenderCtx,
+        node_render_ctx: &NodeRenderCtx,
+        part_render_ctx: &PartRenderCtx,
         is_composite_child: bool,
         is_mask: bool,
         debug_label: &str,
@@ -505,7 +505,7 @@ impl OpenglRenderer {
             }
         }
 
-        let mvp = self.camera.matrix(self.viewport.as_vec2()) * node_render_info.trans;
+        let mvp = self.camera.matrix(self.viewport.as_vec2()) * node_render_ctx.trans;
 
         self.bind_part_textures(part);
         self.set_blend_mode(part.draw_state.blend_mode);
@@ -538,7 +538,7 @@ impl OpenglRenderer {
                 glow::TRIANGLES,
                 part.mesh.indices.len() as i32,
                 glow::UNSIGNED_SHORT,
-                part_render_info.index_offset as i32 * mem::size_of::<u16>() as i32,
+                part_render_ctx.index_offset as i32 * mem::size_of::<u16>() as i32,
             );
         }
 

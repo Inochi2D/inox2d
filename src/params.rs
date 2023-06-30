@@ -65,7 +65,7 @@ impl Param {
     pub fn apply(
         &self,
         val: Vec2,
-        node_render_infos: &mut NodeRenderCtxs,
+        node_render_ctxs: &mut NodeRenderCtxs,
         deform_buf: &mut [Vec2],
     ) {
         let val = val.clamp(self.min, self.max);
@@ -100,7 +100,7 @@ impl Param {
 
         // Apply offset on each binding
         for binding in &self.bindings {
-            let node_offsets = node_render_infos.get_mut(&binding.node).unwrap();
+            let node_offsets = node_render_ctxs.get_mut(&binding.node).unwrap();
 
             let range_in = InterpRange::new(
                 vec2(self.axis_points.x[x_mindex], self.axis_points.y[y_mindex]),
@@ -237,7 +237,7 @@ impl Puppet {
 
     pub fn begin_set_params(&mut self) {
         // Reset all transform and deform offsets before applying bindings
-        for (key, value) in self.render_info.node_render_infos.iter_mut() {
+        for (key, value) in self.render_ctx.node_render_ctxs.iter_mut() {
             value.trans_offset = self
                 .nodes
                 .get_node(*key)
@@ -245,7 +245,7 @@ impl Puppet {
                 .trans_offset;
         }
 
-        for v in self.render_info.vertex_buffers.deforms.iter_mut() {
+        for v in self.render_ctx.vertex_buffers.deforms.iter_mut() {
             *v = Vec2::ZERO;
         }
     }
@@ -258,8 +258,8 @@ impl Puppet {
 
         param.apply(
             val,
-            &mut self.render_info.node_render_infos,
-            self.render_info.vertex_buffers.deforms.as_mut_slice(),
+            &mut self.render_ctx.node_render_ctxs,
+            self.render_ctx.vertex_buffers.deforms.as_mut_slice(),
         );
     }
 

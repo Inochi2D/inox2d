@@ -105,21 +105,21 @@ pub type NodeRenderCtxs = HashMap<InoxNodeUuid, NodeRenderCtx>;
 pub struct RenderCtx {
     pub vertex_buffers: VertexBuffers,
     pub nodes_zsorted: Vec<InoxNodeUuid>,
-    pub node_render_infos: NodeRenderCtxs,
+    pub node_render_ctxs: NodeRenderCtxs,
 }
 
 impl RenderCtx {
     fn add_part<T>(
         nodes: &InoxNodeTree<T>,
         uuid: InoxNodeUuid,
-        vertex_info: &mut VertexBuffers,
-        node_render_infos: &mut NodeRenderCtxs,
+        vertex_buffers: &mut VertexBuffers,
+        node_render_ctxs: &mut NodeRenderCtxs,
     ) {
         let node = nodes.get_node(uuid).unwrap();
 
         if let InoxData::Part(ref part) = node.data {
-            let (index_offset, vert_offset) = vertex_info.push(&part.mesh);
-            node_render_infos.insert(
+            let (index_offset, vert_offset) = vertex_buffers.push(&part.mesh);
+            node_render_ctxs.insert(
                 uuid,
                 NodeRenderCtx {
                     trans: Mat4::default(),
@@ -136,16 +136,16 @@ impl RenderCtx {
     }
 
     pub fn new<T>(nodes: &InoxNodeTree<T>) -> Self {
-        let mut vertex_info = VertexBuffers::default();
+        let mut vertex_buffers = VertexBuffers::default();
         let nodes_zsorted = nodes.zsorted_root();
-        let mut node_render_infos = HashMap::new();
+        let mut node_render_ctxs = HashMap::new();
 
         for &uuid in &nodes_zsorted {
             let node = nodes.get_node(uuid).unwrap();
 
             match node.data {
                 InoxData::Part(_) => {
-                    Self::add_part(nodes, uuid, &mut vertex_info, &mut node_render_infos);
+                    Self::add_part(nodes, uuid, &mut vertex_buffers, &mut node_render_ctxs);
                 }
                 InoxData::Composite(_) => {
                     // Children include the parent composite, so we have to filter it out.
@@ -158,10 +158,10 @@ impl RenderCtx {
 
                     // put composite children's meshes into composite bufs
                     for &uuid in &children {
-                        Self::add_part(nodes, uuid, &mut vertex_info, &mut node_render_infos);
+                        Self::add_part(nodes, uuid, &mut vertex_buffers, &mut node_render_ctxs);
                     }
 
-                    node_render_infos.insert(
+                    node_render_ctxs.insert(
                         uuid,
                         NodeRenderCtx {
                             trans: Mat4::default(),
@@ -171,7 +171,7 @@ impl RenderCtx {
                     );
                 }
                 _ => {
-                    node_render_infos.insert(
+                    node_render_ctxs.insert(
                         uuid,
                         NodeRenderCtx {
                             trans: Mat4::default(),
@@ -184,9 +184,9 @@ impl RenderCtx {
         }
 
         Self {
-            vertex_buffers: vertex_info,
+            vertex_buffers,
             nodes_zsorted,
-            node_render_infos,
+            node_render_ctxs,
         }
     }
 }
@@ -194,10 +194,10 @@ impl RenderCtx {
 impl Puppet {
     pub fn update(&mut self) {
         let root_node = self.nodes.arena[self.nodes.root].get();
-        let node_rinfs = &mut self.render_info.node_render_infos;
+        let node_rctxs = &mut self.render_ctx.node_render_ctxs;
 
         // The root's absolute transform is its relative transform.
-        let root_trans = node_rinfs
+        let root_trans = node_rctxs
             .get(&root_node.uuid)
             .unwrap()
             .trans_offset
@@ -210,14 +210,14 @@ impl Puppet {
             let node = node_index.get();
 
             if node.lock_to_root {
-                let node_render_info = node_rinfs.get_mut(&node.uuid).unwrap();
-                node_render_info.trans = root_trans * node_render_info.trans_offset.to_matrix();
+                let node_render_ctx = node_rctxs.get_mut(&node.uuid).unwrap();
+                node_render_ctx.trans = root_trans * node_render_ctx.trans_offset.to_matrix();
             } else {
                 let parent = &self.nodes.arena[node_index.parent().unwrap()].get();
-                let parent_trans = node_rinfs.get(&parent.uuid).unwrap().trans;
+                let parent_trans = node_rctxs.get(&parent.uuid).unwrap().trans;
 
-                let node_render_info = node_rinfs.get_mut(&node.uuid).unwrap();
-                node_render_info.trans = parent_trans * node_render_info.trans_offset.to_matrix();
+                let node_render_ctx = node_rctxs.get_mut(&node.uuid).unwrap();
+                node_render_ctx.trans = parent_trans * node_render_ctx.trans_offset.to_matrix();
             }
         }
     }

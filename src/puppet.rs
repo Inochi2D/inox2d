@@ -312,5 +312,5 @@ pub struct Puppet<T = ()> {
     pub physics: PuppetPhysics,
     pub nodes: InoxNodeTree<T>,
     pub parameters: HashMap<String, Param>,
-    pub render_info: RenderCtx,
+    pub render_ctx: RenderCtx,
 }

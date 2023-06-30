@@ -186,7 +186,7 @@ impl Renderer {
                 }
             }
 
-            let node_rinf = &puppet.render_info.node_render_infos[&mask.source];
+            let node_rinf = &puppet.render_ctx.node_render_ctxs[&mask.source];
             if let RenderCtxKind::Part(pinf) = &node_rinf.kind {
                 let range =
                     (pinf.index_offset as u32)..(pinf.index_offset as u32 + pinf.index_len as u32);
@@ -373,7 +373,7 @@ impl Renderer {
                     mult_color: Vec3::ONE,
                     screen_color: Vec3::ZERO,
                     emission_strength: 0.0,
-                    offset: puppet.render_info.node_render_infos[&uuid]
+                    offset: puppet.render_ctx.node_render_ctxs[&uuid]
                         .trans_offset
                         .translation
                         .truncate(),
