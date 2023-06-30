@@ -10,14 +10,14 @@ use crate::nodes::node_tree::InoxNodeTree;
 use crate::puppet::Puppet;
 
 #[derive(Debug)]
-pub struct VertexInfo {
+pub struct VertexBuffers {
     pub verts: Vec<Vec2>,
     pub uvs: Vec<Vec2>,
     pub indices: Vec<u16>,
     pub deforms: Vec<Vec2>,
 }
 
-impl Default for VertexInfo {
+impl Default for VertexBuffers {
     fn default() -> Self {
         // init with a quad covering the whole viewport
 
@@ -54,7 +54,7 @@ impl Default for VertexInfo {
     }
 }
 
-impl VertexInfo {
+impl VertexBuffers {
     /// adds the mesh's vertices and UVs to the buffers and returns its index offset.
     pub fn push(&mut self, mesh: &Mesh) -> (u16, u16) {
         let index_offset = self.indices.len() as u16;
@@ -72,7 +72,7 @@ impl VertexInfo {
 }
 
 #[derive(Debug, Clone)]
-pub struct PartRenderInfo {
+pub struct PartRenderCtx {
     pub index_offset: u16,
     pub vert_offset: u16,
     pub index_len: usize,
@@ -80,34 +80,34 @@ pub struct PartRenderInfo {
 }
 
 #[derive(Debug, Clone)]
-pub enum RenderInfoKind {
+pub enum RenderCtxKind {
     Node,
-    Part(PartRenderInfo),
+    Part(PartRenderCtx),
     Composite(Vec<InoxNodeUuid>),
 }
 
 #[derive(Debug)]
-pub struct NodeRenderInfo {
+pub struct NodeRenderCtx {
     pub trans: Mat4,
     pub trans_offset: TransformOffset,
-    pub kind: RenderInfoKind,
+    pub kind: RenderCtxKind,
 }
 
-pub type NodeRenderInfos = HashMap<InoxNodeUuid, NodeRenderInfo>;
+pub type NodeRenderCtxs = HashMap<InoxNodeUuid, NodeRenderCtx>;
 
 #[derive(Debug)]
-pub struct RenderInfo {
-    pub vertex_info: VertexInfo,
+pub struct RenderCtx {
+    pub vertex_buffers: VertexBuffers,
     pub nodes_zsorted: Vec<InoxNodeUuid>,
-    pub node_render_infos: NodeRenderInfos,
+    pub node_render_infos: NodeRenderCtxs,
 }
 
-impl RenderInfo {
+impl RenderCtx {
     fn add_part<T>(
         nodes: &InoxNodeTree<T>,
         uuid: InoxNodeUuid,
-        vertex_info: &mut VertexInfo,
-        node_render_infos: &mut NodeRenderInfos,
+        vertex_info: &mut VertexBuffers,
+        node_render_infos: &mut NodeRenderCtxs,
     ) {
         let node = nodes.get_node(uuid).unwrap();
 
@@ -115,10 +115,10 @@ impl RenderInfo {
             let (index_offset, vert_offset) = vertex_info.push(&part.mesh);
             node_render_infos.insert(
                 uuid,
-                NodeRenderInfo {
+                NodeRenderCtx {
                     trans: Mat4::default(),
                     trans_offset: node.trans_offset,
-                    kind: RenderInfoKind::Part(PartRenderInfo {
+                    kind: RenderCtxKind::Part(PartRenderCtx {
                         index_offset,
                         vert_offset,
                         index_len: part.mesh.indices.len(),
@@ -130,7 +130,7 @@ impl RenderInfo {
     }
 
     pub fn new<T>(nodes: &InoxNodeTree<T>) -> Self {
-        let mut vertex_info = VertexInfo::default();
+        let mut vertex_info = VertexBuffers::default();
         let nodes_zsorted = nodes.zsorted_root();
         let mut node_render_infos = HashMap::new();
 
@@ -157,20 +157,20 @@ impl RenderInfo {
 
                     node_render_infos.insert(
                         uuid,
-                        NodeRenderInfo {
+                        NodeRenderCtx {
                             trans: Mat4::default(),
                             trans_offset: node.trans_offset,
-                            kind: RenderInfoKind::Composite(children),
+                            kind: RenderCtxKind::Composite(children),
                         },
                     );
                 }
                 _ => {
                     node_render_infos.insert(
                         uuid,
-                        NodeRenderInfo {
+                        NodeRenderCtx {
                             trans: Mat4::default(),
                             trans_offset: node.trans_offset,
-                            kind: RenderInfoKind::Node,
+                            kind: RenderCtxKind::Node,
                         },
                     );
                 }
@@ -178,7 +178,7 @@ impl RenderInfo {
         }
 
         Self {
-            vertex_info,
+            vertex_buffers: vertex_info,
             nodes_zsorted,
             node_render_infos,
         }

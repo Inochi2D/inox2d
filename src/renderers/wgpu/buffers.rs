@@ -49,25 +49,25 @@ pub fn buffers_for_puppet(
 
     let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("vertex buffer"),
-        contents: bytemuck::cast_slice(&puppet.render_info.vertex_info.verts),
+        contents: bytemuck::cast_slice(&puppet.render_info.vertex_buffers.verts),
         usage: wgpu::BufferUsages::VERTEX,
     });
 
     let uv_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("uv buffer"),
-        contents: bytemuck::cast_slice(&puppet.render_info.vertex_info.uvs),
+        contents: bytemuck::cast_slice(&puppet.render_info.vertex_buffers.uvs),
         usage: wgpu::BufferUsages::VERTEX,
     });
 
     let deform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("deform buffer"),
-        contents: bytemuck::cast_slice(&puppet.render_info.vertex_info.deforms),
+        contents: bytemuck::cast_slice(&puppet.render_info.vertex_buffers.deforms),
         usage: wgpu::BufferUsages::VERTEX,
     });
 
     let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("index buffer"),
-        contents: bytemuck::cast_slice(&puppet.render_info.vertex_info.indices),
+        contents: bytemuck::cast_slice(&puppet.render_info.vertex_buffers.indices),
         usage: wgpu::BufferUsages::INDEX,
     });
 

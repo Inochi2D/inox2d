@@ -5,7 +5,7 @@ use std::fmt;
 
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::params::Param;
-use crate::renderless::RenderInfo;
+use crate::renderless::RenderCtx;
 
 /// Who is allowed to use the puppet?
 #[derive(Clone, Copy, Debug, Default)]
@@ -312,5 +312,5 @@ pub struct Puppet<T = ()> {
     pub physics: PuppetPhysics,
     pub nodes: InoxNodeTree<T>,
     pub parameters: HashMap<String, Param>,
-    pub render_info: RenderInfo,
+    pub render_info: RenderCtx,
 }

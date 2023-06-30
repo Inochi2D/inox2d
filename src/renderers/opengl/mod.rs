@@ -16,7 +16,7 @@ use crate::model::ModelTexture;
 use crate::nodes::node::InoxNodeUuid;
 use crate::nodes::node_data::{BlendMode, Composite, InoxData, Mask, MaskMode, Part};
 use crate::puppet::Puppet;
-use crate::renderless::{NodeRenderInfo, PartRenderInfo, RenderInfoKind};
+use crate::renderless::{NodeRenderCtx, PartRenderCtx, RenderCtxKind};
 use crate::texture::decode_model_textures;
 
 use self::shader::ShaderCompileError;
@@ -420,7 +420,7 @@ impl OpenglRenderer {
         let node_render_info = &puppet.render_info.node_render_infos[&uuid];
 
         match (&node.data, &node_render_info.kind) {
-            (InoxData::Part(ref part), RenderInfoKind::Part(ref part_render_info)) => {
+            (InoxData::Part(ref part), RenderCtxKind::Part(ref part_render_info)) => {
                 self.draw_part(
                     puppet,
                     part,
@@ -432,7 +432,7 @@ impl OpenglRenderer {
                 );
             }
 
-            (InoxData::Composite(ref composite), RenderInfoKind::Composite(ref children)) => {
+            (InoxData::Composite(ref composite), RenderCtxKind::Composite(ref children)) => {
                 self.draw_composite(puppet, composite, children, &node.name);
             }
 
@@ -470,8 +470,8 @@ impl OpenglRenderer {
         &self,
         puppet: &Puppet,
         part: &Part,
-        node_render_info: &NodeRenderInfo,
-        part_render_info: &PartRenderInfo,
+        node_render_info: &NodeRenderCtx,
+        part_render_info: &PartRenderCtx,
         is_composite_child: bool,
         is_mask: bool,
         debug_label: &str,

@@ -6,7 +6,7 @@ use crate::math::interp::{
 use crate::math::matrix::Matrix2d;
 use crate::nodes::node::InoxNodeUuid;
 use crate::puppet::Puppet;
-use crate::renderless::{RenderInfoKind, NodeRenderInfos, PartRenderInfo};
+use crate::renderless::{RenderCtxKind, NodeRenderCtxs, PartRenderCtx};
 
 /// Parameter binding to a node. This allows to animate a node based on the value of the parameter that owns it.
 #[derive(Debug, Clone)]
@@ -65,7 +65,7 @@ impl Param {
     pub fn apply(
         &self,
         val: Vec2,
-        node_render_infos: &mut NodeRenderInfos,
+        node_render_infos: &mut NodeRenderCtxs,
         deform_buf: &mut [Vec2],
     ) {
         let val = val.clamp(self.min, self.max);
@@ -206,7 +206,7 @@ impl Param {
                         matrix[(x_maxdex, y_maxdex)].as_slice(),
                     );
 
-                    if let RenderInfoKind::Part(PartRenderInfo {
+                    if let RenderCtxKind::Part(PartRenderCtx {
                         vert_offset,
                         vert_len,
                         ..
@@ -245,7 +245,7 @@ impl Puppet {
                 .trans_offset;
         }
 
-        for v in self.render_info.vertex_info.deforms.iter_mut() {
+        for v in self.render_info.vertex_buffers.deforms.iter_mut() {
             *v = Vec2::ZERO;
         }
     }
@@ -259,7 +259,7 @@ impl Puppet {
         param.apply(
             val,
             &mut self.render_info.node_render_infos,
-            self.render_info.vertex_info.deforms.as_mut_slice(),
+            self.render_info.vertex_buffers.deforms.as_mut_slice(),
         );
     }
 

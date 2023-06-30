@@ -8,7 +8,7 @@ use crate::nodes::node::InoxNodeUuid;
 use crate::nodes::node_data::InoxData;
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::puppet::Puppet;
-use crate::renderless::RenderInfoKind;
+use crate::renderless::RenderCtxKind;
 use crate::texture::decode_model_textures;
 use crate::{model::Model, nodes::node_data::MaskMode};
 
@@ -187,7 +187,7 @@ impl Renderer {
             }
 
             let node_rinf = &puppet.render_info.node_render_infos[&mask.source];
-            if let RenderInfoKind::Part(pinf) = &node_rinf.kind {
+            if let RenderCtxKind::Part(pinf) = &node_rinf.kind {
                 let range =
                     (pinf.index_offset as u32)..(pinf.index_offset as u32 + pinf.index_len as u32);
                 render_pass.draw_indexed(range, 0, 0..1);
@@ -373,7 +373,10 @@ impl Renderer {
                     mult_color: Vec3::ONE,
                     screen_color: Vec3::ZERO,
                     emission_strength: 0.0,
-                    offset: node_absolute_translation(&puppet.nodes, node.uuid).truncate(),
+                    offset: puppet.render_info.node_render_infos[&uuid]
+                        .trans_offset
+                        .translation
+                        .truncate(),
                 },
                 InoxData::Composite(_) => Uniform {
                     opacity: 1.0,

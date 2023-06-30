@@ -1,10 +1,10 @@
 use glow::HasContext;
 
-use crate::renderless::RenderInfo;
+use crate::renderless::RenderCtx;
 
 use super::OpenglRendererError;
 
-impl RenderInfo {
+impl RenderCtx {
     unsafe fn upload_array_to_gl<T>(gl: &glow::Context, array: &Vec<T>, target: u32, usage: u32) {
         let bytes: &[u8] = core::slice::from_raw_parts(
             array.as_ptr() as *const u8,
@@ -48,7 +48,7 @@ impl RenderInfo {
 
         Self::upload_array_to_gl(
             gl,
-            &self.vertex_info.verts,
+            &self.vertex_buffers.verts,
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         );
@@ -57,7 +57,7 @@ impl RenderInfo {
 
         Self::upload_array_to_gl(
             gl,
-            &self.vertex_info.uvs,
+            &self.vertex_buffers.uvs,
             glow::ARRAY_BUFFER,
             glow::STATIC_DRAW,
         );
@@ -66,7 +66,7 @@ impl RenderInfo {
 
         Self::upload_array_to_gl(
             gl,
-            &self.vertex_info.deforms,
+            &self.vertex_buffers.deforms,
             glow::ARRAY_BUFFER,
             glow::DYNAMIC_DRAW,
         );
@@ -75,7 +75,7 @@ impl RenderInfo {
 
         Self::upload_array_to_gl(
             gl,
-            &self.vertex_info.indices,
+            &self.vertex_buffers.indices,
             glow::ELEMENT_ARRAY_BUFFER,
             glow::STATIC_DRAW,
         );
@@ -90,10 +90,10 @@ impl RenderInfo {
     pub unsafe fn upload_deforms_to_gl(&self, gl: &glow::Context) {
         Self::reupload_array_to_gl(
             gl,
-            &self.vertex_info.deforms,
+            &self.vertex_buffers.deforms,
             glow::ARRAY_BUFFER,
             0,
-            self.vertex_info.deforms.len(),
+            self.vertex_buffers.deforms.len(),
         );
     }
 }

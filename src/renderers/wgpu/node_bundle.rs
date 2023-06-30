@@ -8,7 +8,7 @@ use crate::{
         node_data::{InoxData, Mask, Part},
     },
     puppet::Puppet,
-    renderless::RenderInfoKind,
+    renderless::RenderCtxKind,
 };
 
 use super::{
@@ -69,7 +69,7 @@ fn part_bundle_for_part(
     encoder.set_bind_group(3, &model_texture_binds[part.tex_bumpmap], &[]);
 
     let node_rinf = &puppet.render_info.node_render_infos[&uuid];
-    if let RenderInfoKind::Part(pinf) = &node_rinf.kind {
+    if let RenderCtxKind::Part(pinf) = &node_rinf.kind {
         let range = (pinf.index_offset as u32)..(pinf.index_offset as u32 + pinf.index_len as u32);
         encoder.draw_indexed(range, 0, 0..1);
     } else {
