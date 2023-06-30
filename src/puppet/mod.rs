@@ -1,11 +1,11 @@
-#![allow(dead_code)]
-
 use std::collections::HashMap;
 use std::fmt;
 
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::params::Param;
 
+// See this issue so we can maybe remove the TryFrom implementations
+// in the future: https://github.com/Peternator7/strum/issues/13
 mod display;
 
 /// Who is allowed to use the puppet?
