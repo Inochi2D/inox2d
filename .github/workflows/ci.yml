@@ -1,0 +1,78 @@
+on:
+  push:
+    branches:
+      - main
+    tags-ignore:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+    tags-ignore:
+      - '*'
+
+name: Continuous Integration
+
+jobs:
+  build:
+    name: Build [${{ matrix.renderer }} | ${{ matrix.config.name }}]
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        renderer:
+          - OpenGL
+          - WGPU
+        config:
+          - { name: Linux (x86),   os: ubuntu-latest,  target: "x86_64-unknown-linux-gnu" }
+          - { name: Linux (ARM),   os: ubuntu-latest,  target: "aarch64-unknown-linux-gnu" }
+          - { name: MacOS (x86),   os: macos-latest,   target: "x86_64-apple-darwin" }
+          - { name: MacOS (ARM),   os: macos-latest,   target: "aarch64-apple-darwin" }
+          - { name: iOS (x86),     os: macos-latest,   target: "x86_64-apple-ios" }
+          - { name: iOS (ARM),     os: macos-latest,   target: "aarch64-apple-ios" }
+          - { name: Windows (x86), os: windows-latest, target: "x86_64-pc-windows-msvc" }
+          - { name: WASM,          os: ubuntu-latest,  target: "wasm32-unknown-unknown" }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.config.target }}
+          override: true
+
+      - name: Setup aarch64
+        if: matrix.config.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt install gcc-aarch64-linux-gnu
+          echo "[target.aarch64-unknown-linux-gnu]" >> ~/.cargo/config
+          echo "linker = \"aarch64-linux-gnu-gcc\"" >> ~/.cargo/config
+
+      - name: Build (OpenGL)
+        if: matrix.renderer == 'OpenGL'
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --no-default-features --features opengl,owo --all-targets --target=${{ matrix.config.target }}
+
+      - name: Build Example (OpenGL)
+        if: matrix.renderer == 'OpenGL'
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --example render_opengl --no-default-features --features opengl,owo --all-targets --target=${{ matrix.config.target }}
+
+      - name: Build (WGPU)
+        if: matrix.renderer == 'WGPU'
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --no-default-features --features wgpu,owo --all-targets --target=${{ matrix.config.target }}
+
+      - name: Build Example (WGPU)
+        if: matrix.renderer == 'WGPU'
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --example render_wgpu --no-default-features --features wgpu,owo --all-targets --target=${{ matrix.config.target }}
