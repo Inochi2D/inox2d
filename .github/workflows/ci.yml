@@ -23,13 +23,14 @@ jobs:
           - OpenGL
           - WGPU
         config:
-          - { name: Linux (ARM), os: ubuntu-latest,  target: "aarch64-unknown-linux-gnu" }
-          - { name: Linux (x86), os: ubuntu-latest,  target: "x86_64-unknown-linux-gnu" }
-          - { name: WASM,        os: ubuntu-latest,  target: "wasm32-unknown-unknown" }
-          - { name: MacOS (x86), os: macos-latest,   target: "x86_64-apple-darwin" }
-          - { name: MacOS (ARM), os: macos-latest,   target: "aarch64-apple-ios" }
-          - { name: iOS,         os: macos-latest,   target: "x86_64-apple-ios" }
-          - { name: Windows,     os: windows-latest, target: "x86_64-pc-windows-msvc" }
+          - { name: Linux (x86),   os: ubuntu-latest,  target: "x86_64-unknown-linux-gnu" }
+          - { name: Linux (ARM),   os: ubuntu-latest,  target: "aarch64-unknown-linux-gnu" }
+          - { name: MacOS (x86),   os: macos-latest,   target: "x86_64-apple-darwin" }
+          - { name: MacOS (ARM),   os: macos-latest,   target: "aarch64-apple-darwin" }
+          - { name: iOS (x86),     os: macos-latest,   target: "x86_64-apple-ios" }
+          - { name: iOS (ARM),     os: macos-latest,   target: "aarch64-apple-ios" }
+          - { name: Windows (x86), os: windows-latest, target: "x86_64-pc-windows-msvc" }
+          - { name: WASM,          os: ubuntu-latest,  target: "wasm32-unknown-unknown" }
 
     steps:
       - name: Checkout
