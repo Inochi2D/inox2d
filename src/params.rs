@@ -264,6 +264,6 @@ impl Puppet {
     }
 
     pub fn end_set_params(&mut self) {
-        self.update();
+        self.update_trans();
     }
 }

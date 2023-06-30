@@ -192,7 +192,9 @@ impl RenderCtx {
 }
 
 impl Puppet {
-    pub fn update(&mut self) {
+    /// Update the puppet's nodes' absolute transforms, by combining transforms
+    /// from each node's ancestors in a pre-order traversal manner.
+    pub fn update_trans(&mut self) {
         let root_node = self.nodes.arena[self.nodes.root].get();
         let node_rctxs = &mut self.render_ctx.node_render_ctxs;
 
