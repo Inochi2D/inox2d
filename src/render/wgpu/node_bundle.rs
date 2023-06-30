@@ -8,7 +8,7 @@ use crate::{
         node_data::{InoxData, Mask, Part},
     },
     puppet::Puppet,
-    renderless::RenderCtxKind,
+    render::RenderCtxKind,
 };
 
 use super::{

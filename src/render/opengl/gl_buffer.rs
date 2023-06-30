@@ -1,6 +1,6 @@
 use glow::HasContext;
 
-use crate::renderless::RenderCtx;
+use crate::render::RenderCtx;
 
 use super::OpenglRendererError;
 

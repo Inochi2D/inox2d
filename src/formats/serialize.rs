@@ -21,7 +21,7 @@ use crate::puppet::{
     PuppetPhysics, PuppetUsageRights, UnknownPuppetAllowedModificationError,
     UnknownPuppetAllowedRedistributionError, UnknownPuppetAllowedUsersError,
 };
-use crate::renderless::RenderCtx;
+use crate::render::RenderCtx;
 
 use super::json::{JsonError, JsonObject, SerialExtend};
 

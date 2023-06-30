@@ -8,7 +8,7 @@ use crate::nodes::node::InoxNodeUuid;
 use crate::nodes::node_data::InoxData;
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::puppet::Puppet;
-use crate::renderless::RenderCtxKind;
+use crate::render::RenderCtxKind;
 use crate::texture::decode_model_textures;
 use crate::{model::Model, nodes::node_data::MaskMode};
 

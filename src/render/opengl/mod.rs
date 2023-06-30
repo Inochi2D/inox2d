@@ -16,7 +16,7 @@ use crate::model::ModelTexture;
 use crate::nodes::node::InoxNodeUuid;
 use crate::nodes::node_data::{BlendMode, Composite, InoxData, Mask, MaskMode, Part};
 use crate::puppet::Puppet;
-use crate::renderless::{NodeRenderCtx, PartRenderCtx, RenderCtxKind};
+use crate::render::{NodeRenderCtx, PartRenderCtx, RenderCtxKind};
 use crate::texture::decode_model_textures;
 
 use self::shader::ShaderCompileError;

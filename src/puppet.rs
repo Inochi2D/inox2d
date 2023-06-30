@@ -5,7 +5,7 @@ use std::fmt;
 
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::params::Param;
-use crate::renderless::RenderCtx;
+use crate::render::RenderCtx;
 
 /// Who is allowed to use the puppet?
 #[derive(Clone, Copy, Debug, Default)]
