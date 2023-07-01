@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::math::transform::Transform;
+use crate::math::transform::TransformOffset;
 
 use super::node_data::InoxData;
 
@@ -8,13 +8,13 @@ use super::node_data::InoxData;
 #[repr(transparent)]
 pub struct InoxNodeUuid(pub(crate) u32);
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct InoxNode<T = ()> {
     pub uuid: InoxNodeUuid,
     pub name: String,
     pub enabled: bool,
     pub zsort: f32,
-    pub transform: Transform,
+    pub trans_offset: TransformOffset,
     pub lock_to_root: bool,
     pub data: InoxData<T>,
 }

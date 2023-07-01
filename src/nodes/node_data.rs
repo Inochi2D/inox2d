@@ -128,12 +128,6 @@ pub struct Part {
     pub tex_bumpmap: usize,
 }
 
-impl Part {
-    pub fn num_indices(&self) -> u16 {
-        self.mesh.indices.len() as u16
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum InoxData<T> {
     Node,
