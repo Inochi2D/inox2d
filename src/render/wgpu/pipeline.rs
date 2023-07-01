@@ -202,7 +202,7 @@ pub struct InoxPipeline {
     pub uniform_layout: BindGroupLayout,
     pub texture_layout: BindGroupLayout,
     pub texture_format: TextureFormat,
-    pub uniform_alignment_needed: u64,
+    pub uniform_alignment_needed: usize,
 }
 
 impl InoxPipeline {
@@ -326,9 +326,9 @@ impl InoxPipeline {
             uniform_layout,
             texture_layout,
             texture_format,
-            uniform_alignment_needed: Uniform::min_size()
-                .get()
-                .max(min_uniform_buffer_offset_alignment.into()),
+            uniform_alignment_needed: (Uniform::min_size().get())
+                .max(min_uniform_buffer_offset_alignment.into())
+                as usize,
         }
     }
 }

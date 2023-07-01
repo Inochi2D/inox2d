@@ -6,7 +6,7 @@ use json::JsonValue;
 
 use crate::math::interp::{InterpolateMode, UnknownInterpolateModeError};
 use crate::math::matrix::{Matrix2d, Matrix2dFromSliceVecsError};
-use crate::math::transform::Transform;
+use crate::math::transform::TransformOffset;
 use crate::mesh::{f32s_as_vec2s, Mesh};
 use crate::nodes::node::{InoxNode, InoxNodeUuid};
 use crate::nodes::node_data::{
@@ -21,6 +21,7 @@ use crate::puppet::{
     PuppetPhysics, PuppetUsageRights, UnknownPuppetAllowedModificationError,
     UnknownPuppetAllowedRedistributionError, UnknownPuppetAllowedUsersError,
 };
+use crate::render::RenderCtx;
 
 use super::json::{JsonError, JsonObject, SerialExtend};
 
@@ -87,7 +88,7 @@ pub fn deserialize_node_ext<T>(
         name: obj.get_str("name")?.to_owned(),
         enabled: obj.get_bool("enabled")?,
         zsort: obj.get_f32("zsort")?,
-        transform: vals(
+        trans_offset: vals(
             "transform",
             deserialize_transform(&obj.get_object("transform")?),
         )?,
@@ -219,13 +220,13 @@ fn deserialize_mask(obj: &JsonObject) -> InoxParseResult<Mask> {
     })
 }
 
-fn deserialize_transform(obj: &JsonObject) -> InoxParseResult<Transform> {
+fn deserialize_transform(obj: &JsonObject) -> InoxParseResult<TransformOffset> {
     let translation = obj.get_vec3("trans")?;
     let rotation = obj.get_vec3("rot")?;
     let scale = obj.get_vec2("scale")?;
     let pixel_snap = obj.get_bool("pixel_snap").unwrap_or_default();
 
-    Ok(Transform::new()
+    Ok(TransformOffset::new()
         .with_translation(translation)
         .with_rotation(rotation)
         .with_scale(scale)
@@ -254,7 +255,7 @@ fn deserialize_vec2(vals: &[json::JsonValue]) -> InoxParseResult<Vec2> {
     }
 
     let x = vals[0].as_f32().unwrap_or_default();
-    let y = vals[0].as_f32().unwrap_or_default();
+    let y = vals[1].as_f32().unwrap_or_default();
     Ok(vec2(x, y))
 }
 
@@ -281,17 +282,21 @@ pub fn deserialize_puppet_ext<T>(
     };
     let obj = JsonObject(obj);
 
+    let nodes = vals(
+        "nodes",
+        deserialize_nodes(&obj.get_object("nodes")?, deserialize_node_custom),
+    )?;
+    let render_ctx = RenderCtx::new(&nodes);
+
     Ok(Puppet {
         meta: vals("meta", deserialize_puppet_meta(&obj.get_object("meta")?))?,
         physics: vals(
             "physics",
             deserialize_puppet_physics(&obj.get_object("physics")?),
         )?,
-        nodes: vals(
-            "nodes",
-            deserialize_nodes(&obj.get_object("nodes")?, deserialize_node_custom),
-        )?,
+        nodes,
         parameters: deserialize_params(obj.get_list("param")?),
+        render_ctx,
     })
 }
 

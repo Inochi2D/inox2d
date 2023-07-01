@@ -4,7 +4,8 @@ use std::{
     ffi::CString,
     fs::File,
     io::{BufReader, Read},
-    num::NonZeroU32, time::Instant,
+    num::NonZeroU32,
+    time::Instant,
 };
 
 use glam::{uvec2, vec2, Vec2};
@@ -19,7 +20,7 @@ use glutin::{
 };
 
 use glutin_winit::ApiPrefence;
-use inox2d::{formats::inp::parse_inp, renderers::opengl::OpenglRenderer};
+use inox2d::{formats::inp::parse_inp, render::opengl::OpenglRenderer};
 use raw_window_handle::HasRawWindowHandle;
 
 use tracing::{debug, error, info, warn};
@@ -62,8 +63,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     let model = parse_inp(data.as_slice()).unwrap();
     let puppet = model.puppet;
     info!(
-        "Successfully parsed puppet {:?}",
-        puppet.meta.name.unwrap_or_default()
+        "Successfully parsed puppet: {}",
+        puppet
+            .meta
+            .name
+            .as_deref()
+            .unwrap_or("<no puppet name specified in file>")
     );
 
     info!("Setting up windowing and OpenGL");
@@ -79,18 +84,27 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("Initializing Inox2D renderer");
     let window_size = window.inner_size();
     let viewport = uvec2(window_size.width, window_size.height);
-    let mut renderer = OpenglRenderer::new(gl, viewport, puppet.nodes)?;
+    let mut renderer = OpenglRenderer::new(gl, viewport, &puppet)?;
     renderer.upload_model_textures(&model.textures)?;
     renderer.camera.scale = Vec2::splat(0.15);
     info!("Inox2D renderer initialized");
 
+    // variables and state for camera position and mouse interactions
     let mut camera_pos = Vec2::ZERO;
     let mut mouse_pos = Vec2::ZERO;
     let mut mouse_pos_held = mouse_pos;
     let mut mouse_state = ElementState::Released;
-    let start = Instant::now();
 
-    let parameters = puppet.parameters;
+    // variables and state for smooth scrolling
+    let scroll_speed: f32 = 3.0;
+    let mut hard_scale = renderer.camera.scale;
+
+    // variables and state for FPS-independent interactions
+    let start = Instant::now();
+    let mut prev_elapsed: f32 = 0.0;
+    let mut current_elapsed: f32 = 0.0;
+
+    let mut puppet = puppet;
 
     // Event loop
     events.run(move |event, _, control_flow| {
@@ -104,18 +118,33 @@ fn main() -> Result<(), Box<dyn Error>> {
             Event::RedrawRequested(_) => {
                 debug!("Redrawing");
 
-                renderer.clear();
-                renderer.draw_model();
-
-                if let Some(param) = parameters.get("Head:: Yaw-Pitch") {
-                    renderer.begin_set_params();
-                    let t = start.elapsed().as_secs_f32();
-                    renderer.set_param(param, Vec2::new(t.cos(), t.sin()));
-                    renderer.end_set_params();
+                // Smooth scrolling
+                {
+                    let time_delta = current_elapsed - prev_elapsed;
+                    renderer.camera.scale = renderer.camera.scale
+                        + time_delta.powf(0.6) * (hard_scale - renderer.camera.scale);
                 }
+
+                // Mouse dragging
+                if mouse_state == ElementState::Pressed {
+                    renderer.camera.position =
+                        camera_pos + (mouse_pos - mouse_pos_held) / renderer.camera.scale;
+                }
+
+                renderer.clear();
+
+                puppet.begin_set_params();
+                let t = current_elapsed;
+                puppet.set_param("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
+                puppet.end_set_params();
+
+                renderer.render(&puppet);
 
                 gl_surface.swap_buffers(&gl_ctx).unwrap();
                 window.request_redraw();
+
+                prev_elapsed = current_elapsed;
+                current_elapsed = start.elapsed().as_secs_f32();
             }
             Event::WindowEvent { ref event, .. } => match event {
                 WindowEvent::Resized(physical_size) => {
@@ -130,10 +159,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
                 WindowEvent::CursorMoved { position, .. } => {
                     mouse_pos = vec2(position.x as f32, position.y as f32);
-                    if mouse_state == ElementState::Pressed {
-                        renderer.camera.position =
-                            camera_pos + (mouse_pos - mouse_pos_held) / renderer.camera.scale;
 
+                    if mouse_state == ElementState::Pressed {
                         window.request_redraw();
                     }
                 }
@@ -147,15 +174,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 WindowEvent::MouseWheel { delta, .. } => {
                     // Handle mouse wheel (zoom)
                     let my = match delta {
-                        MouseScrollDelta::LineDelta(_, y) => *y,
+                        MouseScrollDelta::LineDelta(_, y) => *y * 12.,
                         MouseScrollDelta::PixelDelta(pos) => pos.y as f32,
                     };
 
-                    if my.is_sign_positive() {
-                        renderer.camera.scale *= 8.0 * my.abs() / 7.0;
-                    } else {
-                        renderer.camera.scale *= 7.0 * my.abs() / 8.0;
-                    }
+                    let time_delta = current_elapsed - prev_elapsed;
+                    hard_scale *= 10_f32.powf(scroll_speed * time_delta * my);
 
                     window.request_redraw();
                 }
@@ -194,7 +218,7 @@ fn launch_opengl_window() -> Result<App, Box<dyn Error>> {
         .with_transparent(true)
         .with_resizable(true)
         .with_inner_size(winit::dpi::PhysicalSize::new(600, 800))
-        .with_title("Render Inochi2D Puppet");
+        .with_title("Render Inochi2D Puppet (OpenGL)");
 
     let (window, gl_config) = glutin_winit::DisplayBuilder::new()
         .with_preference(ApiPrefence::FallbackEgl)
