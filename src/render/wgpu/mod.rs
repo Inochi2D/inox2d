@@ -11,7 +11,7 @@ use crate::texture::decode_model_textures;
 use crate::{model::Model, nodes::node_data::MaskMode};
 
 use encase::ShaderType;
-use glam::{Vec2, Vec3};
+use glam::{Mat4, Vec2, Vec3};
 use tracing::warn;
 use wgpu::{util::DeviceExt, *};
 
@@ -282,16 +282,14 @@ impl Renderer {
         let uniform_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("inox2d uniform bind group"),
             layout: &self.setup.uniform_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &self.buffers.uniform_buffer,
-                        offset: 0,
-                        size: wgpu::BufferSize::new(Uniform::min_size().into()),
-                    }),
-                },
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &self.buffers.uniform_buffer,
+                    offset: 0,
+                    size: wgpu::BufferSize::new(Uniform::min_size().into()),
+                }),
+            }],
         });
 
         let composite_texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -353,6 +351,7 @@ impl Renderer {
             label: Some("texture bind group"),
         });
 
+        println!("<rendering>");
         for uuid in puppet.nodes.all_node_ids() {
             let node = puppet.nodes.get_node(uuid).unwrap();
 
@@ -362,7 +361,9 @@ impl Renderer {
                     mult_color: Vec3::ONE,
                     screen_color: Vec3::ZERO,
                     emission_strength: 0.0,
-                    offset: puppet.render_ctx.node_render_ctxs[&uuid].trans.to_scale_rotation_translation().2.truncate(),
+                    offset: Vec2::ZERO,
+                    mvp: Mat4::from_scale(Vec2::splat(-1.0 / 4096.0).extend(0.0))
+                        * puppet.render_ctx.node_render_ctxs[&uuid].trans,
                 },
                 InoxData::Composite(_) => Uniform {
                     opacity: 1.0,
@@ -370,6 +371,7 @@ impl Renderer {
                     screen_color: Vec3::ZERO,
                     emission_strength: 0.0,
                     offset: Vec2::ZERO,
+                    mvp: Mat4::IDENTITY,
                 },
                 _ => continue,
             };
@@ -383,6 +385,7 @@ impl Renderer {
                 buffer.as_ref(),
             );
         }
+        println!("</rendering>");
 
         let mut first = true;
 

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use encase::ShaderType;
-use glam::{Vec2, Vec3};
+use glam::{Vec2, Vec3, Mat4};
 use wgpu::*;
 
 use crate::nodes::node_data::BlendMode;
@@ -330,4 +330,5 @@ pub struct Uniform {
     pub screen_color: Vec3,
     pub emission_strength: f32,
     pub offset: Vec2,
+    pub mvp: Mat4,
 }

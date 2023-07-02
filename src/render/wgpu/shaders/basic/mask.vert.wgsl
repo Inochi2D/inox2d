@@ -9,6 +9,7 @@ struct Uniform {
     screenColor: vec3<f32>,
     emissionStrength: f32,
     offset: vec2<f32>,
+    mvp: mat4x4<f32>,
 };
 
 @group(0) @binding(1)
@@ -21,11 +22,7 @@ fn vs_main(
 ) -> VertexOutput {
     var out: VertexOutput;
 
-    var temp = (verts + unif.offset) / 4096.0;
-
-    out.position = vec4(temp, 0.0, 1.0);
-    out.position.y = -out.position.y;
-
+    out.position = unif.mvp * vec4(verts - unif.offset, 0.0, 1.0);
     out.texUVs = uvs;
     return out;
 }
