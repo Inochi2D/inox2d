@@ -1,3 +1,4 @@
+use glam::vec2;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -6,13 +7,13 @@ use winit::{
 
 use inox2d::formats::inp::parse_inp;
 use inox2d::{model::Model, render::wgpu::Renderer};
-use std::fs::File;
+use std::{fs::File, time::Instant};
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
 
 use clap::Parser;
 
-pub async fn run(model: Model) {
+pub async fn run(mut model: Model) {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_inner_size(winit::dpi::LogicalSize::new(2048, 2048))
@@ -56,6 +57,7 @@ pub async fn run(model: Model) {
     surface.configure(&device, &config);
 
     let mut renderer = Renderer::new(&device, &queue, wgpu::TextureFormat::Bgra8Unorm, &model);
+    let start = Instant::now();
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
@@ -90,6 +92,12 @@ pub async fn run(model: Model) {
             let view = output
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
+
+            model.puppet.begin_set_params();
+            let t = start.elapsed().as_secs_f32();
+            model.puppet.set_param("Head:: Yaw-Pitch", vec2(t.cos(), t.sin()));
+            model.puppet.end_set_params();
+
             renderer.render(&queue, &device, &model.puppet, &view);
             output.present();
         }
