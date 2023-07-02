@@ -4,9 +4,7 @@ mod buffers;
 mod node_bundle;
 mod pipeline;
 
-use crate::nodes::node::InoxNodeUuid;
 use crate::nodes::node_data::InoxData;
-use crate::nodes::node_tree::InoxNodeTree;
 use crate::puppet::Puppet;
 use crate::render::RenderCtxKind;
 use crate::texture::decode_model_textures;
@@ -364,7 +362,7 @@ impl Renderer {
                     mult_color: Vec3::ONE,
                     screen_color: Vec3::ZERO,
                     emission_strength: 0.0,
-                    offset: node_absolute_translation(&puppet.nodes, uuid).truncate(),
+                    offset: puppet.render_ctx.node_render_ctxs[&uuid].trans.to_scale_rotation_translation().2.truncate(),
                 },
                 InoxData::Composite(_) => Uniform {
                     opacity: 1.0,
@@ -430,12 +428,4 @@ impl Renderer {
         }
         queue.submit(std::iter::once(encoder.finish()));
     }
-}
-
-fn node_absolute_translation<T>(nodes: &InoxNodeTree<T>, uuid: InoxNodeUuid) -> Vec3 {
-    nodes
-        .ancestors(uuid)
-        .filter_map(|n| nodes.arena.get(n))
-        .map(|n| n.get().trans_offset.translation)
-        .sum::<Vec3>()
 }
