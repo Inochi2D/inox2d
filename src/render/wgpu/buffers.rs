@@ -1,14 +1,10 @@
 use std::collections::HashMap;
 
-use encase::ShaderType;
 use wgpu::{util::DeviceExt, Buffer, BufferDescriptor, BufferUsages, Device};
 
 use crate::{nodes::node::InoxNodeUuid, puppet::Puppet};
 
-use super::pipeline::CameraData;
-
 pub struct InoxBuffers {
-    pub camera_buffer: Buffer,
     pub uniform_buffer: Buffer,
     pub uniform_index_map: HashMap<InoxNodeUuid, usize>,
 
@@ -32,13 +28,6 @@ pub fn buffers_for_puppet(
     {
         uniform_index_map.insert(node.uuid, i);
     }
-
-    let camera_buffer = device.create_buffer(&BufferDescriptor {
-        label: Some("inox2d uniform buffer"),
-        size: CameraData::min_size().get(),
-        usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
 
     let uniform_buffer = device.create_buffer(&BufferDescriptor {
         label: Some("inox2d uniform buffer"),
@@ -72,7 +61,6 @@ pub fn buffers_for_puppet(
     });
 
     InoxBuffers {
-        camera_buffer,
         uniform_buffer,
         uniform_index_map,
 

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use encase::ShaderType;
-use glam::{Mat4, Vec2, Vec3};
+use glam::{Vec2, Vec3};
 use wgpu::*;
 
 use crate::nodes::node_data::BlendMode;
@@ -211,16 +211,6 @@ impl InoxPipeline {
             label: Some("inox2d uniform bind group layout"),
             entries: &[
                 BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: BufferSize::new(CameraData::min_size().get()),
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
                     binding: 1,
                     visibility: ShaderStages::VERTEX_FRAGMENT,
                     ty: BindingType::Buffer {
@@ -331,11 +321,6 @@ impl InoxPipeline {
                 as usize,
         }
     }
-}
-
-#[derive(ShaderType, Debug, Clone, Copy, PartialEq)]
-pub struct CameraData {
-    pub mvp: Mat4,
 }
 
 #[derive(ShaderType, Debug, Clone, Copy, PartialEq)]

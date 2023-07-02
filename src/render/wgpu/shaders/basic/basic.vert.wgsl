@@ -3,10 +3,6 @@ struct VertexOutput {
     @location(0) texUVs: vec2<f32>,
 };
 
-struct Camera {
-    mvp: mat4x4<f32>,
-}
-
 struct Uniform {
     opacity: f32,
     multColor: vec3<f32>,
@@ -14,9 +10,6 @@ struct Uniform {
     emissionStrength: f32,
     offset: vec2<f32>,
 };
-
-@group(0) @binding(0)
-var<uniform> camera: Camera;
 
 @group(0) @binding(1)
 var<uniform> unif: Uniform;

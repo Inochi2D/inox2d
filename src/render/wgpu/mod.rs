@@ -18,7 +18,6 @@ use tracing::warn;
 use wgpu::{util::DeviceExt, *};
 
 use self::node_bundle::{CompositeData, PartData};
-use self::pipeline::CameraData;
 use self::{
     buffers::buffers_for_puppet,
     node_bundle::{node_bundles_for_model, NodeBundle},
@@ -286,14 +285,6 @@ impl Renderer {
             label: Some("inox2d uniform bind group"),
             layout: &self.setup.uniform_layout,
             entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &self.buffers.camera_buffer,
-                        offset: 0,
-                        size: wgpu::BufferSize::new(CameraData::min_size().get()),
-                    }),
-                },
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
