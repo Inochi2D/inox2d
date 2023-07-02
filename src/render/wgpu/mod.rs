@@ -364,10 +364,7 @@ impl Renderer {
                     mult_color: Vec3::ONE,
                     screen_color: Vec3::ZERO,
                     emission_strength: 0.0,
-                    offset: puppet.render_ctx.node_render_ctxs[&uuid]
-                        .trans_offset
-                        .translation
-                        .truncate(),
+                    offset: node_absolute_translation(&puppet.nodes, uuid).truncate(),
                 },
                 InoxData::Composite(_) => Uniform {
                     opacity: 1.0,
