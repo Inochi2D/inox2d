@@ -52,7 +52,7 @@ pub async fn run(mut model: Model) {
         width: window.inner_size().width,
         height: window.inner_size().height,
         present_mode: wgpu::PresentMode::Fifo,
-        alpha_mode: wgpu::CompositeAlphaMode::Auto,
+        alpha_mode: wgpu::CompositeAlphaMode::PreMultiplied,
         view_formats: Vec::new(),
     };
     surface.configure(&device, &config);
