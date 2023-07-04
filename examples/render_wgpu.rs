@@ -1,4 +1,4 @@
-use glam::vec2;
+use glam::{uvec2, vec2, Vec2};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -7,16 +7,17 @@ use winit::{
 
 use inox2d::formats::inp::parse_inp;
 use inox2d::{model::Model, render::wgpu::Renderer};
-use std::{fs::File, time::Instant};
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
+use std::{fs::File, time::Instant};
 
 use clap::Parser;
 
 pub async fn run(mut model: Model) {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
-        .with_inner_size(winit::dpi::LogicalSize::new(2048, 2048))
+        .with_inner_size(winit::dpi::PhysicalSize::new(800, 800))
+        .with_resizable(true)
         .with_transparent(true)
         .with_title("Render Inochi2D Puppet (WGPU)")
         .build(&event_loop)
@@ -48,15 +49,22 @@ pub async fn run(mut model: Model) {
     let mut config = wgpu::SurfaceConfiguration {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         format: wgpu::TextureFormat::Bgra8Unorm,
-        width: 2048,
-        height: 2048,
+        width: window.inner_size().width,
+        height: window.inner_size().height,
         present_mode: wgpu::PresentMode::Fifo,
         alpha_mode: wgpu::CompositeAlphaMode::Auto,
         view_formats: Vec::new(),
     };
     surface.configure(&device, &config);
 
-    let mut renderer = Renderer::new(&device, &queue, wgpu::TextureFormat::Bgra8Unorm, &model);
+    let mut renderer = Renderer::new(
+        &device,
+        &queue,
+        wgpu::TextureFormat::Bgra8Unorm,
+        &model,
+        uvec2(window.inner_size().width, window.inner_size().height),
+    );
+    renderer.camera.scale = Vec2::splat(0.15);
     let start = Instant::now();
 
     event_loop.run(move |event, _, control_flow| match event {
@@ -74,19 +82,20 @@ pub async fn run(mut model: Model) {
                     },
                 ..
             } => *control_flow = ControlFlow::Exit,
+            WindowEvent::Resized(size) => {
+                // Reconfigure the surface with the new size
+                config.width = size.width;
+                config.height = size.height;
+                surface.configure(&device, &config);
+
+                // Update the renderer's internal viewport
+                renderer.resize(uvec2(size.width, size.height));
+
+                // On macos the window needs to be redrawn manually after resizing
+                window.request_redraw();
+            }
             _ => {}
         },
-        Event::WindowEvent {
-            event: WindowEvent::Resized(size),
-            ..
-        } => {
-            // Reconfigure the surface with the new size
-            config.width = size.width;
-            config.height = size.height;
-            surface.configure(&device, &config);
-            // On macos the window needs to be redrawn manually after resizing
-            window.request_redraw();
-        }
         Event::RedrawRequested(window_id) if window_id == window.id() => {
             let output = surface.get_current_texture().unwrap();
             let view = output
@@ -95,7 +104,9 @@ pub async fn run(mut model: Model) {
 
             model.puppet.begin_set_params();
             let t = start.elapsed().as_secs_f32();
-            model.puppet.set_param("Head:: Yaw-Pitch", vec2(t.cos(), t.sin()));
+            model
+                .puppet
+                .set_param("Head:: Yaw-Pitch", vec2(t.cos(), t.sin()));
             model.puppet.end_set_params();
 
             renderer.render(&queue, &device, &model.puppet, &view);

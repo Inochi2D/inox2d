@@ -4,6 +4,7 @@ mod buffers;
 mod node_bundle;
 mod pipeline;
 
+use crate::math::camera::Camera;
 use crate::nodes::node_data::InoxData;
 use crate::puppet::Puppet;
 use crate::render::RenderCtxKind;
@@ -11,7 +12,7 @@ use crate::texture::decode_model_textures;
 use crate::{model::Model, nodes::node_data::MaskMode};
 
 use encase::ShaderType;
-use glam::{Mat4, Vec2, Vec3};
+use glam::{Mat4, UVec2, Vec2, Vec3, vec3};
 use tracing::warn;
 use wgpu::{util::DeviceExt, *};
 
@@ -28,6 +29,8 @@ pub struct Renderer {
     model_texture_binds: Vec<BindGroup>,
     buffers: buffers::InoxBuffers,
     bundles: Vec<node_bundle::NodeBundle>,
+    pub camera: Camera,
+    viewport: UVec2,
 }
 
 impl Renderer {
@@ -36,6 +39,7 @@ impl Renderer {
         queue: &Queue,
         texture_format: TextureFormat,
         model: &Model,
+        viewport: UVec2,
     ) -> Self {
         let setup = InoxPipeline::create(device, texture_format);
 
@@ -109,7 +113,13 @@ impl Renderer {
 
             composite_texture: None,
             model_texture_binds,
+            camera: Camera::default(),
+            viewport,
         }
+    }
+
+    pub fn resize(&mut self, viewport: UVec2) {
+        self.viewport = viewport;
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -294,8 +304,8 @@ impl Renderer {
 
         let composite_texture = device.create_texture(&wgpu::TextureDescriptor {
             size: wgpu::Extent3d {
-                width: 2048,
-                height: 2048,
+                width: self.viewport.x,
+                height: self.viewport.y,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -311,8 +321,8 @@ impl Renderer {
 
         let mask_texture = device.create_texture(&wgpu::TextureDescriptor {
             size: wgpu::Extent3d {
-                width: 2048,
-                height: 2048,
+                width: self.viewport.x,
+                height: self.viewport.y,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -351,20 +361,24 @@ impl Renderer {
             label: Some("texture bind group"),
         });
 
-        println!("<rendering>");
         for uuid in puppet.nodes.all_node_ids() {
             let node = puppet.nodes.get_node(uuid).unwrap();
 
             let unif = match &node.data {
-                InoxData::Part(_) => Uniform {
-                    opacity: 1.0,
-                    mult_color: Vec3::ONE,
-                    screen_color: Vec3::ZERO,
-                    emission_strength: 0.0,
-                    offset: Vec2::ZERO,
-                    mvp: Mat4::from_scale(Vec2::splat(-1.0 / 4096.0).extend(0.0))
-                        * puppet.render_ctx.node_render_ctxs[&uuid].trans,
-                },
+                InoxData::Part(_) => {
+                    let mvp = Mat4::from_scale(vec3(1.0, 1.0, 0.0))
+                        * self.camera.matrix(self.viewport.as_vec2())
+                        * puppet.render_ctx.node_render_ctxs[&uuid].trans;
+
+                    Uniform {
+                        opacity: 1.0,
+                        mult_color: Vec3::ONE,
+                        screen_color: Vec3::ZERO,
+                        emission_strength: 0.0,
+                        offset: Vec2::ZERO,
+                        mvp,
+                    }
+                }
                 InoxData::Composite(_) => Uniform {
                     opacity: 1.0,
                     mult_color: Vec3::ONE,
@@ -385,7 +399,6 @@ impl Renderer {
                 buffer.as_ref(),
             );
         }
-        println!("</rendering>");
 
         let mut first = true;
 
