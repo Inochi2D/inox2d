@@ -12,7 +12,7 @@ use crate::texture::decode_model_textures;
 use crate::{model::Model, nodes::node_data::MaskMode};
 
 use encase::ShaderType;
-use glam::{Mat4, UVec2, Vec2, Vec3, vec3};
+use glam::{vec3, Mat4, UVec2, Vec2, Vec3};
 use tracing::warn;
 use wgpu::{util::DeviceExt, *};
 
@@ -390,15 +390,18 @@ impl Renderer {
                 _ => continue,
             };
 
+            let offset =
+                self.setup.uniform_alignment_needed * self.buffers.uniform_index_map[&uuid];
+
             let mut buffer = encase::UniformBuffer::new(Vec::new());
             buffer.write(&unif).unwrap();
-            queue.write_buffer(
-                &self.buffers.uniform_buffer,
-                (self.setup.uniform_alignment_needed * self.buffers.uniform_index_map[&uuid])
-                    as u64,
-                buffer.as_ref(),
-            );
+            queue.write_buffer(&self.buffers.uniform_buffer, offset as u64, buffer.as_ref());
         }
+
+        // Upload deform buffers
+        let mut buffer = encase::DynamicStorageBuffer::new(Vec::new());
+        (buffer.write(&puppet.render_ctx.vertex_buffers.deforms)).unwrap();
+        queue.write_buffer(&self.buffers.deform_buffer, 0, buffer.as_ref());
 
         let mut first = true;
 

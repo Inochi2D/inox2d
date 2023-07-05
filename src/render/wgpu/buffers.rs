@@ -51,7 +51,7 @@ pub fn buffers_for_puppet(
     let deform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("deform buffer"),
         contents: bytemuck::cast_slice(&puppet.render_ctx.vertex_buffers.deforms),
-        usage: wgpu::BufferUsages::VERTEX,
+        usage: wgpu::BufferUsages::VERTEX | BufferUsages::COPY_DST,
     });
 
     let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
