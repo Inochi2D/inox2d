@@ -97,16 +97,14 @@ pub fn node_bundles_for_model(
     let uniform_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("inox2d uniform bind group"),
         layout: &setup.uniform_layout,
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &buffers.uniform_buffer,
-                    offset: 0,
-                    size: wgpu::BufferSize::new(Uniform::min_size().get()),
-                }),
-            },
-        ],
+        entries: &[wgpu::BindGroupEntry {
+            binding: 1,
+            resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                buffer: &buffers.uniform_buffer,
+                offset: 0,
+                size: wgpu::BufferSize::new(Uniform::min_size().get()),
+            }),
+        }],
     });
 
     let mut out = Vec::new();

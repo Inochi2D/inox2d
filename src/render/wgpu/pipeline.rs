@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use encase::ShaderType;
-use glam::{Vec2, Vec3, Mat4};
+use glam::{Mat4, Vec2, Vec3};
 use wgpu::*;
 
 use crate::nodes::node_data::BlendMode;
@@ -209,18 +209,16 @@ impl InoxPipeline {
     pub fn create(device: &Device, texture_format: TextureFormat) -> Self {
         let uniform_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("inox2d uniform bind group layout"),
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::VERTEX_FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: BufferSize::new(Uniform::min_size().get()),
-                    },
-                    count: None,
+            entries: &[BindGroupLayoutEntry {
+                binding: 1,
+                visibility: ShaderStages::VERTEX_FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    min_binding_size: BufferSize::new(Uniform::min_size().get()),
                 },
-            ],
+                count: None,
+            }],
         });
 
         let texture_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
