@@ -1,4 +1,5 @@
 use glam::{uvec2, vec2, Vec2};
+use scene::ExampleSceneController;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -7,13 +8,15 @@ use winit::{
 
 use inox2d::formats::inp::parse_inp;
 use inox2d::{model::Model, render::wgpu::Renderer};
-use std::io::{BufReader, Read};
+use std::{fs, env};
 use std::path::PathBuf;
-use std::{fs::File, time::Instant};
 
 use clap::Parser;
 
-pub async fn run(mut model: Model) {
+#[path = "./common/scene.rs"]
+mod scene;
+
+pub async fn run(model: Model) {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_inner_size(winit::dpi::PhysicalSize::new(800, 800))
@@ -65,13 +68,26 @@ pub async fn run(mut model: Model) {
         uvec2(window.inner_size().width, window.inner_size().height),
     );
     renderer.camera.scale = Vec2::splat(0.15);
-    let start = Instant::now();
+
+    let mut scene_ctrl = ExampleSceneController::new(&renderer.camera, 0.5);
+    let mut puppet = model.puppet;
 
     event_loop.run(move |event, _, control_flow| match event {
-        Event::WindowEvent {
-            ref event,
-            window_id,
-        } if window_id == window.id() => match event {
+        Event::RedrawRequested(_) => {
+            scene_ctrl.update(&mut renderer.camera);
+
+            puppet.begin_set_params();
+            let t = scene_ctrl.current_elapsed();
+            puppet.set_param("Head:: Yaw-Pitch", vec2(t.cos(), t.sin()));
+            puppet.end_set_params();
+
+            let output = surface.get_current_texture().unwrap();
+            let view = (output.texture).create_view(&wgpu::TextureViewDescriptor::default());
+
+            renderer.render(&queue, &device, &puppet, &view);
+            output.present();
+        }
+        Event::WindowEvent { ref event, .. } => match event {
             WindowEvent::CloseRequested
             | WindowEvent::KeyboardInput {
                 input:
@@ -94,24 +110,8 @@ pub async fn run(mut model: Model) {
                 // On macos the window needs to be redrawn manually after resizing
                 window.request_redraw();
             }
-            _ => {}
+            _ => scene_ctrl.interact(&window, event, &renderer.camera),
         },
-        Event::RedrawRequested(window_id) if window_id == window.id() => {
-            let output = surface.get_current_texture().unwrap();
-            let view = output
-                .texture
-                .create_view(&wgpu::TextureViewDescriptor::default());
-
-            model.puppet.begin_set_params();
-            let t = start.elapsed().as_secs_f32();
-            model
-                .puppet
-                .set_param("Head:: Yaw-Pitch", vec2(t.cos(), t.sin()));
-            model.puppet.end_set_params();
-
-            renderer.render(&queue, &device, &model.puppet, &view);
-            output.present();
-        }
         Event::MainEventsCleared => {
             // RedrawRequested will only trigger once, unless we manually
             // request it.
@@ -131,13 +131,7 @@ struct Cli {
 fn main() {
     let cli = Cli::parse();
 
-    let data = {
-        let file = File::open(cli.inp_path).unwrap();
-        let mut file = BufReader::new(file);
-        let mut data = Vec::new();
-        file.read_to_end(&mut data).unwrap();
-        data
-    };
+    let data = fs::read(cli.inp_path).unwrap();
     let model = parse_inp(data.as_slice()).unwrap();
 
     pollster::block_on(run(model));
