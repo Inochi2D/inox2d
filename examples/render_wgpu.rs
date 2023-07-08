@@ -1,5 +1,6 @@
 use glam::{uvec2, vec2, Vec2};
 use scene::ExampleSceneController;
+use wgpu::CompositeAlphaMode;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -8,7 +9,7 @@ use winit::{
 
 use inox2d::formats::inp::parse_inp;
 use inox2d::{model::Model, render::wgpu::Renderer};
-use std::{fs, env};
+use std::fs;
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -49,13 +50,21 @@ pub async fn run(model: Model) {
         .await
         .unwrap();
 
+    // Fallback to first alpha mode if PreMultiplied is not supported
+    let alpha_modes = surface.get_capabilities(&adapter).alpha_modes;
+    let alpha_mode = if alpha_modes.contains(&CompositeAlphaMode::PreMultiplied) {
+        CompositeAlphaMode::PreMultiplied
+    } else {
+        alpha_modes[0]
+    };
+
     let mut config = wgpu::SurfaceConfiguration {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         format: wgpu::TextureFormat::Bgra8Unorm,
         width: window.inner_size().width,
         height: window.inner_size().height,
         present_mode: wgpu::PresentMode::Fifo,
-        alpha_mode: wgpu::CompositeAlphaMode::PreMultiplied,
+        alpha_mode,
         view_formats: Vec::new(),
     };
     surface.configure(&device, &config);
