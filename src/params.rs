@@ -6,7 +6,7 @@ use crate::math::interp::{
 use crate::math::matrix::Matrix2d;
 use crate::nodes::node::InoxNodeUuid;
 use crate::puppet::Puppet;
-use crate::render::{RenderCtxKind, NodeRenderCtxs, PartRenderCtx};
+use crate::render::{NodeRenderCtxs, PartRenderCtx, RenderCtxKind};
 
 /// Parameter binding to a node. This allows to animate a node based on the value of the parameter that owns it.
 #[derive(Debug, Clone)]
@@ -62,12 +62,7 @@ pub struct Param {
 }
 
 impl Param {
-    pub fn apply(
-        &self,
-        val: Vec2,
-        node_render_ctxs: &mut NodeRenderCtxs,
-        deform_buf: &mut [Vec2],
-    ) {
+    pub fn apply(&self, val: Vec2, node_render_ctxs: &mut NodeRenderCtxs, deform_buf: &mut [Vec2]) {
         let val = val.clamp(self.min, self.max);
         let val_normed = (val - self.min) / (self.max - self.min);
 

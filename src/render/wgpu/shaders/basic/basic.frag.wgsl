@@ -15,6 +15,7 @@ struct Uniform {
     screenColor: vec3<f32>,
     emissionStrength: f32,
     offset: vec2<f32>,
+    mvp: mat4x4<f32>,
 };
 
 @group(0) @binding(1)

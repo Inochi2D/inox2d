@@ -209,28 +209,16 @@ impl InoxPipeline {
     pub fn create(device: &Device, texture_format: TextureFormat) -> Self {
         let uniform_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("inox2d uniform bind group layout"),
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: BufferSize::new(CameraData::min_size().get()),
-                    },
-                    count: None,
+            entries: &[BindGroupLayoutEntry {
+                binding: 1,
+                visibility: ShaderStages::VERTEX_FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    min_binding_size: BufferSize::new(Uniform::min_size().get()),
                 },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::VERTEX_FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: BufferSize::new(Uniform::min_size().get()),
-                    },
-                    count: None,
-                },
-            ],
+                count: None,
+            }],
         });
 
         let texture_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -334,15 +322,11 @@ impl InoxPipeline {
 }
 
 #[derive(ShaderType, Debug, Clone, Copy, PartialEq)]
-pub struct CameraData {
-    pub mvp: Mat4,
-}
-
-#[derive(ShaderType, Debug, Clone, Copy, PartialEq)]
 pub struct Uniform {
     pub opacity: f32,
     pub mult_color: Vec3,
     pub screen_color: Vec3,
     pub emission_strength: f32,
     pub offset: Vec2,
+    pub mvp: Mat4,
 }

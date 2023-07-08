@@ -4,21 +4,19 @@ mod buffers;
 mod node_bundle;
 mod pipeline;
 
-use crate::nodes::node::InoxNodeUuid;
+use crate::math::camera::Camera;
 use crate::nodes::node_data::InoxData;
-use crate::nodes::node_tree::InoxNodeTree;
 use crate::puppet::Puppet;
 use crate::render::RenderCtxKind;
 use crate::texture::decode_model_textures;
 use crate::{model::Model, nodes::node_data::MaskMode};
 
 use encase::ShaderType;
-use glam::{Vec2, Vec3};
+use glam::{vec3, Mat4, UVec2, Vec2, Vec3};
 use tracing::warn;
 use wgpu::{util::DeviceExt, *};
 
 use self::node_bundle::{CompositeData, PartData};
-use self::pipeline::CameraData;
 use self::{
     buffers::buffers_for_puppet,
     node_bundle::{node_bundles_for_model, NodeBundle},
@@ -31,6 +29,8 @@ pub struct Renderer {
     model_texture_binds: Vec<BindGroup>,
     buffers: buffers::InoxBuffers,
     bundles: Vec<node_bundle::NodeBundle>,
+    pub camera: Camera,
+    viewport: UVec2,
 }
 
 impl Renderer {
@@ -39,6 +39,7 @@ impl Renderer {
         queue: &Queue,
         texture_format: TextureFormat,
         model: &Model,
+        viewport: UVec2,
     ) -> Self {
         let setup = InoxPipeline::create(device, texture_format);
 
@@ -112,7 +113,13 @@ impl Renderer {
 
             composite_texture: None,
             model_texture_binds,
+            camera: Camera::default(),
+            viewport,
         }
+    }
+
+    pub fn resize(&mut self, viewport: UVec2) {
+        self.viewport = viewport;
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -285,30 +292,20 @@ impl Renderer {
         let uniform_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("inox2d uniform bind group"),
             layout: &self.setup.uniform_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &self.buffers.camera_buffer,
-                        offset: 0,
-                        size: wgpu::BufferSize::new(CameraData::min_size().get()),
-                    }),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &self.buffers.uniform_buffer,
-                        offset: 0,
-                        size: wgpu::BufferSize::new(Uniform::min_size().into()),
-                    }),
-                },
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &self.buffers.uniform_buffer,
+                    offset: 0,
+                    size: wgpu::BufferSize::new(Uniform::min_size().into()),
+                }),
+            }],
         });
 
         let composite_texture = device.create_texture(&wgpu::TextureDescriptor {
             size: wgpu::Extent3d {
-                width: 2048,
-                height: 2048,
+                width: self.viewport.x,
+                height: self.viewport.y,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -324,8 +321,8 @@ impl Renderer {
 
         let mask_texture = device.create_texture(&wgpu::TextureDescriptor {
             size: wgpu::Extent3d {
-                width: 2048,
-                height: 2048,
+                width: self.viewport.x,
+                height: self.viewport.y,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -368,35 +365,43 @@ impl Renderer {
             let node = puppet.nodes.get_node(uuid).unwrap();
 
             let unif = match &node.data {
-                InoxData::Part(_) => Uniform {
-                    opacity: 1.0,
-                    mult_color: Vec3::ONE,
-                    screen_color: Vec3::ZERO,
-                    emission_strength: 0.0,
-                    offset: puppet.render_ctx.node_render_ctxs[&uuid]
-                        .trans_offset
-                        .translation
-                        .truncate(),
-                },
+                InoxData::Part(_) => {
+                    let mvp = Mat4::from_scale(vec3(1.0, 1.0, 0.0))
+                        * self.camera.matrix(self.viewport.as_vec2())
+                        * puppet.render_ctx.node_render_ctxs[&uuid].trans;
+
+                    Uniform {
+                        opacity: 1.0,
+                        mult_color: Vec3::ONE,
+                        screen_color: Vec3::ZERO,
+                        emission_strength: 0.0,
+                        offset: Vec2::ZERO,
+                        mvp,
+                    }
+                }
                 InoxData::Composite(_) => Uniform {
                     opacity: 1.0,
                     mult_color: Vec3::ONE,
                     screen_color: Vec3::ZERO,
                     emission_strength: 0.0,
                     offset: Vec2::ZERO,
+                    mvp: Mat4::IDENTITY,
                 },
                 _ => continue,
             };
 
+            let offset =
+                self.setup.uniform_alignment_needed * self.buffers.uniform_index_map[&uuid];
+
             let mut buffer = encase::UniformBuffer::new(Vec::new());
             buffer.write(&unif).unwrap();
-            queue.write_buffer(
-                &self.buffers.uniform_buffer,
-                (self.setup.uniform_alignment_needed * self.buffers.uniform_index_map[&uuid])
-                    as u64,
-                buffer.as_ref(),
-            );
+            queue.write_buffer(&self.buffers.uniform_buffer, offset as u64, buffer.as_ref());
         }
+
+        // Upload deform buffers
+        let mut buffer = encase::DynamicStorageBuffer::new(Vec::new());
+        (buffer.write(&puppet.render_ctx.vertex_buffers.deforms)).unwrap();
+        queue.write_buffer(&self.buffers.deform_buffer, 0, buffer.as_ref());
 
         let mut first = true;
 
@@ -442,12 +447,4 @@ impl Renderer {
         }
         queue.submit(std::iter::once(encoder.finish()));
     }
-}
-
-fn node_absolute_translation<T>(nodes: &InoxNodeTree<T>, uuid: InoxNodeUuid) -> Vec3 {
-    nodes
-        .ancestors(uuid)
-        .filter_map(|n| nodes.arena.get(n))
-        .map(|n| n.get().trans_offset.translation)
-        .sum::<Vec3>()
 }
