@@ -80,7 +80,7 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - name: Build (OpenGL)
-        run: cargo build --no-default-features --features opengl --all-targets --target=${{ matrix.config.target }}
+        run: cargo build --no-default-features --features opengl --all-targets --target=wasm32-unknown-unknown
 
       - name: Build WebGL Example
-        run: cargo build -p render_webgl --no-default-features --features opengl --all-targets --target=${{ matrix.config.target }}
+        run: cargo build -p render_webgl --no-default-features --features opengl --all-targets --target=wasm32-unknown-unknown
