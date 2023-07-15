@@ -187,6 +187,10 @@ impl OpenglRenderer {
             textures: Vec::new(),
         };
 
+        // Set emission strength once (it doesn't change anywhere else)
+        renderer.bind_shader(&renderer.part_shader);
+        renderer.part_shader.set_emission_strength(&renderer.gl, 1.);
+
         renderer.resize(viewport.x, viewport.y);
         unsafe { renderer.attach_framebuffer_textures() };
 

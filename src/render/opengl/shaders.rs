@@ -18,6 +18,7 @@ pub struct PartShader {
     u_opacity: Option<glow::UniformLocation>,
     u_mult_color: Option<glow::UniformLocation>,
     u_screen_color: Option<glow::UniformLocation>,
+    u_emission_strength: Option<glow::UniformLocation>,
 }
 
 impl Deref for PartShader {
@@ -40,6 +41,7 @@ impl PartShader {
             u_opacity: unsafe { gl.get_uniform_location(program, "opacity") },
             u_mult_color: unsafe { gl.get_uniform_location(program, "multColor") },
             u_screen_color: unsafe { gl.get_uniform_location(program, "screenColor") },
+            u_emission_strength: unsafe { gl.get_uniform_location(program, "emissionStrength") },
         })
     }
 
@@ -71,6 +73,12 @@ impl PartShader {
     #[inline]
     pub fn set_screen_color(&self, gl: &glow::Context, screen_color: Vec3) {
         unsafe { gl.uniform_3_f32_slice(self.u_screen_color.as_ref(), screen_color.as_ref()) };
+    }
+
+    /// Sets the `emissionStrength` uniform of the shader.
+    #[inline]
+    pub fn set_emission_strength(&self, gl: &glow::Context, emission_strength: f32) {
+        unsafe { gl.uniform_1_f32(self.u_emission_strength.as_ref(), emission_strength) };
     }
 }
 
