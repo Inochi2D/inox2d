@@ -151,11 +151,17 @@ pub unsafe fn upload_empty(
     height: u32,
     ty: u32,
 ) {
+    let internal_format = if ty == glow::FLOAT {
+        glow::RGBA32F
+    } else {
+        glow::RGBA8
+    } as i32;
+
     gl.bind_texture(glow::TEXTURE_2D, Some(tex));
     gl.tex_image_2d(
         glow::TEXTURE_2D,
         0,
-        glow::RGBA as i32,
+        internal_format,
         width as i32,
         height as i32,
         0,
