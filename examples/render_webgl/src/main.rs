@@ -1,25 +1,14 @@
-use std::cell::RefCell;
-use std::error::Error;
-use std::rc::Rc;
-
-use inox2d::{formats::inp::parse_inp, render::opengl::OpenglRenderer};
-
-use glam::{uvec2, Vec2};
-use tracing::{error, info};
-use wasm_bindgen::prelude::Closure;
-use wasm_bindgen::JsCast;
-use winit::dpi::PhysicalSize;
-use winit::error::OsError;
-use winit::event::{Event, WindowEvent};
-use winit::platform::web::WindowExtWebSys;
-use winit::window::Window;
-use winit::{event_loop::EventLoop, window::WindowBuilder};
-
-use crate::scene::WasmSceneController;
-
+#[cfg(target_arch = "wasm32")]
 mod scene;
 
-fn create_window(event: &EventLoop<()>) -> Result<Window, OsError> {
+#[cfg(target_arch = "wasm32")]
+fn create_window(
+    event: &winit::event_loop::EventLoop<()>,
+) -> Result<winit::window::Window, winit::error::OsError> {
+    use winit::dpi::PhysicalSize;
+    use winit::platform::web::WindowExtWebSys;
+    use winit::window::WindowBuilder;
+
     let window = WindowBuilder::new()
         .with_resizable(false)
         .with_inner_size(PhysicalSize::new(1280, 720))
@@ -35,30 +24,38 @@ fn create_window(event: &EventLoop<()>) -> Result<Window, OsError> {
         })
         .expect("couldn't append canvas to document body");
 
-    // let canvas = window.canvas();
-    // window.set_inner_size(PhysicalSize::new(1280, 720));
-    // info!("Canvas: ({}, {})", canvas.width(), canvas.height());
-    // info!(
-    //     "Window: ({}, {})",
-    //     window.inner_size().width,
-    //     window.inner_size().height
-    // );
-
     Ok(window)
 }
 
-fn request_animation_frame(f: &Closure<dyn FnMut()>) {
+#[cfg(target_arch = "wasm32")]
+fn request_animation_frame(f: &wasm_bindgen::prelude::Closure<dyn FnMut()>) {
+    use wasm_bindgen::JsCast;
     web_sys::window()
         .unwrap()
         .request_animation_frame(f.as_ref().unchecked_ref())
         .expect("Couldn't register `requestAnimationFrame`");
 }
 
+#[cfg(target_arch = "wasm32")]
 pub fn base_url() -> String {
     web_sys::window().unwrap().location().origin().unwrap()
 }
 
-async fn run() -> Result<(), Box<dyn Error>> {
+#[cfg(target_arch = "wasm32")]
+async fn run() -> Result<(), Box<dyn std::error::Error>> {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use inox2d::{formats::inp::parse_inp, render::opengl::OpenglRenderer};
+
+    use glam::{uvec2, Vec2};
+    use tracing::info;
+    use wasm_bindgen::prelude::Closure;
+    use wasm_bindgen::JsCast;
+    use winit::event::{Event, WindowEvent};
+
+    use crate::scene::WasmSceneController;
+
     let events = winit::event_loop::EventLoop::new();
     let window = create_window(&events)?;
 
@@ -169,15 +166,22 @@ async fn run() -> Result<(), Box<dyn Error>> {
     })
 }
 
+#[cfg(target_arch = "wasm32")]
 async fn runwrap() {
     match run().await {
-        Ok(_) => info!("Shutdown"),
-        Err(e) => error!("Fatal crash: {}", e),
+        Ok(_) => tracing::info!("Shutdown"),
+        Err(e) => tracing::error!("Fatal crash: {}", e),
     }
 }
 
+#[cfg(target_arch = "wasm32")]
 fn main() {
     console_error_panic_hook::set_once();
     tracing_wasm::set_as_global_default();
     wasm_bindgen_futures::spawn_local(runwrap());
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn main() {
+    panic!("This is a WASM example. You need to build it for the WASM target.");
 }
