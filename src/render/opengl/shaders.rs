@@ -2,6 +2,7 @@ use std::ops::Deref;
 
 use glam::{Mat4, Vec2, Vec3};
 use glow::HasContext;
+use tracing::debug;
 
 use super::shader::{self, ShaderCompileError};
 
@@ -29,6 +30,7 @@ impl Deref for PartShader {
 
 impl PartShader {
     pub fn new(gl: &glow::Context) -> Result<Self, ShaderCompileError> {
+        debug!("Compiling Part shader");
         let program = shader::compile(gl, PART_VERT, PART_FRAG)?;
 
         Ok(Self {
@@ -89,6 +91,7 @@ impl Deref for PartMaskShader {
 
 impl PartMaskShader {
     pub fn new(gl: &glow::Context) -> Result<Self, ShaderCompileError> {
+        debug!("Compiling Part Mask shader");
         let program = shader::compile(gl, PART_VERT, PART_MASK_FRAG)?;
 
         Ok(Self {
@@ -140,6 +143,7 @@ impl Deref for CompositeShader {
 
 impl CompositeShader {
     pub fn new(gl: &glow::Context) -> Result<Self, ShaderCompileError> {
+        debug!("Compiling Composite shader");
         let program = shader::compile(gl, COMP_VERT, COMP_FRAG)?;
 
         Ok(Self {
@@ -193,6 +197,7 @@ impl Deref for CompositeMaskShader {
 
 impl CompositeMaskShader {
     pub fn new(gl: &glow::Context) -> Result<Self, ShaderCompileError> {
+        debug!("Compiling Composite Mask shader");
         let program = shader::compile(gl, COMP_VERT, COMP_MASK_FRAG)?;
 
         Ok(Self {
