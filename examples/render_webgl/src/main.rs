@@ -83,7 +83,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Loading puppet");
     let res = reqwest::Client::new()
-        .get(format!("{}/assets/Aka-lowres.inp", base_url()))
+        .get(format!("{}/assets/puppet.inp", base_url()))
         .send()
         .await?;
 
