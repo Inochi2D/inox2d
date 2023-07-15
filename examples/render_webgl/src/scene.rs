@@ -75,7 +75,7 @@ impl WasmSceneController {
                 // Handle mouse wheel (zoom)
                 let my = match delta {
                     MouseScrollDelta::LineDelta(_, y) => *y * 12.,
-                    MouseScrollDelta::PixelDelta(pos) => pos.y as f32,
+                    MouseScrollDelta::PixelDelta(pos) => pos.y as f32 * 0.1,
                 };
 
                 self.hard_scale *= 2_f32.powf(self.scroll_speed * my * 0.1);
