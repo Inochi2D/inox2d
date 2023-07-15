@@ -79,7 +79,6 @@ impl WasmSceneController {
                 };
 
                 self.hard_scale *= 2_f32.powf(self.scroll_speed * my * 0.1);
-                info!("my: {}\nhard_scale: {}", my, self.hard_scale);
 
                 window.request_redraw();
             }
