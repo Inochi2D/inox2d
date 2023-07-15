@@ -30,7 +30,6 @@ jobs:
           - { name: iOS (x86),     os: macos-latest,   target: "x86_64-apple-ios" }
           - { name: iOS (ARM),     os: macos-latest,   target: "aarch64-apple-ios" }
           - { name: Windows (x86), os: windows-latest, target: "x86_64-pc-windows-msvc" }
-          - { name: WASM,          os: ubuntu-latest,  target: "wasm32-unknown-unknown" }
 
     steps:
       - name: Checkout
@@ -62,3 +61,26 @@ jobs:
       - name: Build Example (WGPU)
         if: matrix.renderer == 'WGPU'
         run: cargo build --example render_wgpu --no-default-features --features wgpu,owo --all-targets --target=${{ matrix.config.target }}
+
+  build-webgl:
+    name: Build WebGL Example
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - os: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Build (OpenGL)
+        run: cargo build --no-default-features --features opengl --all-targets --target=${{ matrix.config.target }}
+
+      - name: Build WebGL Example
+        run: cargo build -p render_webgl --no-default-features --features opengl --all-targets --target=${{ matrix.config.target }}
