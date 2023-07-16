@@ -1,16 +1,25 @@
 <p align="center">
-  <img width="256" height="256" src="inox2d_logo.svg">
+  <h1 align="center">Inox2D</h1>
+  <p align="center">
+    <img width="200" height="256" src="inox2d_logo.svg">
+  </p>
+  <div align="center">
+
+Officially supported experimental Rust port of [Inochi2D](https://github.com/Inochi2D/inochi2d).
+    &nbsp;
+    <a align="center" href="https://discord.gg/D5pzrmyqz3">
+      <img align="center" src="https://img.shields.io/discord/855173611409506334?color=7289DA&label=%20&logo=discord&logoColor=white" alt="Discord" />
+    </a>
+  </div>
 </p>
 
-# Inox2D
+&nbsp;
 
-[![Discord](https://img.shields.io/discord/855173611409506334?color=7289DA&label=%20&logo=discord&logoColor=white)](https://discord.com/invite/abnxwN6r9v)
-
-Officially supported experimental Rust port of [Inochi2D](https://github.com/Inochi2D/inochi2d). 
-
-The Inox2D workgroup provides support in the **#inox2d** channel on the [Inochi2D Discord]().
+The Inox2D workgroup provides support in the **#inox2d** channel on the [Inochi2D Discord][discord-invite].
 
 **Currently this library and the specification is in a prototype state**, it is not recommended to use this library in production.
+
+[discord-invite]: https://discord.com/invite/abnxwN6r9v
 
 &nbsp;
 
@@ -35,11 +44,14 @@ Support for parameters, physics and animations is on the way!
   - [x] INP format
 - [x] Rendering
   - [x] OpenGL
-  - [x] WGPU (Camera TBD)
+    - [x] WASM (WebGL)
+  - [x] WGPU
+    - [ ] WASM (WebGL)
   - [ ] Draw List
-- [ ] Parameters
-  - [ ] Deforms (mesh vertex offsets)
-  - [ ] Values (node transform offsets)
+- [x] Parameters
+  - [x] Deforms (mesh vertex offsets)
+  - [x] Values (node transform offsets)
+  - [ ] Z-sort
 - [ ] Physics
 - [ ] Animations
 
@@ -50,6 +62,12 @@ Support for parameters, physics and animations is on the way!
 ### OpenGL renderer
 
 ![OpenGL-rendered Arch-chan](https://0x0.st/Hio6.png)
+
+### WebGL demo
+
+See the [`render_webgl`](/examples/render_webgl) example.
+
+![WebGL-rendered Aka](https://user-images.githubusercontent.com/13885008/253771145-f3921ffb-6d37-481a-ad26-4a814d070209.png)
 
 ### WGPU renderer
 
@@ -71,9 +89,14 @@ Inox2D is designed to be extensible. Nodes are extensible through a generic `Ino
 | --------------------- | -------- | ------------ |
 | Inochi2D reference*   | D        | 3076         |
 | Link Mauve's inochi2d | Rust     | 551          |
-| Inox2D                | Rust     | 1544         |
+| Inox2D                | Rust     | 1639         |
 
-\* Reference implementation is subject to change as optimisation passes are done, additionally code is more geared towards readability than performance for implementers to be able to more easily use it as reference.
+The OpenGL renderer on Inox2D has a few simple optimizations that result in fewer OpenGL calls:
+
+- it uses a simple OpenGL cache to avoid making calls when the resulting state won't change,
+- it only uploads a model's part textures once instead of every frame.
+
+> \* Reference implementation is subject to change as optimisation passes are done, additionally code is more geared towards readability than performance for implementers to be able to more easily use it as reference.
 
 &nbsp;
 
