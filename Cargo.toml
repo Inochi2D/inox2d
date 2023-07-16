@@ -3,7 +3,5 @@ members = [
     "inox2d",
     "inox2d-opengl",
     "inox2d-wgpu",
-    "examples/render-opengl",
-    "examples/render-webgl",
-    "examples/render-wgpu",
+    "examples/*",
 ]
