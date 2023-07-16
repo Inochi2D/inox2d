@@ -1,23 +1,24 @@
-pub mod gl_buffer;
-pub mod shader;
-pub mod shaders;
+mod gl_buffer;
+mod shader;
+mod shaders;
 pub mod texture;
 
 use std::cell::{Cell, RefCell};
 use std::mem;
 use std::ops::Deref;
 
+use gl_buffer::RenderCtxOpenglExt;
 use glam::{uvec2, UVec2, Vec3};
 use glow::HasContext;
-use tracing::{error, debug};
+use tracing::{debug, error};
 
-use crate::math::camera::Camera;
-use crate::model::ModelTexture;
-use crate::nodes::node::InoxNodeUuid;
-use crate::nodes::node_data::{BlendMode, Composite, InoxData, Mask, MaskMode, Part};
-use crate::puppet::Puppet;
-use crate::render::{NodeRenderCtx, PartRenderCtx, RenderCtxKind};
-use crate::texture::decode_model_textures;
+use inox2d::math::camera::Camera;
+use inox2d::model::ModelTexture;
+use inox2d::nodes::node::InoxNodeUuid;
+use inox2d::nodes::node_data::{BlendMode, Composite, InoxData, Mask, MaskMode, Part};
+use inox2d::puppet::Puppet;
+use inox2d::render::{NodeRenderCtx, PartRenderCtx, RenderCtxKind};
+use inox2d::texture::decode_model_textures;
 
 use self::shader::ShaderCompileError;
 use self::shaders::{CompositeMaskShader, CompositeShader, PartMaskShader, PartShader};

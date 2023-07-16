@@ -50,7 +50,7 @@ impl From<ImageBuffer<Rgba<u8>, Vec<u8>>> for ShallowTexture {
     }
 }
 
-pub(crate) fn decode_model_textures(model_textures: &[ModelTexture]) -> Vec<ShallowTexture> {
+pub fn decode_model_textures(model_textures: &[ModelTexture]) -> Vec<ShallowTexture> {
     model_textures
         .par_iter()
         .filter_map(|mtex| {

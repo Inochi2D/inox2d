@@ -44,21 +44,24 @@ jobs:
           echo "[target.aarch64-unknown-linux-gnu]" >> ~/.cargo/config
           echo "linker = \"aarch64-linux-gnu-gcc\"" >> ~/.cargo/config
 
-      - name: Build (OpenGL)
+      - name: Build Inox2D
+        run: cargo build -p inox2d --no-default-features --features owo --all-targets --target=${{ matrix.config.target }}
+
+      - name: Build Inox2D (OpenGL)
         if: matrix.renderer == 'OpenGL'
-        run: cargo build --no-default-features --features opengl,owo --all-targets --target=${{ matrix.config.target }}
+        run: cargo build -p inox2d-opengl --all-targets --target=${{ matrix.config.target }}
 
       - name: Build Example (OpenGL)
         if: matrix.renderer == 'OpenGL'
-        run: cargo build --example render_opengl --no-default-features --features opengl,owo --all-targets --target=${{ matrix.config.target }}
+        run: cargo build -p render-opengl --all-targets --target=${{ matrix.config.target }}
 
-      - name: Build (WGPU)
+      - name: Build Inox2D (WGPU)
         if: matrix.renderer == 'WGPU'
-        run: cargo build --no-default-features --features wgpu,owo --all-targets --target=${{ matrix.config.target }}
+        run: cargo build -p inox2d-wgpu --all-targets --target=${{ matrix.config.target }}
 
       - name: Build Example (WGPU)
         if: matrix.renderer == 'WGPU'
-        run: cargo build --example render_wgpu --no-default-features --features wgpu,owo --all-targets --target=${{ matrix.config.target }}
+        run: cargo build -p render-wgpu --all-targets --target=${{ matrix.config.target }}
 
   build-webgl:
     name: Build WebGL Example
@@ -77,8 +80,12 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
-      - name: Build (OpenGL)
-        run: cargo build --no-default-features --features opengl --target=wasm32-unknown-unknown
+      - name: Build Inox2D
+        run: cargo build -p inox2d --no-default-features --features owo --all-targets --target=wasm32-unknown-unknown
+
+      - name: Build Inox2D (OpenGL)
+        if: matrix.renderer == 'OpenGL'
+        run: cargo build -p inox2d-opengl --all-targets --target=wasm32-unknown-unknown
 
       - name: Build WebGL Example
-        run: cargo build -p render_webgl --no-default-features --target=wasm32-unknown-unknown
+        run: cargo build -p render-webgl --target=wasm32-unknown-unknown

@@ -57,9 +57,17 @@ Support for parameters, physics and animations is on the way!
 
 ### INP parsing
 
+```sh
+cargo run -p inox2d --features owo --example parse-inp path/to/puppet.inp
+```
+
 ![Parsed foxgirl](https://0x0.st/o7sM.png)
 
 ### OpenGL renderer
+
+```sh
+cargo run -p render-opengl path/to/puppet.inp
+```
 
 ![OpenGL-rendered Arch-chan](https://0x0.st/Hio6.png)
 
@@ -70,6 +78,10 @@ See the [`render_webgl`](/examples/render_webgl) example.
 ![WebGL-rendered Aka](https://user-images.githubusercontent.com/13885008/253771145-f3921ffb-6d37-481a-ad26-4a814d070209.png)
 
 ### WGPU renderer
+
+```sh
+cargo run -p render-wgpu path/to/puppet.inp
+```
 
 ![WGPU-rendered Arch-chan](https://0x0.st/HzET.png)
 

@@ -2,7 +2,7 @@ use encase::ShaderType;
 use tracing::warn;
 use wgpu::{BindGroup, Device, RenderBundle};
 
-use crate::{
+use inox2d::{
     nodes::{
         node::InoxNodeUuid,
         node_data::{InoxData, Mask, Part},

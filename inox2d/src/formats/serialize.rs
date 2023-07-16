@@ -132,7 +132,7 @@ fn deserialize_part(obj: &JsonObject) -> InoxParseResult<Part> {
         };
 
         let tex_emissive = match textures.get(1).and_then(JsonValue::as_number) {
-            Some(val) => val.try_into()
+            Some(val) => (val.try_into())
                 // Map u32::MAX to nothing
                 .map(|val| if val == u32::MAX as usize { 0 } else { val })
                 .map_err(|_| {
@@ -144,7 +144,7 @@ fn deserialize_part(obj: &JsonObject) -> InoxParseResult<Part> {
         };
 
         let tex_bumpmap = match textures.get(2).and_then(JsonValue::as_number) {
-            Some(val) => val.try_into()
+            Some(val) => (val.try_into())
                 // Map u32::MAX to nothing
                 .map(|val| if val == u32::MAX as usize { 0 } else { val })
                 .map_err(|_| {

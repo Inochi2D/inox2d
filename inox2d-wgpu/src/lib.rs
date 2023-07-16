@@ -4,12 +4,12 @@ mod buffers;
 mod node_bundle;
 mod pipeline;
 
-use crate::math::camera::Camera;
-use crate::nodes::node_data::InoxData;
-use crate::puppet::Puppet;
-use crate::render::RenderCtxKind;
-use crate::texture::decode_model_textures;
-use crate::{model::Model, nodes::node_data::MaskMode};
+use inox2d::math::camera::Camera;
+use inox2d::model::Model;
+use inox2d::nodes::node_data::{InoxData, MaskMode};
+use inox2d::puppet::Puppet;
+use inox2d::render::RenderCtxKind;
+use inox2d::texture::decode_model_textures;
 
 use encase::ShaderType;
 use glam::{vec3, Mat4, UVec2, Vec2, Vec3};

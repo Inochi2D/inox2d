@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 use std::{error::Error, fs, num::NonZeroU32};
 
-use inox2d::{formats::inp::parse_inp, render::opengl::OpenglRenderer};
+use inox2d::formats::inp::parse_inp;
+use inox2d_opengl::OpenglRenderer;
 
 use clap::Parser;
 use glam::{uvec2, Vec2};
@@ -10,14 +11,10 @@ use tracing::{debug, info};
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*};
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 
-use crate::opengl::{launch_opengl_window, App};
-use crate::scene::ExampleSceneController;
+use common::scene::ExampleSceneController;
+use opengl::{launch_opengl_window, App};
 
-#[path ="./common/opengl.rs"]
 mod opengl;
-
-#[path ="./common/scene.rs"]
-mod scene;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -77,7 +74,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             Event::RedrawRequested(_) => {
                 debug!("Redrawing");
                 scene_ctrl.update(&mut renderer.camera);
-                
+
                 renderer.clear();
 
                 puppet.begin_set_params();

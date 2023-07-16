@@ -1,13 +1,15 @@
 [package]
-name = "render_webgl"
+name = "render-webgl"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+inox2d = { path = "../../inox2d" }
+inox2d-opengl = { path = "../../inox2d-opengl" }
+
 console_error_panic_hook = "0.1.7"
 glam = "0.24.0"
 glow = "0.12.1"
-inox2d = { path = "../../" }
 js-sys = "0.3.64"
 reqwest = "0.11.18"
 tracing = "0.1.37"
