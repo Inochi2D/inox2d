@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use wgpu::{util::DeviceExt, Buffer, BufferDescriptor, BufferUsages, Device};
 
-use crate::{nodes::node::InoxNodeUuid, puppet::Puppet};
+use inox2d::{nodes::node::InoxNodeUuid, puppet::Puppet};
 
 pub struct InoxBuffers {
     pub uniform_buffer: Buffer,

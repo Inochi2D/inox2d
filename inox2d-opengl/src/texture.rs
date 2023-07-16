@@ -1,9 +1,9 @@
 use glow::HasContext;
 use image::{ImageBuffer, ImageError, Rgba};
 
-use crate::model::ModelTexture;
-use crate::texture::tga::TgaDecodeError;
-use crate::texture::ShallowTexture;
+use inox2d::model::ModelTexture;
+use inox2d::texture::tga::TgaDecodeError;
+use inox2d::texture::ShallowTexture;
 
 #[derive(thiserror::Error, Debug)]
 pub enum TextureError {

@@ -46,7 +46,8 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    use inox2d::{formats::inp::parse_inp, render::opengl::OpenglRenderer};
+    use inox2d::formats::inp::parse_inp;
+    use inox2d_opengl::OpenglRenderer;
 
     use glam::{uvec2, Vec2};
     use tracing::info;

@@ -1,0 +1,26 @@
+[package]
+name = "inox2d-wgpu"
+description = "WGPU renderer for Inox2D"
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/Inochi2D/inox2d"
+license = "BSD-2-Clause"
+keywords = ["gamedev", "graphics", "inochi2d", "vtuber", "wgpu"]
+categories = ["graphics", "rendering"]
+
+[dependencies]
+inox2d = { path = "../inox2d" }
+bytemuck = "1.13.1"
+encase = { version = "0.6.1", features = ["glam"] }
+glam = { version = "0.24.0", features = ["bytemuck"] }
+thiserror = "1.0.39"
+tracing = "0.1.37"
+wgpu = { version = "0.16.0", features = ["webgl"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+clap = { version = "4.1.8", features = ["derive"] }
+raw-window-handle = "0.5.1"
+
+[dev-dependencies]
+tracing-subscriber = "0.3.16"
+winit = "0.28.2"

@@ -1,5 +1,5 @@
+use common::scene::ExampleSceneController;
 use glam::{uvec2, vec2, Vec2};
-use scene::ExampleSceneController;
 use wgpu::CompositeAlphaMode;
 use winit::{
     event::*,
@@ -8,14 +8,12 @@ use winit::{
 };
 
 use inox2d::formats::inp::parse_inp;
-use inox2d::{model::Model, render::wgpu::Renderer};
+use inox2d::model::Model;
+use inox2d_wgpu::Renderer;
 use std::fs;
 use std::path::PathBuf;
 
 use clap::Parser;
-
-#[path = "./common/scene.rs"]
-mod scene;
 
 pub async fn run(model: Model) {
     let event_loop = EventLoop::new();
