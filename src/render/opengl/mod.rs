@@ -9,7 +9,7 @@ use std::ops::Deref;
 
 use glam::{uvec2, UVec2, Vec3};
 use glow::HasContext;
-use tracing::error;
+use tracing::{error, debug};
 
 use crate::math::camera::Camera;
 use crate::model::ModelTexture;
@@ -187,6 +187,10 @@ impl OpenglRenderer {
             textures: Vec::new(),
         };
 
+        // Set emission strength once (it doesn't change anywhere else)
+        renderer.bind_shader(&renderer.part_shader);
+        renderer.part_shader.set_emission_strength(&renderer.gl, 1.);
+
         renderer.resize(viewport.x, viewport.y);
         unsafe { renderer.attach_framebuffer_textures() };
 
@@ -201,8 +205,9 @@ impl OpenglRenderer {
         let shalltexs = decode_model_textures(model_textures);
 
         // upload textures
-        for shalltex in shalltexs {
-            let tex = texture::Texture::from_shallow_texture(&self.gl, &shalltex)?;
+        for (i, shalltex) in shalltexs.iter().enumerate() {
+            debug!("Uploading shallow texture {}", i);
+            let tex = texture::Texture::from_shallow_texture(&self.gl, shalltex)?;
             self.textures.push(tex);
         }
 

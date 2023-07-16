@@ -13,6 +13,19 @@ pub(crate) fn compile(
     unsafe {
         let program = gl.create_program().map_err(ShaderCompileError)?;
 
+        // Use GLSL ES 3.00 on WASM for WebGL
+        #[cfg(target_arch = "wasm32")]
+        let (vertex, fragment) = (
+            &format!(
+                "#version 300 es\nprecision highp float;\n{}",
+                vertex.replace("#version 330", "")
+            ),
+            &format!(
+                "#version 300 es\nprecision highp float;\n{}",
+                fragment.replace("#version 330", "")
+            ),
+        );
+
         let shader = gl
             .create_shader(glow::VERTEX_SHADER)
             .map_err(ShaderCompileError)?;

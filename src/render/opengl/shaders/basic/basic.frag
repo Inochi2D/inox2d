@@ -18,7 +18,7 @@ uniform sampler2D bumpmap;
 uniform float opacity;
 uniform vec3 multColor;
 uniform vec3 screenColor;
-uniform float emissionStrength = 1;
+uniform float emissionStrength;
 
 void main() {
   // Sample texture
