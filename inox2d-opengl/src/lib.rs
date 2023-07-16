@@ -10,7 +10,7 @@ use std::ops::Deref;
 use gl_buffer::RenderCtxOpenglExt;
 use glam::{uvec2, UVec2, Vec3};
 use glow::HasContext;
-use tracing::{error, debug};
+use tracing::{debug, error};
 
 use inox2d::math::camera::Camera;
 use inox2d::model::ModelTexture;
