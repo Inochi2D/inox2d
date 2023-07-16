@@ -183,6 +183,7 @@ fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics
         angle_damping: obj.get_f32("angle_damping")?,
         length_damping: obj.get_f32("length_damping")?,
         output_scale: obj.get_vec2("output_scale")?,
+        local_only: obj.get_bool("local_only").unwrap_or_default(),
     })
 }
 

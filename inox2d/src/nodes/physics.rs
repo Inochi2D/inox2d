@@ -11,4 +11,5 @@ pub struct SimplePhysics {
     pub angle_damping: f32,
     pub length_damping: f32,
     pub output_scale: Vec2,
+    pub local_only: bool,
 }
