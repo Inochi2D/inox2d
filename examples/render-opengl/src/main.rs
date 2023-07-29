@@ -2,10 +2,11 @@ use std::path::PathBuf;
 use std::{error::Error, fs, num::NonZeroU32};
 
 use inox2d::formats::inp::parse_inp;
+use inox2d::render::InoxRenderer;
 use inox2d_opengl::OpenglRenderer;
 
 use clap::Parser;
-use glam::{uvec2, Vec2};
+use glam::Vec2;
 use glutin::surface::GlSurface;
 use tracing::{debug, info};
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*};
@@ -35,10 +36,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let data = fs::read(cli.inp_path).unwrap();
     let model = parse_inp(data.as_slice()).unwrap();
-    let puppet = model.puppet;
     info!(
         "Successfully parsed puppet: {}",
-        (puppet.meta.name.as_deref()).unwrap_or("<no puppet name specified in file>")
+        (model.puppet.meta.name.as_deref()).unwrap_or("<no puppet name specified in file>")
     );
 
     info!("Setting up windowing and OpenGL");
@@ -53,14 +53,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     info!("Initializing Inox2D renderer");
     let window_size = window.inner_size();
-    let viewport = uvec2(window_size.width, window_size.height);
-    let mut renderer = OpenglRenderer::new(gl, viewport, &puppet)?;
-    renderer.upload_model_textures(&model.textures)?;
+
+    let mut renderer = OpenglRenderer::new(gl)?;
+    renderer.prepare(&model)?;
+    renderer.resize(window_size.width, window_size.height)?;
     renderer.camera.scale = Vec2::splat(0.15);
     info!("Inox2D renderer initialized");
 
     let mut scene_ctrl = ExampleSceneController::new(&renderer.camera, 0.5);
-    let mut puppet = puppet;
+    let mut puppet = model.puppet;
 
     // Event loop
     events.run(move |event, _, control_flow| {

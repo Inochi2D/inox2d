@@ -1,4 +1,4 @@
-use glow::HasContext;
+use glow::{HasContext, NativeVertexArray};
 
 use inox2d::render::RenderCtx;
 
@@ -31,6 +31,7 @@ pub trait RenderCtxOpenglExt {
     unsafe fn setup_gl_buffers(
         &self,
         gl: &glow::Context,
+        vao: NativeVertexArray,
     ) -> Result<glow::VertexArray, OpenglRendererError>;
     unsafe fn upload_deforms_to_gl(&self, gl: &glow::Context);
 }
@@ -44,14 +45,12 @@ impl RenderCtxOpenglExt for RenderCtx {
     ///
     /// # Safety
     ///
-    /// Only call this function once (probably).
+    /// Only call this function once when loading a new puppet.
     unsafe fn setup_gl_buffers(
         &self,
         gl: &glow::Context,
+        vao: NativeVertexArray,
     ) -> Result<glow::VertexArray, OpenglRendererError> {
-        let vao = gl
-            .create_vertex_array()
-            .map_err(OpenglRendererError::Opengl)?;
         gl.bind_vertex_array(Some(vao));
 
         upload_array_to_gl(
