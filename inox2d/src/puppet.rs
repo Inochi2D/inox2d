@@ -306,7 +306,7 @@ pub struct PuppetPhysics {
 }
 
 /// Inochi2D puppet.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Puppet<T = ()> {
     pub meta: PuppetMeta,
     pub physics: PuppetPhysics,

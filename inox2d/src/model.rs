@@ -2,13 +2,13 @@ use std::fmt;
 
 use crate::puppet::Puppet;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ModelTexture {
     pub format: image::ImageFormat,
     pub data: Vec<u8>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct VendorData {
     pub name: String,
     pub payload: json::JsonValue,

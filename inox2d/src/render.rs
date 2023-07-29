@@ -10,7 +10,7 @@ use crate::nodes::node_data::{Composite, InoxData, MaskMode, Part};
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::puppet::Puppet;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct VertexBuffers {
     pub verts: Vec<Vec2>,
     pub uvs: Vec<Vec2>,
@@ -87,7 +87,7 @@ pub enum RenderCtxKind {
     Composite(Vec<InoxNodeUuid>),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct NodeRenderCtx {
     pub trans: Mat4,
     pub trans_offset: TransformOffset,
@@ -96,7 +96,7 @@ pub struct NodeRenderCtx {
 
 pub type NodeRenderCtxs = HashMap<InoxNodeUuid, NodeRenderCtx>;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct RenderCtx {
     pub vertex_buffers: VertexBuffers,
     /// All nodes that need respective draw method calls:

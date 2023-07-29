@@ -8,7 +8,7 @@ use super::node_data::InoxData;
 #[repr(transparent)]
 pub struct InoxNodeUuid(pub(crate) u32);
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct InoxNode<T = ()> {
     pub uuid: InoxNodeUuid,
     pub name: String,

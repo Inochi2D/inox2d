@@ -5,7 +5,7 @@ use indextree::{Arena, NodeId};
 
 use super::node::{InoxNode, InoxNodeUuid};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct InoxNodeTree<T = ()> {
     pub root: indextree::NodeId,
     pub arena: Arena<InoxNode<T>>,
