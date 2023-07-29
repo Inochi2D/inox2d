@@ -31,7 +31,7 @@ impl fmt::Display for VendorData {
 }
 
 /// Inochi2D model.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Model<T = ()> {
     pub puppet: Puppet<T>,
     pub textures: Vec<ModelTexture>,
