@@ -2,7 +2,6 @@
 
 use glam::{vec2, Vec2};
 use inox2d::math::camera::Camera;
-use tracing::info;
 use web_time::Instant;
 use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::window::Window;

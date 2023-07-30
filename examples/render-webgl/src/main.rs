@@ -46,10 +46,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    use inox2d::formats::inp::parse_inp;
+    use inox2d::{formats::inp::parse_inp, render::InoxRenderer};
     use inox2d_opengl::OpenglRenderer;
 
-    use glam::{uvec2, Vec2};
+    use glam::Vec2;
     use tracing::info;
     use wasm_bindgen::prelude::Closure;
     use wasm_bindgen::JsCast;
@@ -90,15 +90,14 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let model_bytes = res.bytes().await?;
     let model = parse_inp(model_bytes.as_ref())?;
-    let puppet = model.puppet;
 
     info!("Initializing Inox2D renderer");
     let window_size = window.inner_size();
-    let viewport = uvec2(window_size.width, window_size.height);
-    let mut renderer = OpenglRenderer::new(gl, viewport, &puppet)?;
+    let mut renderer = OpenglRenderer::new(gl)?;
 
-    info!("Uploading model textures");
-    renderer.upload_model_textures(&model.textures)?;
+    info!("Creating buffers and uploading model textures");
+    renderer.prepare(&model)?;
+    renderer.resize(window_size.width, window_size.height)?;
     renderer.camera.scale = Vec2::splat(0.15);
     info!("Inox2D renderer initialized");
 
@@ -108,7 +107,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     // Winit won't help us :(
     let scene_ctrl = Rc::new(RefCell::new(scene_ctrl));
     let renderer = Rc::new(RefCell::new(renderer));
-    let puppet = Rc::new(RefCell::new(puppet));
+    let puppet = Rc::new(RefCell::new(model.puppet));
 
     // Setup continuous animation loop
     {
