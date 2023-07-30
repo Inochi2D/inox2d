@@ -17,7 +17,7 @@ use inox2d::model::{Model, ModelTexture};
 use inox2d::nodes::node::InoxNodeUuid;
 use inox2d::nodes::node_data::{BlendMode, Composite, Part};
 use inox2d::puppet::Puppet;
-use inox2d::render::{InoxRenderer, NodeRenderCtx, PartRenderCtx};
+use inox2d::render::{InoxRenderer, InoxRendererCommon, NodeRenderCtx, PartRenderCtx};
 use inox2d::texture::decode_model_textures;
 
 use self::shader::ShaderCompileError;

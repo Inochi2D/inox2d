@@ -273,6 +273,45 @@ where
         part_render_ctx: &PartRenderCtx,
     ) -> Result<(), Self::Error>;
 
+    fn begin_composite(&self) -> Result<(), Self::Error>;
+    fn end_composite(&self) -> Result<(), Self::Error>;
+
+    fn draw_composite(
+        &self,
+        as_mask: bool,
+        camera: &Mat4,
+        composite: &Composite,
+        puppet: &Puppet,
+        children: &[InoxNodeUuid],
+    ) -> Result<(), Self::Error>;
+}
+
+pub trait InoxRendererCommon {
+    type Error;
+
+    fn draw_part(
+        &self,
+        camera: &Mat4,
+        node_render_ctx: &NodeRenderCtx,
+        part: &Part,
+        part_render_ctx: &PartRenderCtx,
+        puppet: &Puppet,
+    ) -> Result<(), Self::Error>;
+
+    fn draw_composite_self(
+        &self,
+        as_mask: bool,
+        camera: &Mat4,
+        puppet: &Puppet,
+        children: &[InoxNodeUuid],
+    ) -> Result<(), Self::Error>;
+
+    fn draw_drawables(&self, camera: &Mat4, puppet: &Puppet) -> Result<(), Self::Error>;
+}
+
+impl<T: InoxRenderer> InoxRendererCommon for T {
+    type Error = T::Error;
+
     fn draw_part(
         &self,
         camera: &Mat4,
@@ -326,9 +365,6 @@ where
         Ok(())
     }
 
-    fn begin_composite(&self) -> Result<(), Self::Error>;
-    fn end_composite(&self) -> Result<(), Self::Error>;
-
     fn draw_composite_self(
         &self,
         as_mask: bool,
@@ -358,15 +394,6 @@ where
         self.end_composite()?;
         Ok(())
     }
-
-    fn draw_composite(
-        &self,
-        as_mask: bool,
-        camera: &Mat4,
-        composite: &Composite,
-        puppet: &Puppet,
-        children: &[InoxNodeUuid],
-    ) -> Result<(), Self::Error>;
 
     fn draw_drawables(&self, camera: &Mat4, puppet: &Puppet) -> Result<(), Self::Error> {
         for &uuid in &puppet.render_ctx.drawables_zsorted {
