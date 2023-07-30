@@ -361,8 +361,6 @@ impl InoxRenderer for OpenglRenderer {
         renderer.bind_shader(&renderer.part_shader);
         renderer.part_shader.set_emission_strength(&renderer.gl, 1.);
 
-        unsafe { renderer.attach_framebuffer_textures() };
-
         Ok(renderer)
     }
 
