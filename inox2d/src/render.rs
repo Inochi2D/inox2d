@@ -273,16 +273,11 @@ where
         part_render_ctx: &PartRenderCtx,
     ) -> Result<(), Self::Error>;
 
-    fn begin_composite(&self) -> Result<(), Self::Error>;
-    fn end_composite(&self) -> Result<(), Self::Error>;
-
-    fn draw_composite(
+    fn begin_composite_content(&self) -> Result<(), Self::Error>;
+    fn finish_composite_content(
         &self,
         as_mask: bool,
-        camera: &Mat4,
         composite: &Composite,
-        puppet: &Puppet,
-        children: &[InoxNodeUuid],
     ) -> Result<(), Self::Error>;
 }
 
@@ -298,10 +293,11 @@ pub trait InoxRendererCommon {
         puppet: &Puppet,
     ) -> Result<(), Self::Error>;
 
-    fn draw_composite_self(
+    fn draw_composite(
         &self,
         as_mask: bool,
         camera: &Mat4,
+        composite: &Composite,
         puppet: &Puppet,
         children: &[InoxNodeUuid],
     ) -> Result<(), Self::Error>;
@@ -365,14 +361,20 @@ impl<T: InoxRenderer> InoxRendererCommon for T {
         Ok(())
     }
 
-    fn draw_composite_self(
+    fn draw_composite(
         &self,
         as_mask: bool,
         camera: &Mat4,
+        comp: &Composite,
         puppet: &Puppet,
         children: &[InoxNodeUuid],
     ) -> Result<(), Self::Error> {
-        self.begin_composite()?;
+        if children.is_empty() {
+            // Optimization: Nothing to be drawn, skip context switching
+            return Ok(());
+        }
+
+        self.begin_composite_content()?;
 
         for &uuid in children {
             let node = puppet.nodes.get_node(uuid).unwrap();
@@ -391,7 +393,7 @@ impl<T: InoxRenderer> InoxRendererCommon for T {
             }
         }
 
-        self.end_composite()?;
+        self.finish_composite_content(as_mask, comp)?;
         Ok(())
     }
 

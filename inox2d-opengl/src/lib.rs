@@ -14,7 +14,6 @@ use tracing::{debug, error};
 
 use inox2d::math::camera::Camera;
 use inox2d::model::{Model, ModelTexture};
-use inox2d::nodes::node::InoxNodeUuid;
 use inox2d::nodes::node_data::{BlendMode, Composite, Part};
 use inox2d::puppet::Puppet;
 use inox2d::render::{InoxRenderer, InoxRendererCommon, NodeRenderCtx, PartRenderCtx};
@@ -571,7 +570,7 @@ impl InoxRenderer for OpenglRenderer {
         Ok(())
     }
 
-    fn begin_composite(&self) -> Result<(), Self::Error> {
+    fn begin_composite_content(&self) -> Result<(), Self::Error> {
         self.clear_texture_cache();
 
         let gl = &self.gl;
@@ -594,33 +593,18 @@ impl InoxRenderer for OpenglRenderer {
         Ok(())
     }
 
-    fn end_composite(&self) -> Result<(), Self::Error> {
-        self.clear_texture_cache();
-
+    fn finish_composite_content(
+        &self,
+        as_mask: bool,
+        composite: &Composite,
+    ) -> Result<(), Self::Error> {
         let gl = &self.gl;
+
+        self.clear_texture_cache();
         unsafe {
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
         }
 
-        Ok(())
-    }
-
-    fn draw_composite(
-        &self,
-        as_mask: bool,
-        camera: &Mat4,
-        composite: &Composite,
-        puppet: &Puppet,
-        children: &[InoxNodeUuid],
-    ) -> Result<(), Self::Error> {
-        if children.is_empty() {
-            // Optimization: Nothing to be drawn, skip context switching
-            return Ok(());
-        }
-
-        self.draw_composite_self(as_mask, camera, puppet, children)?;
-
-        let gl = &self.gl;
         let comp = &composite.draw_state;
         if as_mask {
             /*
