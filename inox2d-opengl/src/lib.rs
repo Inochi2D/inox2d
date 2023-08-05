@@ -379,7 +379,7 @@ impl InoxRenderer for OpenglRenderer {
         }
     }
 
-    fn resize(&mut self, w: u32, h: u32) -> Result<(), Self::Error> {
+    fn resize(&mut self, w: u32, h: u32) {
         self.viewport = uvec2(w, h);
 
         let gl = &self.gl;
@@ -407,15 +407,12 @@ impl InoxRenderer for OpenglRenderer {
             self.attach_framebuffer_textures();
         }
         self.update_camera();
-
-        Ok(())
     }
 
-    fn clear(&self) -> Result<(), Self::Error> {
+    fn clear(&self) {
         unsafe {
             self.gl.clear(glow::COLOR_BUFFER_BIT);
         }
-        Ok(())
     }
 
     /*
@@ -425,11 +422,11 @@ impl InoxRenderer for OpenglRenderer {
         draw_scene -> actually makes things appear on a surface
     */
 
-    fn on_begin_scene(&self) -> Result<(), Self::Error> {
+    fn on_begin_scene(&self) {
         todo!()
     }
 
-    fn render(&self, puppet: &Puppet) -> Result<(), Self::Error> {
+    fn render(&self, puppet: &Puppet) {
         let gl = &self.gl;
         unsafe {
             puppet.render_ctx.upload_deforms_to_gl(gl);
@@ -440,20 +437,18 @@ impl InoxRenderer for OpenglRenderer {
         let camera = self
             .camera
             .matrix(Vec2::new(self.viewport.x as f32, self.viewport.y as f32));
-        self.draw_drawables(&camera, puppet)?;
-
-        Ok(())
+        self.draw(&camera, puppet);
     }
 
-    fn on_end_scene(&self) -> Result<(), Self::Error> {
+    fn on_end_scene(&self) {
         todo!()
     }
 
-    fn draw_scene(&self) -> Result<(), Self::Error> {
+    fn draw_scene(&self) {
         todo!()
     }
 
-    fn on_begin_mask(&self, has_mask: bool) -> Result<(), Self::Error> {
+    fn on_begin_mask(&self, has_mask: bool) {
         let gl = &self.gl;
         unsafe {
             gl.enable(glow::STENCIL_TEST);
@@ -464,18 +459,16 @@ impl InoxRenderer for OpenglRenderer {
             gl.stencil_op(glow::KEEP, glow::KEEP, glow::REPLACE);
             gl.stencil_mask(0xff);
         }
-        Ok(())
     }
 
-    fn set_mask_mode(&self, dodge: bool) -> Result<(), Self::Error> {
+    fn set_mask_mode(&self, dodge: bool) {
         let gl = &self.gl;
         unsafe {
             gl.stencil_func(glow::ALWAYS, !dodge as i32, 0xff);
         }
-        Ok(())
     }
 
-    fn on_begin_masked_content(&self) -> Result<(), Self::Error> {
+    fn on_begin_masked_content(&self) {
         let gl = &self.gl;
         unsafe {
             gl.stencil_func(glow::EQUAL, 1, 0xff);
@@ -483,21 +476,18 @@ impl InoxRenderer for OpenglRenderer {
 
             gl.color_mask(true, true, true, true);
         }
-        Ok(())
     }
 
-    fn on_end_mask(&self) -> Result<(), Self::Error> {
+    fn on_end_mask(&self) {
         let gl = &self.gl;
         unsafe {
             gl.stencil_mask(0xff);
             gl.stencil_func(glow::ALWAYS, 1, 0xff);
             gl.disable(glow::STENCIL_TEST);
         }
-
-        Ok(())
     }
 
-    fn draw_mesh_self(&self, as_mask: bool, camera: &Mat4) -> Result<(), Self::Error> {
+    fn draw_mesh_self(&self, as_mask: bool, camera: &Mat4) {
         /*
         maskShader.use();
         maskShader.setUniform(offset, data.origin);
@@ -524,7 +514,7 @@ impl InoxRenderer for OpenglRenderer {
         node_render_ctx: &NodeRenderCtx,
         part: &Part,
         part_render_ctx: &PartRenderCtx,
-    ) -> Result<(), Self::Error> {
+    ) {
         let gl = &self.gl;
 
         self.bind_part_textures(part);
@@ -566,11 +556,9 @@ impl InoxRenderer for OpenglRenderer {
                 part_render_ctx.index_offset as i32 * mem::size_of::<u16>() as i32,
             );
         }
-
-        Ok(())
     }
 
-    fn begin_composite_content(&self) -> Result<(), Self::Error> {
+    fn begin_composite_content(&self) {
         self.clear_texture_cache();
 
         let gl = &self.gl;
@@ -589,15 +577,9 @@ impl InoxRenderer for OpenglRenderer {
             gl.active_texture(glow::TEXTURE0);
             gl.blend_func(glow::ONE, glow::ONE_MINUS_SRC_ALPHA);
         }
-
-        Ok(())
     }
 
-    fn finish_composite_content(
-        &self,
-        as_mask: bool,
-        composite: &Composite,
-    ) -> Result<(), Self::Error> {
+    fn finish_composite_content(&self, as_mask: bool, composite: &Composite) {
         let gl = &self.gl;
 
         self.clear_texture_cache();
@@ -642,7 +624,5 @@ impl InoxRenderer for OpenglRenderer {
         unsafe {
             gl.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
         }
-
-        Ok(())
     }
 }

@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut renderer = OpenglRenderer::new(gl)?;
     renderer.prepare(&model)?;
-    renderer.resize(window_size.width, window_size.height)?;
+    renderer.resize(window_size.width, window_size.height);
     renderer.camera.scale = Vec2::splat(0.15);
     info!("Inox2D renderer initialized");
 

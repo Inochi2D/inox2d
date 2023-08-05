@@ -230,38 +230,43 @@ where
     type Context;
     type Error;
 
-    // create a new renderer, given rendering context
+    /// create a new renderer, given rendering context
     fn new(ctx: Self::Context) -> Result<Self, Self::Error>;
 
-    // do any model-specific setups, e.g. creating buffers with specific sizes
-    // after this step, the model provided should be renderable
+    /// do any model-specific setups, e.g. creating buffers with specific sizes
+    /// after this step, the model provided should be renderable
     fn prepare(&mut self, model: &Model) -> Result<(), Self::Error>;
 
-    // resize viewport
-    fn resize(&mut self, w: u32, h: u32) -> Result<(), Self::Error>;
+    /// resize viewport
+    fn resize(&mut self, w: u32, h: u32);
 
-    // clear canvas
-    fn clear(&self) -> Result<(), Self::Error>;
+    /// clear canvas
+    fn clear(&self);
 
-    // initiate one render pass
-    fn on_begin_scene(&self) -> Result<(), Self::Error>;
-    fn render(&self, puppet: &Puppet) -> Result<(), Self::Error>;
-    // finish one render pass
-    fn on_end_scene(&self) -> Result<(), Self::Error>;
-    // actually make results "visible", e.g. on a screen/texture
-    fn draw_scene(&self) -> Result<(), Self::Error>;
+    /// initiate one render pass
+    fn on_begin_scene(&self);
+    /// the render pass
+    /// logical error if this puppet is not the latest .prepare() ed one
+    fn render(&self, puppet: &Puppet);
+    /// finish one render pass
+    fn on_end_scene(&self);
+    /// actually make results "visible", e.g. on a screen/texture
+    fn draw_scene(&self);
 
-    // clear and start writing to stencil buffer, lock color buffer
-    fn on_begin_mask(&self, has_mask: bool) -> Result<(), Self::Error>;
-    // the following draws consist a mask or dodge mask
-    fn set_mask_mode(&self, dodge: bool) -> Result<(), Self::Error>;
-    // read only from stencil buffer, unlock color buffer
-    fn on_begin_masked_content(&self) -> Result<(), Self::Error>;
-    // disables stencil buffer
-    fn on_end_mask(&self) -> Result<(), Self::Error>;
+    /// clear and start writing to stencil buffer, lock color buffer
+    fn on_begin_mask(&self, has_mask: bool);
+    /// the following draws consist a mask or dodge mask
+    fn set_mask_mode(&self, dodge: bool);
+    /// read only from stencil buffer, unlock color buffer
+    fn on_begin_masked_content(&self);
+    /// disable stencil buffer
+    fn on_end_mask(&self);
 
-    fn draw_mesh_self(&self, as_mask: bool, camera: &Mat4) -> Result<(), Self::Error>;
+    /// draw contents of a mesh-defined plain region
+    // TODO: plain mesh (usually for mesh masks) not implemented
+    fn draw_mesh_self(&self, as_mask: bool, camera: &Mat4);
 
+    /// draw contents of a part
     // TODO: Merging of Part and PartRenderCtx?
     // TODO: Inclusion of NodeRenderCtx into Part?
     fn draw_part_self(
@@ -271,19 +276,16 @@ where
         node_render_ctx: &NodeRenderCtx,
         part: &Part,
         part_render_ctx: &PartRenderCtx,
-    ) -> Result<(), Self::Error>;
+    );
 
-    fn begin_composite_content(&self) -> Result<(), Self::Error>;
-    fn finish_composite_content(
-        &self,
-        as_mask: bool,
-        composite: &Composite,
-    ) -> Result<(), Self::Error>;
+    /// get ready so the following draws draw into composite buffers
+    fn begin_composite_content(&self);
+    /// transfer content in composite buffers to normal buffers
+    fn finish_composite_content(&self, as_mask: bool, composite: &Composite);
 }
 
 pub trait InoxRendererCommon {
-    type Error;
-
+    /// draw one part, with its content properly masked
     fn draw_part(
         &self,
         camera: &Mat4,
@@ -291,8 +293,9 @@ pub trait InoxRendererCommon {
         part: &Part,
         part_render_ctx: &PartRenderCtx,
         puppet: &Puppet,
-    ) -> Result<(), Self::Error>;
+    );
 
+    /// draw one composite
     fn draw_composite(
         &self,
         as_mask: bool,
@@ -300,14 +303,14 @@ pub trait InoxRendererCommon {
         composite: &Composite,
         puppet: &Puppet,
         children: &[InoxNodeUuid],
-    ) -> Result<(), Self::Error>;
+    );
 
-    fn draw_drawables(&self, camera: &Mat4, puppet: &Puppet) -> Result<(), Self::Error>;
+    /// iterate over top-level drawables excluding masks, in zsort order, and call draws correspondingly.
+    /// this effectively draws the complete puppet
+    fn draw(&self, camera: &Mat4, puppet: &Puppet);
 }
 
 impl<T: InoxRenderer> InoxRendererCommon for T {
-    type Error = T::Error;
-
     fn draw_part(
         &self,
         camera: &Mat4,
@@ -315,12 +318,12 @@ impl<T: InoxRenderer> InoxRendererCommon for T {
         part: &Part,
         part_render_ctx: &PartRenderCtx,
         puppet: &Puppet,
-    ) -> Result<(), Self::Error> {
+    ) {
         let masks = &part.draw_state.masks;
         if !masks.is_empty() {
-            self.on_begin_mask(part.draw_state.has_masks())?;
+            self.on_begin_mask(part.draw_state.has_masks());
             for mask in &part.draw_state.masks {
-                self.set_mask_mode(mask.mode == MaskMode::Dodge)?;
+                self.set_mask_mode(mask.mode == MaskMode::Dodge);
 
                 let mask_node = puppet.nodes.get_node(mask.source).unwrap();
                 let mask_node_render_ctx = &puppet.render_ctx.node_render_ctxs[&mask.source];
@@ -336,14 +339,14 @@ impl<T: InoxRenderer> InoxRendererCommon for T {
                             mask_node_render_ctx,
                             mask_part,
                             mask_part_render_ctx,
-                        )?;
+                        );
                     }
 
                     (
                         InoxData::Composite(ref mask_composite),
                         RenderCtxKind::Composite(ref mask_children),
                     ) => {
-                        self.draw_composite(true, camera, mask_composite, puppet, mask_children)?;
+                        self.draw_composite(true, camera, mask_composite, puppet, mask_children);
                     }
 
                     _ => {
@@ -352,13 +355,12 @@ impl<T: InoxRenderer> InoxRendererCommon for T {
                     }
                 }
             }
-            self.on_begin_masked_content()?;
-            self.draw_part_self(false, camera, node_render_ctx, part, part_render_ctx)?;
-            self.on_end_mask()?;
+            self.on_begin_masked_content();
+            self.draw_part_self(false, camera, node_render_ctx, part, part_render_ctx);
+            self.on_end_mask();
         } else {
-            self.draw_part_self(false, camera, node_render_ctx, part, part_render_ctx)?;
+            self.draw_part_self(false, camera, node_render_ctx, part, part_render_ctx);
         }
-        Ok(())
     }
 
     fn draw_composite(
@@ -368,13 +370,13 @@ impl<T: InoxRenderer> InoxRendererCommon for T {
         comp: &Composite,
         puppet: &Puppet,
         children: &[InoxNodeUuid],
-    ) -> Result<(), Self::Error> {
+    ) {
         if children.is_empty() {
             // Optimization: Nothing to be drawn, skip context switching
-            return Ok(());
+            return;
         }
 
-        self.begin_composite_content()?;
+        self.begin_composite_content();
 
         for &uuid in children {
             let node = puppet.nodes.get_node(uuid).unwrap();
@@ -384,31 +386,30 @@ impl<T: InoxRenderer> InoxRendererCommon for T {
                 (&node.data, &node_render_ctx.kind)
             {
                 if as_mask {
-                    self.draw_part_self(true, camera, node_render_ctx, part, part_render_ctx)?;
+                    self.draw_part_self(true, camera, node_render_ctx, part, part_render_ctx);
                 } else {
-                    self.draw_part(camera, node_render_ctx, part, part_render_ctx, puppet)?;
+                    self.draw_part(camera, node_render_ctx, part, part_render_ctx, puppet);
                 }
             } else {
                 // composite inside composite simply cannot happen
             }
         }
 
-        self.finish_composite_content(as_mask, comp)?;
-        Ok(())
+        self.finish_composite_content(as_mask, comp);
     }
 
-    fn draw_drawables(&self, camera: &Mat4, puppet: &Puppet) -> Result<(), Self::Error> {
+    fn draw(&self, camera: &Mat4, puppet: &Puppet) {
         for &uuid in &puppet.render_ctx.drawables_zsorted {
             let node = puppet.nodes.get_node(uuid).unwrap();
             let node_render_ctx = &puppet.render_ctx.node_render_ctxs[&uuid];
 
             match (&node.data, &node_render_ctx.kind) {
                 (InoxData::Part(ref part), RenderCtxKind::Part(ref part_render_ctx)) => {
-                    self.draw_part(camera, node_render_ctx, part, part_render_ctx, puppet)?;
+                    self.draw_part(camera, node_render_ctx, part, part_render_ctx, puppet);
                 }
 
                 (InoxData::Composite(ref composite), RenderCtxKind::Composite(ref children)) => {
-                    self.draw_composite(false, camera, composite, puppet, children)?;
+                    self.draw_composite(false, camera, composite, puppet, children);
                 }
 
                 _ => {
@@ -417,7 +418,5 @@ impl<T: InoxRenderer> InoxRendererCommon for T {
                 }
             }
         }
-
-        Ok(())
     }
 }
