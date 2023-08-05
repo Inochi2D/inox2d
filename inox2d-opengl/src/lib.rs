@@ -130,6 +130,67 @@ pub struct OpenglRenderer {
 }
 
 impl OpenglRenderer {
+    pub fn new(gl: glow::Context) -> Result<Self, OpenglRendererError> {
+        let vao = unsafe {
+            gl.create_vertex_array()
+                .map_err(OpenglRendererError::Opengl)?
+        };
+
+        // Initialize framebuffers
+        let composite_framebuffer;
+        let cf_albedo;
+        let cf_emissive;
+        let cf_bump;
+        let cf_stencil;
+        unsafe {
+            cf_albedo = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
+            cf_emissive = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
+            cf_bump = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
+            cf_stencil = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
+
+            composite_framebuffer = gl
+                .create_framebuffer()
+                .map_err(OpenglRendererError::Opengl)?;
+        }
+
+        // Shaders
+        let part_shader = PartShader::new(&gl)?;
+        let part_mask_shader = PartMaskShader::new(&gl)?;
+        let composite_shader = CompositeShader::new(&gl)?;
+        let composite_mask_shader = CompositeMaskShader::new(&gl)?;
+
+        let support_debug_extension = gl.supported_extensions().contains("GL_KHR_debug");
+
+        let renderer = Self {
+            gl,
+            support_debug_extension,
+            camera: Camera::default(),
+            viewport: UVec2::default(),
+            cache: RefCell::new(GlCache::default()),
+
+            vao,
+
+            composite_framebuffer,
+            cf_albedo,
+            cf_emissive,
+            cf_bump,
+            cf_stencil,
+
+            part_shader,
+            part_mask_shader,
+            composite_shader,
+            composite_mask_shader,
+
+            textures: Vec::new(),
+        };
+
+        // Set emission strength once (it doesn't change anywhere else)
+        renderer.bind_shader(&renderer.part_shader);
+        renderer.part_shader.set_emission_strength(&renderer.gl, 1.);
+
+        Ok(renderer)
+    }
+
     fn upload_model_textures(
         &mut self,
         model_textures: &[ModelTexture],
@@ -299,69 +360,7 @@ impl OpenglRenderer {
 }
 
 impl InoxRenderer for OpenglRenderer {
-    type Context = glow::Context;
     type Error = OpenglRendererError;
-
-    fn new(gl: Self::Context) -> Result<Self, Self::Error> {
-        let vao = unsafe {
-            gl.create_vertex_array()
-                .map_err(OpenglRendererError::Opengl)?
-        };
-
-        // Initialize framebuffers
-        let composite_framebuffer;
-        let cf_albedo;
-        let cf_emissive;
-        let cf_bump;
-        let cf_stencil;
-        unsafe {
-            cf_albedo = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
-            cf_emissive = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
-            cf_bump = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
-            cf_stencil = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
-
-            composite_framebuffer = gl
-                .create_framebuffer()
-                .map_err(OpenglRendererError::Opengl)?;
-        }
-
-        // Shaders
-        let part_shader = PartShader::new(&gl)?;
-        let part_mask_shader = PartMaskShader::new(&gl)?;
-        let composite_shader = CompositeShader::new(&gl)?;
-        let composite_mask_shader = CompositeMaskShader::new(&gl)?;
-
-        let support_debug_extension = gl.supported_extensions().contains("GL_KHR_debug");
-
-        let renderer = Self {
-            gl,
-            support_debug_extension,
-            camera: Camera::default(),
-            viewport: UVec2::default(),
-            cache: RefCell::new(GlCache::default()),
-
-            vao,
-
-            composite_framebuffer,
-            cf_albedo,
-            cf_emissive,
-            cf_bump,
-            cf_stencil,
-
-            part_shader,
-            part_mask_shader,
-            composite_shader,
-            composite_mask_shader,
-
-            textures: Vec::new(),
-        };
-
-        // Set emission strength once (it doesn't change anywhere else)
-        renderer.bind_shader(&renderer.part_shader);
-        renderer.part_shader.set_emission_strength(&renderer.gl, 1.);
-
-        Ok(renderer)
-    }
 
     fn prepare(&mut self, model: &Model) -> Result<(), Self::Error> {
         unsafe {

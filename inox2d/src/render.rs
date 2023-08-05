@@ -227,11 +227,7 @@ pub trait InoxRenderer
 where
     Self: Sized,
 {
-    type Context;
     type Error;
-
-    /// create a new renderer, given rendering context
-    fn new(ctx: Self::Context) -> Result<Self, Self::Error>;
 
     /// do any model-specific setups, e.g. creating buffers with specific sizes
     /// after this step, the model provided should be renderable
