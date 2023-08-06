@@ -97,7 +97,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Creating buffers and uploading model textures");
     renderer.prepare(&model)?;
-    renderer.resize(window_size.width, window_size.height)?;
+    renderer.resize(window_size.width, window_size.height);
     renderer.camera.scale = Vec2::splat(0.15);
     info!("Inox2D renderer initialized");
 
