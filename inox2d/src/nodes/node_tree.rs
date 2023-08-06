@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::fmt::Display;
 
 use indextree::{Arena, NodeId};
@@ -9,7 +9,7 @@ use super::node::{InoxNode, InoxNodeUuid};
 pub struct InoxNodeTree<T = ()> {
     pub root: indextree::NodeId,
     pub arena: Arena<InoxNode<T>>,
-    pub uuids: BTreeMap<InoxNodeUuid, indextree::NodeId>,
+    pub uuids: HashMap<InoxNodeUuid, indextree::NodeId>,
 }
 
 impl<T> InoxNodeTree<T> {
@@ -81,16 +81,22 @@ impl<T> InoxNodeTree<T> {
         sort_uuids_by_zsort(uuid_zsorts)
     }
 
+    /// all nodes, zsorted, with composite children excluded
     pub fn zsorted_root(&self) -> Vec<InoxNodeUuid> {
         let root = self.arena.get(self.root).unwrap().get();
         self.sort_by_zsort(root, true)
     }
 
+    /// all children, grandchildren..., zsorted, with parent excluded
     pub fn zsorted_children(&self, id: InoxNodeUuid) -> Vec<InoxNodeUuid> {
         let node = self.arena.get(self.uuids[&id]).unwrap().get();
         self.sort_by_zsort(node, false)
+            .into_iter()
+            .filter(|uuid| *uuid != node.uuid)
+            .collect::<Vec<_>>()
     }
 
+    /// all nodes
     pub fn all_node_ids(&self) -> Vec<InoxNodeUuid> {
         self.arena.iter().map(|n| n.get().uuid).collect()
     }

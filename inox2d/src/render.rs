@@ -99,91 +99,63 @@ pub type NodeRenderCtxs = HashMap<InoxNodeUuid, NodeRenderCtx>;
 #[derive(Debug)]
 pub struct RenderCtx {
     pub vertex_buffers: VertexBuffers,
-    pub drawables_zsorted: Vec<InoxNodeUuid>,
+    /// all nodes that need respective draw method calls
+    /// including standalone parts, composite parents
+    /// excluding plain mesh masks, composite children
+    pub root_drawables_zsorted: Vec<InoxNodeUuid>,
     pub node_render_ctxs: NodeRenderCtxs,
 }
 
 impl RenderCtx {
-    fn add_part<T>(
-        nodes: &InoxNodeTree<T>,
-        uuid: InoxNodeUuid,
-        vertex_buffers: &mut VertexBuffers,
-        node_render_ctxs: &mut NodeRenderCtxs,
-    ) {
-        let node = nodes.get_node(uuid).unwrap();
+    pub fn new<T>(nodes: &InoxNodeTree<T>) -> Self {
+        let mut vertex_buffers = VertexBuffers::default();
+        let mut root_drawables_zsorted: Vec<InoxNodeUuid> = Vec::new();
+        let mut node_render_ctxs = HashMap::new();
 
-        if let InoxData::Part(ref part) = node.data {
-            let (index_offset, vert_offset) = vertex_buffers.push(&part.mesh);
+        for uuid in nodes.all_node_ids() {
+            let node = nodes.get_node(uuid).unwrap();
+
             node_render_ctxs.insert(
                 uuid,
                 NodeRenderCtx {
                     trans: Mat4::default(),
                     trans_offset: node.trans_offset,
-                    kind: RenderCtxKind::Part(PartRenderCtx {
-                        index_offset,
-                        vert_offset,
-                        index_len: part.mesh.indices.len(),
-                        vert_len: part.mesh.vertices.len(),
-                    }),
+                    kind: match node.data {
+                        InoxData::Part(ref part) => {
+                            let (index_offset, vert_offset) = vertex_buffers.push(&part.mesh);
+                            RenderCtxKind::Part(PartRenderCtx {
+                                index_offset,
+                                vert_offset,
+                                index_len: part.mesh.indices.len(),
+                                vert_len: part.mesh.vertices.len(),
+                            })
+                        }
+
+                        InoxData::Composite(_) => {
+                            RenderCtxKind::Composite(nodes.zsorted_children(uuid))
+                        }
+
+                        _ => RenderCtxKind::Node,
+                    },
                 },
             );
         }
-    }
 
-    pub fn new<T>(nodes: &InoxNodeTree<T>) -> Self {
-        let mut vertex_buffers = VertexBuffers::default();
-        let mut drawables_zsorted: Vec<InoxNodeUuid> = Vec::new();
-        let mut node_render_ctxs = HashMap::new();
-
-        let nodes_zsorted = nodes.zsorted_root();
-        for &uuid in &nodes_zsorted {
+        for uuid in nodes.zsorted_root() {
             let node = nodes.get_node(uuid).unwrap();
 
             match node.data {
-                InoxData::Part(_) => {
-                    Self::add_part(nodes, uuid, &mut vertex_buffers, &mut node_render_ctxs);
-                    drawables_zsorted.push(uuid);
+                InoxData::Part(_) | InoxData::Composite(_) => {
+                    root_drawables_zsorted.push(uuid);
                 }
-                InoxData::Composite(_) => {
-                    // Children include the parent composite, so we have to filter it out.
-                    // TODO: wait... does it make sense for it to do that?
-                    let children = nodes
-                        .zsorted_children(node.uuid)
-                        .into_iter()
-                        .filter(|uuid| *uuid != node.uuid)
-                        .collect::<Vec<_>>();
 
-                    // put composite children's meshes into composite bufs
-                    for &uuid in &children {
-                        Self::add_part(nodes, uuid, &mut vertex_buffers, &mut node_render_ctxs);
-                    }
-
-                    node_render_ctxs.insert(
-                        uuid,
-                        NodeRenderCtx {
-                            trans: Mat4::default(),
-                            trans_offset: node.trans_offset,
-                            kind: RenderCtxKind::Composite(children),
-                        },
-                    );
-                    drawables_zsorted.push(uuid);
-                }
-                _ => {
-                    node_render_ctxs.insert(
-                        uuid,
-                        NodeRenderCtx {
-                            trans: Mat4::default(),
-                            trans_offset: node.trans_offset,
-                            kind: RenderCtxKind::Node,
-                        },
-                    );
-                }
+                _ => (),
             }
         }
 
         Self {
             vertex_buffers,
-            drawables_zsorted,
+            root_drawables_zsorted,
             node_render_ctxs,
         }
     }
@@ -395,7 +367,7 @@ impl<T: InoxRenderer> InoxRendererCommon for T {
     }
 
     fn draw(&self, camera: &Mat4, puppet: &Puppet) {
-        for &uuid in &puppet.render_ctx.drawables_zsorted {
+        for &uuid in &puppet.render_ctx.root_drawables_zsorted {
             let node = puppet.nodes.get_node(uuid).unwrap();
             let node_render_ctx = &puppet.render_ctx.node_render_ctxs[&uuid];
 
