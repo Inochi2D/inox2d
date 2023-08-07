@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use glam::{vec2, Vec2};
 use indextree::Arena;
@@ -415,7 +415,7 @@ fn deserialize_nodes<T>(
     deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
 ) -> InoxParseResult<InoxNodeTree<T>> {
     let mut arena = Arena::new();
-    let mut uuids = BTreeMap::new();
+    let mut uuids = HashMap::new();
 
     let root_node = deserialize_node_ext(obj, deserialize_node_custom)?;
     let root_uuid = root_node.uuid;

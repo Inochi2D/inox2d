@@ -3,21 +3,20 @@ mod shader;
 mod shaders;
 pub mod texture;
 
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::mem;
 use std::ops::Deref;
 
 use gl_buffer::RenderCtxOpenglExt;
-use glam::{uvec2, UVec2, Vec3};
+use glam::{uvec2, Mat4, UVec2, Vec2, Vec3};
 use glow::HasContext;
 use tracing::{debug, error};
 
 use inox2d::math::camera::Camera;
-use inox2d::model::ModelTexture;
-use inox2d::nodes::node::InoxNodeUuid;
-use inox2d::nodes::node_data::{BlendMode, Composite, InoxData, Mask, MaskMode, Part};
+use inox2d::model::{Model, ModelTexture};
+use inox2d::nodes::node_data::{BlendMode, Composite, Part};
 use inox2d::puppet::Puppet;
-use inox2d::render::{NodeRenderCtx, PartRenderCtx, RenderCtxKind};
+use inox2d::render::{InoxRenderer, InoxRendererCommon, NodeRenderCtx, PartRenderCtx};
 use inox2d::texture::decode_model_textures;
 
 use self::shader::ShaderCompileError;
@@ -113,7 +112,6 @@ pub struct OpenglRenderer {
     pub camera: Camera,
     pub viewport: UVec2,
     cache: RefCell<GlCache>,
-    is_compositing: Cell<bool>,
 
     vao: glow::VertexArray,
 
@@ -132,12 +130,11 @@ pub struct OpenglRenderer {
 }
 
 impl OpenglRenderer {
-    pub fn new(
-        gl: glow::Context,
-        viewport: UVec2,
-        puppet: &Puppet,
-    ) -> Result<Self, OpenglRendererError> {
-        let vao = unsafe { puppet.render_ctx.setup_gl_buffers(&gl)? };
+    pub fn new(gl: glow::Context) -> Result<Self, OpenglRendererError> {
+        let vao = unsafe {
+            gl.create_vertex_array()
+                .map_err(OpenglRendererError::Opengl)?
+        };
 
         // Initialize framebuffers
         let composite_framebuffer;
@@ -164,13 +161,12 @@ impl OpenglRenderer {
 
         let support_debug_extension = gl.supported_extensions().contains("GL_KHR_debug");
 
-        let mut renderer = Self {
+        let renderer = Self {
             gl,
             support_debug_extension,
             camera: Camera::default(),
-            viewport,
+            viewport: UVec2::default(),
             cache: RefCell::new(GlCache::default()),
-            is_compositing: Cell::new(false),
 
             vao,
 
@@ -192,13 +188,10 @@ impl OpenglRenderer {
         renderer.bind_shader(&renderer.part_shader);
         renderer.part_shader.set_emission_strength(&renderer.gl, 1.);
 
-        renderer.resize(viewport.x, viewport.y);
-        unsafe { renderer.attach_framebuffer_textures() };
-
         Ok(renderer)
     }
 
-    pub fn upload_model_textures(
+    fn upload_model_textures(
         &mut self,
         model_textures: &[ModelTexture],
     ) -> Result<(), TextureError> {
@@ -213,41 +206,6 @@ impl OpenglRenderer {
         }
 
         Ok(())
-    }
-
-    pub fn resize(&mut self, w: u32, h: u32) {
-        self.viewport = uvec2(w, h);
-
-        let gl = &self.gl;
-        unsafe {
-            gl.viewport(0, 0, w as i32, h as i32);
-
-            // Reupload composite framebuffer textures
-            texture::upload_empty(gl, self.cf_albedo, w, h, glow::UNSIGNED_BYTE);
-            texture::upload_empty(gl, self.cf_emissive, w, h, glow::FLOAT);
-            texture::upload_empty(gl, self.cf_bump, w, h, glow::UNSIGNED_BYTE);
-
-            gl.bind_texture(glow::TEXTURE_2D, Some(self.cf_stencil));
-            gl.tex_image_2d(
-                glow::TEXTURE_2D,
-                0,
-                glow::DEPTH24_STENCIL8 as i32,
-                w as i32,
-                h as i32,
-                0,
-                glow::DEPTH_STENCIL,
-                glow::UNSIGNED_INT_24_8,
-                None,
-            );
-
-            self.attach_framebuffer_textures();
-        }
-
-        self.update_camera();
-    }
-
-    pub fn clear(&self) {
-        unsafe { self.gl.clear(glow::COLOR_BUFFER_BIT) };
     }
 
     /// Pushes an OpenGL debug group.
@@ -399,10 +357,75 @@ impl OpenglRenderer {
 
         gl.bind_framebuffer(glow::FRAMEBUFFER, None);
     }
+}
 
-    pub fn render(&self, puppet: &Puppet) {
+impl InoxRenderer for OpenglRenderer {
+    type Error = OpenglRendererError;
+
+    fn prepare(&mut self, model: &Model) -> Result<(), Self::Error> {
+        unsafe {
+            model
+                .puppet
+                .render_ctx
+                .setup_gl_buffers(&self.gl, self.vao)?
+        };
+
+        match self.upload_model_textures(&model.textures) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(OpenglRendererError::Opengl(
+                "Texture Upload Error.".to_string(),
+            )),
+        }
+    }
+
+    fn resize(&mut self, w: u32, h: u32) {
+        self.viewport = uvec2(w, h);
+
+        let gl = &self.gl;
+        unsafe {
+            gl.viewport(0, 0, w as i32, h as i32);
+
+            // Reupload composite framebuffer textures
+            texture::upload_empty(gl, self.cf_albedo, w, h, glow::UNSIGNED_BYTE);
+            texture::upload_empty(gl, self.cf_emissive, w, h, glow::FLOAT);
+            texture::upload_empty(gl, self.cf_bump, w, h, glow::UNSIGNED_BYTE);
+
+            gl.bind_texture(glow::TEXTURE_2D, Some(self.cf_stencil));
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::DEPTH24_STENCIL8 as i32,
+                w as i32,
+                h as i32,
+                0,
+                glow::DEPTH_STENCIL,
+                glow::UNSIGNED_INT_24_8,
+                None,
+            );
+
+            self.attach_framebuffer_textures();
+        }
         self.update_camera();
+    }
 
+    fn clear(&self) {
+        unsafe {
+            self.gl.clear(glow::COLOR_BUFFER_BIT);
+        }
+    }
+
+    /*
+        These functions should be reworked together:
+        setup_gl_buffers -> should set up in a way so that the draw functions draws into a texture
+        on_begin/end_scene -> prepares and ends drawing to texture. also post-processing
+        draw_scene -> actually makes things appear on a surface
+    */
+
+    fn on_begin_scene(&self) {
+        todo!()
+    }
+
+    fn render(&self, puppet: &Puppet) {
         let gl = &self.gl;
         unsafe {
             puppet.render_ctx.upload_deforms_to_gl(gl);
@@ -410,113 +433,98 @@ impl OpenglRenderer {
             gl.disable(glow::DEPTH_TEST);
         }
 
-        for &uuid in &puppet.render_ctx.nodes_zsorted {
-            self.draw_node(puppet, uuid, false, false);
-        }
+        let camera = self
+            .camera
+            .matrix(Vec2::new(self.viewport.x as f32, self.viewport.y as f32));
+        self.draw(&camera, puppet);
     }
 
-    fn draw_node(
-        &self,
-        puppet: &Puppet,
-        uuid: InoxNodeUuid,
-        is_composite_child: bool,
-        is_mask: bool,
-    ) {
-        let node = puppet.nodes.get_node(uuid).unwrap();
-        let node_render_ctx = &puppet.render_ctx.node_render_ctxs[&uuid];
-
-        match (&node.data, &node_render_ctx.kind) {
-            (InoxData::Part(ref part), RenderCtxKind::Part(ref part_render_ctx)) => {
-                self.draw_part(
-                    puppet,
-                    part,
-                    node_render_ctx,
-                    part_render_ctx,
-                    is_composite_child,
-                    is_mask,
-                    &node.name,
-                );
-            }
-
-            (InoxData::Composite(ref composite), RenderCtxKind::Composite(ref children)) => {
-                self.draw_composite(puppet, composite, children, &node.name);
-            }
-
-            _ => (),
-        }
+    fn on_end_scene(&self) {
+        todo!()
     }
 
-    ////////////////////////
-    //// Part rendering ////
-    ////////////////////////
+    fn draw_scene(&self) {
+        todo!()
+    }
 
-    fn draw_part_mask(&self, puppet: &Puppet, mask: &Mask, is_composite_child: bool) {
+    fn on_begin_mask(&self, has_mask: bool) {
         let gl = &self.gl;
-
-        // begin draw mask
         unsafe {
-            // Enable writing to stencil buffer and disable writing to color buffer
+            gl.enable(glow::STENCIL_TEST);
+            gl.clear_stencil(!has_mask as i32);
+            gl.clear(glow::STENCIL_BUFFER_BIT);
+
             gl.color_mask(false, false, false, false);
             gl.stencil_op(glow::KEEP, glow::KEEP, glow::REPLACE);
-            gl.stencil_func(glow::ALWAYS, (mask.mode == MaskMode::Mask) as i32, 0xff);
             gl.stencil_mask(0xff);
         }
+    }
 
-        // draw mask
-        self.draw_node(puppet, mask.source, is_composite_child, true);
-
-        // end draw mask
+    fn set_mask_mode(&self, dodge: bool) {
+        let gl = &self.gl;
         unsafe {
+            gl.stencil_func(glow::ALWAYS, !dodge as i32, 0xff);
+        }
+    }
+
+    fn on_begin_masked_content(&self) {
+        let gl = &self.gl;
+        unsafe {
+            gl.stencil_func(glow::EQUAL, 1, 0xff);
+            gl.stencil_mask(0x00);
+
             gl.color_mask(true, true, true, true);
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn draw_part(
-        &self,
-        puppet: &Puppet,
-        part: &Part,
-        node_render_ctx: &NodeRenderCtx,
-        part_render_ctx: &PartRenderCtx,
-        is_composite_child: bool,
-        is_mask: bool,
-        debug_label: &str,
-    ) {
-        self.push_debug_group(debug_label);
-
+    fn on_end_mask(&self) {
         let gl = &self.gl;
-        let masks = &part.draw_state.masks;
-
-        if !masks.is_empty() {
-            self.push_debug_group("Masks");
-
-            // begin mask
-            unsafe {
-                // Enable and clear the stencil buffer so we can write our mask to it
-                gl.enable(glow::STENCIL_TEST);
-                gl.clear_stencil(!part.draw_state.has_masks() as i32);
-                gl.clear(glow::STENCIL_BUFFER_BIT);
-            }
-
-            for mask in &part.draw_state.masks {
-                self.draw_part_mask(puppet, mask, is_composite_child);
-            }
-
-            self.pop_debug_group();
-
-            // begin mask content
-            unsafe {
-                gl.stencil_func(glow::EQUAL, 1, 0xff);
-                gl.stencil_mask(0x00);
-            }
+        unsafe {
+            gl.stencil_mask(0xff);
+            gl.stencil_func(glow::ALWAYS, 1, 0xff);
+            gl.disable(glow::STENCIL_TEST);
         }
+    }
 
-        let mvp = self.camera.matrix(self.viewport.as_vec2()) * node_render_ctx.trans;
+    fn draw_mesh_self(&self, as_mask: bool, camera: &Mat4) {
+        /*
+        maskShader.use();
+        maskShader.setUniform(offset, data.origin);
+        maskShader.setUniform(mvp, inGetCamera().matrix * transform.matrix());
+
+        // Enable points array
+        glEnableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, null);
+
+        // Bind index buffer
+        this.bindIndex();
+
+        // Disable the vertex attribs after use
+        glDisableVertexAttribArray(0);
+        */
+        todo!()
+    }
+
+    fn draw_part_self(
+        &self,
+        as_mask: bool,
+        camera: &Mat4,
+        node_render_ctx: &NodeRenderCtx,
+        part: &Part,
+        part_render_ctx: &PartRenderCtx,
+    ) {
+        let gl = &self.gl;
 
         self.bind_part_textures(part);
         self.set_blend_mode(part.draw_state.blend_mode);
 
-        if is_mask {
+        let part_shader = &self.part_shader;
+        self.bind_shader(part_shader);
+        // vert uniforms
+        let mvp = *camera * node_render_ctx.trans;
+
+        if as_mask {
             let part_mask_shader = &self.part_mask_shader;
             self.bind_shader(part_mask_shader);
 
@@ -547,32 +555,9 @@ impl OpenglRenderer {
                 part_render_ctx.index_offset as i32 * mem::size_of::<u16>() as i32,
             );
         }
-
-        if !masks.is_empty() {
-            // end mask
-            unsafe {
-                // We're done stencil testing, disable it again so that we don't accidentally mask more stuff out
-                gl.stencil_mask(0xff);
-                gl.stencil_func(glow::ALWAYS, 1, 0xff);
-                gl.disable(glow::STENCIL_TEST);
-            }
-        }
-
-        self.pop_debug_group();
     }
 
-    /////////////////////////////
-    //// Composite rendering ////
-    /////////////////////////////
-
-    /// Begin a composition step
-    fn begin_composite(&self) {
-        if self.is_compositing.get() {
-            // We don't allow recursive compositing
-            return;
-        }
-        self.is_compositing.set(true);
-
+    fn begin_composite_content(&self) {
         self.clear_texture_cache();
 
         let gl = &self.gl;
@@ -593,71 +578,50 @@ impl OpenglRenderer {
         }
     }
 
-    /// End a composition step, re-binding the internal framebuffer
-    fn end_composite(&self) {
-        if !self.is_compositing.get() {
-            // We don't allow recursive compositing
-            return;
-        }
-        self.is_compositing.set(false);
+    fn finish_composite_content(&self, as_mask: bool, composite: &Composite) {
+        let gl = &self.gl;
 
         self.clear_texture_cache();
-
-        let gl = &self.gl;
         unsafe {
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
         }
-    }
-
-    fn draw_composite(
-        &self,
-        puppet: &Puppet,
-        composite: &Composite,
-        children: &[InoxNodeUuid],
-        debug_label: &str,
-    ) {
-        if children.is_empty() {
-            // Optimization: Nothing to be drawn, skip context switching
-            return;
-        }
-
-        self.push_debug_group(debug_label);
-
-        self.begin_composite();
-        for uuid in children {
-            // debug_assert!(*uuid != node.uuid, "A composite lists itself as its child.");
-
-            self.draw_node(puppet, *uuid, true, false);
-        }
-        self.end_composite();
-
-        let gl = &self.gl;
-        unsafe {
-            gl.bind_vertex_array(Some(self.vao));
-
-            gl.active_texture(glow::TEXTURE0);
-            gl.bind_texture(glow::TEXTURE_2D, Some(self.cf_albedo));
-            gl.active_texture(glow::TEXTURE1);
-            gl.bind_texture(glow::TEXTURE_2D, Some(self.cf_emissive));
-            gl.active_texture(glow::TEXTURE2);
-            gl.bind_texture(glow::TEXTURE_2D, Some(self.cf_bump));
-        }
 
         let comp = &composite.draw_state;
-        self.set_blend_mode(comp.blend_mode);
+        if as_mask {
+            /*
+            cShaderMask.use();
+            cShaderMask.setUniform(mopacity, opacity);
+            cShaderMask.setUniform(mthreshold, threshold);
+            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+            */
+            todo!()
+        } else {
+            unsafe {
+                gl.bind_vertex_array(Some(self.vao));
 
-        let opacity = comp.opacity.clamp(0.0, 1.0);
-        let tint = comp.tint.clamp(Vec3::ZERO, Vec3::ONE);
-        let screen_tint = comp.screen_tint.clamp(Vec3::ZERO, Vec3::ONE);
+                gl.active_texture(glow::TEXTURE0);
+                gl.bind_texture(glow::TEXTURE_2D, Some(self.cf_albedo));
+                gl.active_texture(glow::TEXTURE1);
+                gl.bind_texture(glow::TEXTURE_2D, Some(self.cf_emissive));
+                gl.active_texture(glow::TEXTURE2);
+                gl.bind_texture(glow::TEXTURE_2D, Some(self.cf_bump));
+            }
 
-        self.bind_shader(&self.composite_shader);
-        self.composite_shader.set_opacity(gl, opacity);
-        self.composite_shader.set_mult_color(gl, tint);
-        self.composite_shader.set_screen_color(gl, screen_tint);
+            self.set_blend_mode(comp.blend_mode);
+
+            let opacity = comp.opacity.clamp(0.0, 1.0);
+            let tint = comp.tint.clamp(Vec3::ZERO, Vec3::ONE);
+            let screen_tint = comp.screen_tint.clamp(Vec3::ZERO, Vec3::ONE);
+
+            let composite_shader = &self.composite_shader;
+            self.bind_shader(composite_shader);
+            composite_shader.set_opacity(gl, opacity);
+            composite_shader.set_mult_color(gl, tint);
+            composite_shader.set_screen_color(gl, screen_tint);
+        }
+
         unsafe {
             gl.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
         }
-
-        self.pop_debug_group();
     }
 }
