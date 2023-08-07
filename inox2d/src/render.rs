@@ -56,7 +56,7 @@ impl Default for VertexBuffers {
 }
 
 impl VertexBuffers {
-    /// adds the mesh's vertices and UVs to the buffers and returns its index offset.
+    /// Adds the mesh's vertices and UVs to the buffers and returns its index and vertex offset.
     pub fn push(&mut self, mesh: &Mesh) -> (u16, u16) {
         let index_offset = self.indices.len() as u16;
         let vert_offset = self.verts.len() as u16;
@@ -99,9 +99,9 @@ pub type NodeRenderCtxs = HashMap<InoxNodeUuid, NodeRenderCtx>;
 #[derive(Debug)]
 pub struct RenderCtx {
     pub vertex_buffers: VertexBuffers,
-    /// all nodes that need respective draw method calls
-    /// including standalone parts, composite parents
-    /// excluding plain mesh masks, composite children
+    /// All nodes that need respective draw method calls:
+    /// - including standalone parts and composite parents,
+    /// - excluding plain mesh masks and composite children.
     pub root_drawables_zsorted: Vec<InoxNodeUuid>,
     pub node_render_ctxs: NodeRenderCtxs,
 }
@@ -201,40 +201,44 @@ where
 {
     type Error;
 
-    /// do any model-specific setups, e.g. creating buffers with specific sizes
-    /// after this step, the model provided should be renderable
+    /// For any model-specific setup, e.g. creating buffers with specific sizes.
+    /// 
+    /// After this step, the provided model should be renderable.
     fn prepare(&mut self, model: &Model) -> Result<(), Self::Error>;
 
-    /// resize viewport
+    /// Resize the renderer's viewport.
     fn resize(&mut self, w: u32, h: u32);
 
-    /// clear canvas
+    /// Clear the canvas.
     fn clear(&self);
 
-    /// initiate one render pass
+    /// Initiate one render pass.
     fn on_begin_scene(&self);
-    /// the render pass
-    /// logical error if this puppet is not the latest .prepare() ed one
+    /// The render pass.
+    /// 
+    /// Logical error if this puppet is not from the latest prepared model.
     fn render(&self, puppet: &Puppet);
-    /// finish one render pass
+    /// Finish one render pass.
     fn on_end_scene(&self);
-    /// actually make results "visible", e.g. on a screen/texture
+    /// Actually make results visible, e.g. on a screen/texture.
     fn draw_scene(&self);
 
-    /// clear and start writing to stencil buffer, lock color buffer
+    /// Begin masking.
+    /// 
+    /// Clear and start writing to the stencil buffer, lock the color buffer.
     fn on_begin_mask(&self, has_mask: bool);
-    /// the following draws consist a mask or dodge mask
+    /// The following draw calls consist of a mask or dodge mask.
     fn set_mask_mode(&self, dodge: bool);
-    /// read only from stencil buffer, unlock color buffer
+    /// Read only from the stencil buffer, unlock the color buffer.
     fn on_begin_masked_content(&self);
-    /// disable stencil buffer
+    /// Disable the stencil buffer.
     fn on_end_mask(&self);
 
-    /// draw contents of a mesh-defined plain region
+    /// Draw contents of a mesh-defined plain region.
     // TODO: plain mesh (usually for mesh masks) not implemented
     fn draw_mesh_self(&self, as_mask: bool, camera: &Mat4);
 
-    /// draw contents of a part
+    /// Draw contents of a part.
     // TODO: Merging of Part and PartRenderCtx?
     // TODO: Inclusion of NodeRenderCtx into Part?
     fn draw_part_self(
@@ -246,14 +250,14 @@ where
         part_render_ctx: &PartRenderCtx,
     );
 
-    /// get ready so the following draws draw into composite buffers
+    /// When something needs to happen before drawing to the composite buffers.
     fn begin_composite_content(&self);
-    /// transfer content in composite buffers to normal buffers
+    /// Transfer content from composite buffers to normal buffers.
     fn finish_composite_content(&self, as_mask: bool, composite: &Composite);
 }
 
 pub trait InoxRendererCommon {
-    /// draw one part, with its content properly masked
+    /// Draw one part, with its content properly masked.
     fn draw_part(
         &self,
         camera: &Mat4,
@@ -263,7 +267,7 @@ pub trait InoxRendererCommon {
         puppet: &Puppet,
     );
 
-    /// draw one composite
+    /// Draw one composite.
     fn draw_composite(
         &self,
         as_mask: bool,
@@ -273,8 +277,10 @@ pub trait InoxRendererCommon {
         children: &[InoxNodeUuid],
     );
 
-    /// iterate over top-level drawables excluding masks, in zsort order, and call draws correspondingly.
-    /// this effectively draws the complete puppet
+    /// Iterate over top-level drawables (excluding masks) in zsort order,
+    /// and make draw calls correspondingly.
+    /// 
+    /// This effectively draws the complete puppet.
     fn draw(&self, camera: &Mat4, puppet: &Puppet);
 }
 
