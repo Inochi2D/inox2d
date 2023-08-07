@@ -15,13 +15,3 @@ glam = "0.24.0"
 glow = { version = "0.12.1" }
 thiserror = "1.0.39"
 tracing = "0.1.37"
-
-[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-clap = { version = "4.1.8", features = ["derive"] }
-glutin = "0.30.6"
-glutin-winit = "0.3.0"
-raw-window-handle = "0.5.1"
-
-[dev-dependencies]
-tracing-subscriber = "0.3.16"
-winit = "0.28.2"
