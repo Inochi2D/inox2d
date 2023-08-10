@@ -2,13 +2,13 @@ use std::fmt;
 
 use crate::puppet::Puppet;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ModelTexture {
     pub format: image::ImageFormat,
     pub data: Vec<u8>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct VendorData {
     pub name: String,
     pub payload: json::JsonValue,
@@ -31,7 +31,7 @@ impl fmt::Display for VendorData {
 }
 
 /// Inochi2D model.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Model<T = ()> {
     pub puppet: Puppet<T>,
     pub textures: Vec<ModelTexture>,
