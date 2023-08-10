@@ -25,12 +25,15 @@ use self::{
 
 pub struct Renderer {
     setup: InoxPipeline,
-    composite_texture: Option<Texture>,
     model_texture_binds: Vec<BindGroup>,
     buffers: buffers::InoxBuffers,
     bundles: Vec<node_bundle::NodeBundle>,
     pub camera: Camera,
+
     viewport: UVec2,
+    // Cached, must change when viewport does
+    composite_texture: Option<Texture>,
+    mask_texture: Option<Texture>,
 }
 
 impl Renderer {
@@ -111,15 +114,19 @@ impl Renderer {
             buffers,
             bundles,
 
-            composite_texture: None,
             model_texture_binds,
             camera: Camera::default(),
+
             viewport,
+            composite_texture: None,
+            mask_texture: None,
         }
     }
 
     pub fn resize(&mut self, viewport: UVec2) {
         self.viewport = viewport;
+        self.composite_texture = None;
+        self.mask_texture = None;
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -228,13 +235,14 @@ impl Renderer {
         composite_bind: &BindGroup,
         CompositeData(parts, uuid): &CompositeData,
     ) {
-        for data in parts {
+
+        for (i, data) in parts.iter().enumerate() {
             self.render_part(
                 puppet,
                 composite_view,
                 mask_view,
                 uniform_group,
-                op,
+                if i == 0 { LoadOp::Clear(Color::TRANSPARENT) } else { LoadOp::Load },
                 encoder,
                 data,
             );
@@ -302,36 +310,40 @@ impl Renderer {
             }],
         });
 
-        let composite_texture = device.create_texture(&wgpu::TextureDescriptor {
-            size: wgpu::Extent3d {
-                width: self.viewport.x,
-                height: self.viewport.y,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Bgra8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
-            label: Some("texture"),
-            view_formats: &[],
+        let composite_texture = self.composite_texture.get_or_insert_with(|| {
+            device.create_texture(&wgpu::TextureDescriptor {
+                size: wgpu::Extent3d {
+                    width: self.viewport.x,
+                    height: self.viewport.y,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Bgra8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                label: Some("texture"),
+                view_formats: &[],
+            })
         });
 
         let composite_view = composite_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let mask_texture = device.create_texture(&wgpu::TextureDescriptor {
-            size: wgpu::Extent3d {
-                width: self.viewport.x,
-                height: self.viewport.y,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth24PlusStencil8,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
-            label: Some("texture"),
-            view_formats: &[],
+        let mask_texture = self.mask_texture.get_or_insert_with(|| {
+            device.create_texture(&wgpu::TextureDescriptor {
+                size: wgpu::Extent3d {
+                    width: self.viewport.x,
+                    height: self.viewport.y,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Depth24PlusStencil8,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                label: Some("texture"),
+                view_formats: &[],
+            })
         });
 
         let mask_view = mask_texture.create_view(&wgpu::TextureViewDescriptor::default());
