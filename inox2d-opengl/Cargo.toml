@@ -12,6 +12,6 @@ categories = ["graphics", "rendering"]
 image = "0.24.5"
 inox2d = { path = "../inox2d" }
 glam = "0.24.0"
-glow = { version = "0.12.1" }
+glow = { version = "0.13.0" }
 thiserror = "1.0.39"
 tracing = "0.1.37"
