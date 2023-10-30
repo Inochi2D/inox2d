@@ -11,7 +11,7 @@ inox2d-opengl = { path = "../../inox2d-opengl" }
 clap = { version = "4.1.8", features = ["derive"] }
 glam = { version = "0.24.0", features = ["bytemuck"] }
 glow = { version = "0.12.1" }
-glutin = "0.30.6"
+glutin = "0.31.1"
 glutin-winit = "0.3.0"
 raw-window-handle = "0.5.1"
 tracing = "0.1.37"
