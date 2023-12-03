@@ -7,7 +7,7 @@
 
 Officially supported experimental Rust port of [Inochi2D](https://github.com/Inochi2D/inochi2d).
     &nbsp;
-    <a align="center" href="https://discord.gg/D5pzrmyqz3">
+    <a align="center" href="https://discord.com/invite/abnxwN6r9v">
       <img align="center" src="https://img.shields.io/discord/855173611409506334?color=7289DA&label=%20&logo=discord&logoColor=white" alt="Discord" />
     </a>
   </div>
