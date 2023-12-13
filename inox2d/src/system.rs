@@ -1,6 +1,6 @@
 use glam::Vec2;
 
-use crate::nodes::physics::SimplePhysics;
+use crate::nodes::physics::{self, SimplePhysics, SimplePhysicsProps};
 
 #[derive(Clone, Debug)]
 pub struct PhysicsState<const N: usize> {
@@ -26,7 +26,7 @@ pub trait PhysicsSystem<const N: usize> {
     fn state_mut(&mut self) -> &mut PhysicsState<N>;
     fn set_state(&mut self, state: PhysicsState<N>);
 
-    fn eval(&mut self, node: &SimplePhysics, t: f32) -> &mut PhysicsState<N>;
+    fn eval(&mut self, physics_props: &SimplePhysicsProps, t: f32) -> &mut PhysicsState<N>;
     fn tick(&mut self, node: &SimplePhysics, h: f32) -> Self::Output;
 }
 
@@ -39,7 +39,7 @@ pub enum ParamMapMode {
 #[derive(Default, Debug, Clone)]
 pub struct Pendulum {
     /// bob is happy
-    bob: Vec2,
+    pub bob: Vec2,
     /// contains the angle and delta-angle
     physics_state: PhysicsState<2>,
 }
@@ -85,19 +85,21 @@ impl PhysicsSystem<2> for Pendulum {
         self.physics_state = state;
     }
 
-    fn eval(&mut self, node: &SimplePhysics, _t: f32) -> &mut PhysicsState<2> {
+    fn eval(&mut self, physics_props: &SimplePhysicsProps, _t: f32) -> &mut PhysicsState<2> {
         self.set_derivative_angle(self.delta_angle());
 
         let dd = {
-            let length_ratio = node.gravity / node.length;
+            let length_ratio = physics_props.gravity / physics_props.length;
             let crit_damp = 2. * length_ratio.sqrt();
             let dd = -length_ratio * self.angle().sin();
-            dd - self.delta_angle() * node.angle_damping * crit_damp
+            dd - self.delta_angle() * physics_props.angle_damping * crit_damp
         };
         self.set_derivative_delta_angle(dd);
 
         &mut self.physics_state
     }
+
+    // TODO: oh my god there are 2 tick functions. This really needs a rename/refactor/whatever.
 
     fn tick(&mut self, node: &SimplePhysics, h: f32) -> Vec2 {
         // Compute the angle against the updated anchor position
@@ -105,12 +107,12 @@ impl PhysicsSystem<2> for Pendulum {
         self.set_angle(f32::atan2(-delta_bob.x, delta_bob.y));
 
         // Run the pendulum simulation in terms of angle
-        node.tick(self, h);
+        physics::tick(self, &node.props, h);
 
         // Update bob's position at the new angle
         let angle = self.angle();
         let delta_bob = Vec2::new(-angle.sin(), angle.cos());
-        self.bob = node.anchor + delta_bob * node.length;
+        self.bob = node.anchor + delta_bob * node.props.length;
 
         self.bob
     }

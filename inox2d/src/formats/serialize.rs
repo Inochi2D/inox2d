@@ -14,7 +14,7 @@ use crate::nodes::node_data::{
     UnknownMaskModeError,
 };
 use crate::nodes::node_tree::InoxNodeTree;
-use crate::nodes::physics::SimplePhysics;
+use crate::nodes::physics::{SimplePhysics, SimplePhysicsProps};
 use crate::params::{AxisPoints, Binding, BindingValues, Param};
 use crate::puppet::{
     Puppet, PuppetAllowedModification, PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta,
@@ -201,23 +201,20 @@ fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics
     Ok(SimplePhysics {
         param,
 
-        offset_gravity: 0.,
-        offset_length: 0.,
-        offset_frequency: 0.,
-        offset_angle_damping: 0.,
-        offset_length_damping: 0.,
-        offset_output_scale: Vec2::ZERO,
-
         system,
         map_mode,
 
+        offset_props: SimplePhysicsProps::default(),
+        props: SimplePhysicsProps {
+            gravity,
+            length,
+            frequency,
+            angle_damping,
+            length_damping,
+            output_scale,
+        },
+
         local_only,
-        gravity,
-        length,
-        frequency,
-        angle_damping,
-        length_damping,
-        output_scale,
 
         anchor: Vec2::ZERO,
         output: Vec2::ZERO,
