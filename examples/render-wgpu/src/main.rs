@@ -85,7 +85,7 @@ pub async fn run(model: Model) {
 
             puppet.begin_set_params();
             let t = scene_ctrl.current_elapsed();
-            puppet.set_param("Head:: Yaw-Pitch", vec2(t.cos(), t.sin()));
+            puppet.set_named_param("Head:: Yaw-Pitch", vec2(t.cos(), t.sin()));
             puppet.end_set_params();
 
             let output = surface.get_current_texture().unwrap();
