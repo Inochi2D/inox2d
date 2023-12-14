@@ -3,6 +3,7 @@ use std::ops::Not;
 
 use glam::{vec2, vec4, Vec2};
 
+use crate::params::ParamUuid;
 use crate::puppet::{Puppet, PuppetPhysics};
 use crate::render::NodeRenderCtx;
 use crate::system::{ParamMapMode, PhysicsSystem, SimplePhysicsSystem};
@@ -25,7 +26,7 @@ pub struct SimplePhysicsProps {
 
 #[derive(Debug, Clone)]
 pub struct SimplePhysics {
-    pub param: u32,
+    pub param: ParamUuid,
 
     pub system: SimplePhysicsSystem,
     pub map_mode: ParamMapMode,
@@ -61,7 +62,7 @@ impl SimplePhysics {
         &mut self,
         node_render_ctx: &NodeRenderCtx,
         puppet: &mut Puppet,
-        param_name: &str,
+        param_uuid: ParamUuid,
     ) {
         let oscale = self.final_output_scale();
 
@@ -93,7 +94,7 @@ impl SimplePhysics {
             }
         };
 
-        puppet.set_param(param_name, param_value * oscale);
+        puppet.set_param(param_uuid, param_value * oscale);
     }
 
     pub fn update_driver(
@@ -101,7 +102,7 @@ impl SimplePhysics {
         dt: f32,
         node_render_ctx: &NodeRenderCtx,
         puppet: &mut Puppet,
-        param_name: &str,
+        param_uuid: ParamUuid,
     ) {
         // Timestep is limited to 10 seconds.
         // If you're getting 0.1 FPS, you have bigger issues to deal with.
@@ -117,7 +118,7 @@ impl SimplePhysics {
 
         self.tick_system(h);
 
-        self.update_outputs(node_render_ctx, puppet, param_name);
+        self.update_outputs(node_render_ctx, puppet, param_uuid);
     }
 
     pub fn update_anchor(&mut self) {

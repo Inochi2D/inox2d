@@ -15,13 +15,12 @@ use crate::nodes::node_data::{
 };
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::nodes::physics::{SimplePhysics, SimplePhysicsProps};
-use crate::params::{AxisPoints, Binding, BindingValues, Param};
+use crate::params::{AxisPoints, Binding, BindingValues, Param, ParamUuid};
 use crate::puppet::{
     Puppet, PuppetAllowedModification, PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta,
     PuppetPhysics, PuppetUsageRights, UnknownPuppetAllowedModificationError,
     UnknownPuppetAllowedRedistributionError, UnknownPuppetAllowedUsersError,
 };
-use crate::render::RenderCtx;
 use crate::system::{ParamMapMode, Pendulum, SimplePhysicsSystem};
 
 use super::json::{JsonError, JsonObject, SerialExtend};
@@ -174,7 +173,7 @@ fn deserialize_composite(obj: &JsonObject) -> InoxParseResult<Composite> {
 }
 
 fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics> {
-    let param = obj.get_u32("param")?;
+    let param = ParamUuid(obj.get_u32("param")?);
 
     let system = match obj.get_str("model_type")? {
         "pendulum" => SimplePhysicsSystem::Pendulum(Pendulum::default()),
@@ -329,18 +328,17 @@ pub fn deserialize_puppet_ext<T>(
         "nodes",
         deserialize_nodes(&obj.get_object("nodes")?, deserialize_node_custom),
     )?;
-    let render_ctx = RenderCtx::new(&nodes);
 
-    Ok(Puppet {
-        meta: vals("meta", deserialize_puppet_meta(&obj.get_object("meta")?))?,
-        physics: vals(
-            "physics",
-            deserialize_puppet_physics(&obj.get_object("physics")?),
-        )?,
-        nodes,
-        parameters: deserialize_params(obj.get_list("param")?),
-        render_ctx,
-    })
+    let meta = vals("meta", deserialize_puppet_meta(&obj.get_object("meta")?))?;
+
+    let physics = vals(
+        "physics",
+        deserialize_puppet_physics(&obj.get_object("physics")?),
+    )?;
+
+    let parameters = deserialize_params(obj.get_list("param")?);
+
+    Ok(Puppet::new(meta, physics, nodes, parameters))
 }
 
 fn deserialize_params(vals: &[json::JsonValue]) -> HashMap<String, Param> {
@@ -354,7 +352,7 @@ fn deserialize_param(obj: &JsonObject) -> InoxParseResult<(String, Param)> {
     Ok((
         name.clone(),
         Param {
-            uuid: obj.get_u32("uuid")?,
+            uuid: ParamUuid(obj.get_u32("uuid")?),
             name,
             is_vec2: obj.get_bool("is_vec2")?,
             min: obj.get_vec2("min")?,
