@@ -4,7 +4,6 @@ use std::ffi::CString;
 use std::num::NonZeroU32;
 
 use glow::HasContext;
-use glutin::config::Config;
 use glutin::context::{ContextApi, ContextAttributesBuilder, NotCurrentGlContext, PossiblyCurrentContext, Version};
 use glutin::display::{Display, GetGlDisplay};
 use glutin::prelude::{GlConfig, GlDisplay};
