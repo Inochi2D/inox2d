@@ -45,16 +45,8 @@ pub fn launch_opengl_window() -> Result<App, Box<dyn Error>> {
 		.with_window_builder(Some(window_builder))
 		.build(&events, <_>::default(), |configs| {
 			configs
-				.filter(|c| match c {
-					Config::Egl(c) => c.srgb_capable(),
-					#[cfg(target_os = "linux")]
-					Config::Glx(c) => c.srgb_capable(),
-				})
-				.max_by_key(|c| match c {
-					Config::Egl(c) => c.num_samples(),
-					#[cfg(target_os = "linux")]
-					Config::Glx(c) => c.num_samples(),
-				})
+				.filter(|c| c.srgb_capable())
+				.max_by_key(|c| c.num_samples())
 				.unwrap()
 		})?;
 
