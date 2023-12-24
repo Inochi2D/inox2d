@@ -4,11 +4,12 @@ use std::ffi::CString;
 use std::num::NonZeroU32;
 
 use glow::HasContext;
-use glutin::context::{ContextApi, ContextAttributesBuilder, PossiblyCurrentContext, Version};
+use glutin::config::Config;
+use glutin::context::{ContextApi, ContextAttributesBuilder, NotCurrentGlContext, PossiblyCurrentContext, Version};
 use glutin::display::{Display, GetGlDisplay};
-use glutin::prelude::{GlConfig, GlDisplay, NotCurrentGlContextSurfaceAccessor};
+use glutin::prelude::{GlConfig, GlDisplay};
 use glutin::surface::{Surface, SurfaceAttributesBuilder, WindowSurface};
-use glutin_winit::ApiPrefence;
+use glutin_winit::ApiPreference;
 use raw_window_handle::HasRawWindowHandle;
 use tracing::{debug, error, info, warn};
 use winit::event_loop::EventLoop;
@@ -31,7 +32,7 @@ pub fn launch_opengl_window() -> Result<App, Box<dyn Error>> {
 		}
 	}
 
-	let events = winit::event_loop::EventLoop::new();
+	let events = winit::event_loop::EventLoop::new().unwrap();
 
 	let window_builder = winit::window::WindowBuilder::new()
 		.with_transparent(true)
@@ -40,12 +41,18 @@ pub fn launch_opengl_window() -> Result<App, Box<dyn Error>> {
 		.with_title("Render Inochi2D Puppet (OpenGL)");
 
 	let (window, gl_config) = glutin_winit::DisplayBuilder::new()
-		.with_preference(ApiPrefence::FallbackEgl)
+		.with_preference(ApiPreference::FallbackEgl)
 		.with_window_builder(Some(window_builder))
 		.build(&events, <_>::default(), |configs| {
 			configs
-				.filter(|c| c.srgb_capable())
-				.max_by_key(|c| c.num_samples())
+				.filter(|c| match c {
+					Config::Egl(c) => c.srgb_capable(),
+					_ => false,
+				})
+				.max_by_key(|c| match c {
+					Config::Egl(c) => c.num_samples(),
+					_ => 0,
+				})
 				.unwrap()
 		})?;
 

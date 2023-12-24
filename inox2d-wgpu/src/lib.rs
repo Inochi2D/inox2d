@@ -136,16 +136,21 @@ impl Renderer {
 			color_attachments: &[Some(wgpu::RenderPassColorAttachment {
 				view,
 				resolve_target: None,
-				ops: wgpu::Operations { load: op, store: true },
+				ops: wgpu::Operations {
+					load: op,
+					store: StoreOp::Store,
+				},
 			})],
 			depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
 				view: mask_view,
 				depth_ops: None,
 				stencil_ops: Some(Operations {
 					load: wgpu::LoadOp::Clear(u32::from(!masks.is_empty())),
-					store: true,
+					store: StoreOp::Store,
 				}),
 			}),
+			timestamp_writes: None,    // todo!(),
+			occlusion_query_set: None, // todo!(),
 		});
 
 		render_pass.set_vertex_buffer(0, self.buffers.vertex_buffer.slice(..));
@@ -236,13 +241,18 @@ impl Renderer {
 			color_attachments: &[Some(wgpu::RenderPassColorAttachment {
 				view,
 				resolve_target: None,
-				ops: wgpu::Operations { load: op, store: true },
+				ops: wgpu::Operations {
+					load: op,
+					store: StoreOp::Store,
+				},
 			})],
 			depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
 				view: mask_view,
 				depth_ops: None,
 				stencil_ops: None,
 			}),
+			timestamp_writes: None,    // todo!(),
+			occlusion_query_set: None, //todo!(),
 		});
 
 		render_pass.set_vertex_buffer(0, self.buffers.vertex_buffer.slice(..));

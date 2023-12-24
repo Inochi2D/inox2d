@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 glam = "0.24.0"
 inox2d = { path = "../../inox2d" }
-winit = "0.28.2"
+winit = "0.29"
