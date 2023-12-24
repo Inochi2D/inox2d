@@ -108,7 +108,7 @@ impl GlCache {
 
 pub struct OpenglRenderer {
 	gl: glow::Context,
-	pub support_debug_extension: bool,
+	support_debug_extension: bool,
 	pub camera: Camera,
 	pub viewport: UVec2,
 	cache: RefCell<GlCache>,
@@ -206,7 +206,7 @@ impl OpenglRenderer {
 	///
 	/// It is a no-op on platforms that don't support it (like Apple *OS).
 	#[inline]
-	pub fn push_debug_group(&self, name: &str) {
+	fn push_debug_group(&self, name: &str) {
 		if self.support_debug_extension {
 			unsafe {
 				self.gl.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, name);
@@ -218,7 +218,7 @@ impl OpenglRenderer {
 	///
 	/// It is a no-op on platforms that don't support it (like Apple *OS).
 	#[inline]
-	pub fn pop_debug_group(&self) {
+	fn pop_debug_group(&self) {
 		if self.support_debug_extension {
 			unsafe {
 				self.gl.pop_debug_group();
@@ -470,7 +470,7 @@ impl InoxRenderer for OpenglRenderer {
 		}
 	}
 
-	fn draw_mesh_self(&self, _as_mask: bool, _camera: &Mat4) {
+	fn draw_mesh_self(&self, as_mask: bool, camera: &Mat4) {
 		/*
 		maskShader.use();
 		maskShader.setUniform(offset, data.origin);
