@@ -16,7 +16,7 @@ fn create_window(event: &winit::event_loop::EventLoop<()>) -> Result<winit::wind
 		.and_then(|win| win.document())
 		.and_then(|doc| doc.body())
 		.and_then(|body| {
-			let canvas = web_sys::Element::from(window.canvas());
+			let canvas = web_sys::Element::from(window.canvas().unwrap());
 			canvas.set_id("canvas");
 			body.append_child(&canvas).ok()
 		})
@@ -55,7 +55,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 
 	use crate::scene::WasmSceneController;
 
-	let events = winit::event_loop::EventLoop::new();
+	let events = winit::event_loop::EventLoop::new().unwrap();
 	let window = create_window(&events)?;
 
 	// Make sure the context has a stencil buffer
@@ -134,11 +134,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 	}
 
 	// Event loop
-	events.run(move |event, _, control_flow| {
+	events.run(move |event, elwt| {
 		// it needs to be present
 		let _window = &window;
-
-		control_flow.set_wait();
+		elwt.set_control_flow(winit::event_loop::ControlFlow::Wait);
 
 		match event {
 			Event::WindowEvent { ref event, .. } => match event {
@@ -147,17 +146,18 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 					renderer.borrow_mut().resize(physical_size.width, physical_size.height);
 					window.request_redraw();
 				}
-				WindowEvent::CloseRequested => control_flow.set_exit(),
+				WindowEvent::CloseRequested => elwt.exit(),
 				_ => scene_ctrl
 					.borrow_mut()
 					.interact(&window, event, &renderer.borrow().camera),
 			},
-			Event::MainEventsCleared => {
+			Event::AboutToWait => {
 				window.request_redraw();
 			}
 			_ => (),
 		}
-	})
+	})?;
+	Ok(())
 }
 
 #[cfg(target_arch = "wasm32")]

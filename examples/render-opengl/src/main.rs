@@ -10,10 +10,13 @@ use glam::Vec2;
 use glutin::surface::GlSurface;
 use tracing::{debug, info};
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*};
-use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
+
+use winit::event::{ElementState, Event, KeyEvent, WindowEvent};
 
 use common::scene::ExampleSceneController;
 use opengl::{launch_opengl_window, App};
+use winit::event_loop::ControlFlow;
+use winit::keyboard::{KeyCode, PhysicalKey};
 
 mod opengl;
 
@@ -64,15 +67,17 @@ fn main() -> Result<(), Box<dyn Error>> {
 	let mut puppet = model.puppet;
 
 	// Event loop
-	events.run(move |event, _, control_flow| {
+	events.run(move |event, elwt| {
 		// They need to be present
 		let _gl_display = &gl_display;
 		let _window = &window;
-
-		control_flow.set_wait();
+		elwt.set_control_flow(ControlFlow::Wait);
 
 		match event {
-			Event::RedrawRequested(_) => {
+			Event::WindowEvent {
+				window_id: _,
+				event: winit::event::WindowEvent::RedrawRequested,
+			} => {
 				debug!("Redrawing");
 				scene_ctrl.update(&mut renderer.camera);
 
@@ -99,25 +104,27 @@ fn main() -> Result<(), Box<dyn Error>> {
 					);
 					window.request_redraw();
 				}
-				WindowEvent::CloseRequested => control_flow.set_exit(),
+				WindowEvent::CloseRequested => elwt.exit(),
 				WindowEvent::KeyboardInput {
-					input:
-						KeyboardInput {
-							virtual_keycode: Some(VirtualKeyCode::Escape),
+					event:
+						KeyEvent {
+							//virtual_keycode: Some(VirtualKeyCode::Escape),
 							state: ElementState::Pressed,
+							physical_key: PhysicalKey::Code(KeyCode::Escape),
 							..
 						},
 					..
 				} => {
 					info!("There is an Escape D:");
-					control_flow.set_exit();
+					elwt.exit();
 				}
 				_ => scene_ctrl.interact(&window, event, &renderer.camera),
 			},
-			Event::MainEventsCleared => {
+			Event::AboutToWait => {
 				window.request_redraw();
 			}
 			_ => (),
 		}
-	})
+	})?;
+	Ok(())
 }

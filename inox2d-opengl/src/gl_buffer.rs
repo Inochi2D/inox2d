@@ -4,9 +4,8 @@ use inox2d::render::RenderCtx;
 
 use super::OpenglRendererError;
 
-unsafe fn upload_array_to_gl<T>(gl: &glow::Context, array: &Vec<T>, target: u32, usage: u32) {
-	let bytes: &[u8] =
-		core::slice::from_raw_parts(array.as_ptr() as *const u8, array.len() * core::mem::size_of::<T>());
+unsafe fn upload_array_to_gl<T>(gl: &glow::Context, array: &[T], target: u32, usage: u32) {
+	let bytes: &[u8] = core::slice::from_raw_parts(array.as_ptr() as *const u8, std::mem::size_of_val(array));
 	let buffer = gl.create_buffer().unwrap();
 	gl.bind_buffer(target, Some(buffer));
 	gl.buffer_data_u8_slice(target, bytes, usage);
