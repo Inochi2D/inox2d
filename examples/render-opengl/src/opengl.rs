@@ -47,11 +47,11 @@ pub fn launch_opengl_window() -> Result<App, Box<dyn Error>> {
 			configs
 				.filter(|c| match c {
 					Config::Egl(c) => c.srgb_capable(),
-					_ => false,
+					Config::Glx(c) => c.srgb_capable(),
 				})
 				.max_by_key(|c| match c {
 					Config::Egl(c) => c.num_samples(),
-					_ => 0,
+					Config::Glx(c) => c.num_samples(),
 				})
 				.unwrap()
 		})?;
