@@ -5,7 +5,6 @@ use std::time::Instant;
 use glam::{vec2, Vec2};
 use inox2d::math::camera::Camera;
 use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
-use winit::window::Window;
 
 pub struct ExampleSceneController {
 	// for camera position and mouse interactions
@@ -54,14 +53,10 @@ impl ExampleSceneController {
 		self.current_elapsed = self.start.elapsed().as_secs_f32();
 	}
 
-	pub fn interact(&mut self, window: &Window, event: &WindowEvent, camera: &Camera) {
+	pub fn interact(&mut self, event: &WindowEvent, camera: &Camera) {
 		match event {
 			WindowEvent::CursorMoved { position, .. } => {
 				self.mouse_pos = vec2(position.x as f32, position.y as f32);
-
-				if self.mouse_state == ElementState::Pressed {
-					window.request_redraw();
-				}
 			}
 			WindowEvent::MouseInput { state, .. } => {
 				self.mouse_state = *state;
@@ -78,8 +73,6 @@ impl ExampleSceneController {
 				};
 
 				self.hard_scale *= 2_f32.powf(self.scroll_speed * my * 0.1);
-
-				window.request_redraw();
 			}
 			_ => (),
 		}
