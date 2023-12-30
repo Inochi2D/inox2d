@@ -125,7 +125,7 @@ pub async fn run(model: Model) {
 					// On macos the window needs to be redrawn manually after resizing
 					window.request_redraw();
 				}
-				_ => scene_ctrl.interact(&window, event, &renderer.camera),
+				_ => scene_ctrl.interact(event, &renderer.camera),
 			},
 			Event::AboutToWait => {
 				// RedrawRequested will only trigger once, unless we manually

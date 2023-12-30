@@ -1,24 +1,27 @@
 use std::path::PathBuf;
-use std::{error::Error, fs, num::NonZeroU32};
+use std::{error::Error, fs};
 
 use inox2d::formats::inp::parse_inp;
+use inox2d::model::Model;
 use inox2d::render::InoxRenderer;
 use inox2d_opengl::OpenglRenderer;
 
 use clap::Parser;
 use glam::Vec2;
-use glutin::surface::GlSurface;
-use tracing::{debug, info};
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*};
 
-use winit::event::{ElementState, Event, KeyEvent, WindowEvent};
+use winit::event::{ElementState, KeyEvent, WindowEvent};
 
 use common::scene::ExampleSceneController;
-use opengl::{launch_opengl_window, App};
-use winit::event_loop::ControlFlow;
+use winit::event_loop::EventLoopWindowTarget;
 use winit::keyboard::{KeyCode, PhysicalKey};
 
-mod opengl;
+use app_frame::App;
+use winit::window::WindowBuilder;
+
+use crate::app_frame::AppFrame;
+
+mod app_frame;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -35,96 +38,115 @@ fn main() -> Result<(), Box<dyn Error>> {
 		.with(LevelFilter::INFO)
 		.init();
 
-	info!("Parsing puppet");
+	tracing::info!("Parsing puppet");
 
 	let data = fs::read(cli.inp_path).unwrap();
 	let model = parse_inp(data.as_slice()).unwrap();
-	info!(
+	tracing::info!(
 		"Successfully parsed puppet: {}",
 		(model.puppet.meta.name.as_deref()).unwrap_or("<no puppet name specified in file>")
 	);
 
-	info!("Setting up windowing and OpenGL");
-	let App {
-		gl,
-		gl_ctx,
-		gl_surface,
-		gl_display,
-		events,
-		window,
-	} = launch_opengl_window()?;
+	tracing::info!("Setting up windowing and OpenGL");
+	let app_frame = AppFrame::init(
+		WindowBuilder::new()
+			.with_transparent(true)
+			.with_resizable(true)
+			.with_inner_size(winit::dpi::PhysicalSize::new(600, 800))
+			.with_title("Render Inochi2D Puppet (OpenGL)"),
+	)?;
 
-	info!("Initializing Inox2D renderer");
-	let window_size = window.inner_size();
+	app_frame.run(Inox2dOpenglExampleApp::new(model))?;
 
-	let mut renderer = OpenglRenderer::new(gl)?;
-	renderer.prepare(&model)?;
-	renderer.resize(window_size.width, window_size.height);
-	renderer.camera.scale = Vec2::splat(0.15);
-	info!("Inox2D renderer initialized");
-
-	let mut scene_ctrl = ExampleSceneController::new(&renderer.camera, 0.5);
-	let mut puppet = model.puppet;
-
-	// Event loop
-	events.run(move |event, elwt| {
-		// They need to be present
-		let _gl_display = &gl_display;
-		let _window = &window;
-		elwt.set_control_flow(ControlFlow::Wait);
-
-		match event {
-			Event::WindowEvent {
-				window_id: _,
-				event: winit::event::WindowEvent::RedrawRequested,
-			} => {
-				debug!("Redrawing");
-				scene_ctrl.update(&mut renderer.camera);
-
-				renderer.clear();
-
-				puppet.begin_set_params();
-				let t = scene_ctrl.current_elapsed();
-				puppet.set_param("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
-				puppet.end_set_params();
-
-				renderer.render(&puppet);
-
-				gl_surface.swap_buffers(&gl_ctx).unwrap();
-				window.request_redraw();
-			}
-			Event::WindowEvent { ref event, .. } => match event {
-				WindowEvent::Resized(physical_size) => {
-					// Handle window resizing
-					renderer.resize(physical_size.width, physical_size.height);
-					gl_surface.resize(
-						&gl_ctx,
-						NonZeroU32::new(physical_size.width).unwrap(),
-						NonZeroU32::new(physical_size.height).unwrap(),
-					);
-					window.request_redraw();
-				}
-				WindowEvent::CloseRequested => elwt.exit(),
-				WindowEvent::KeyboardInput {
-					event:
-						KeyEvent {
-							//virtual_keycode: Some(VirtualKeyCode::Escape),
-							state: ElementState::Pressed,
-							physical_key: PhysicalKey::Code(KeyCode::Escape),
-							..
-						},
-					..
-				} => {
-					info!("There is an Escape D:");
-					elwt.exit();
-				}
-				_ => scene_ctrl.interact(&window, event, &renderer.camera),
-			},
-			Event::AboutToWait => {
-				window.request_redraw();
-			}
-			_ => (),
-		}
-	})?;
 	Ok(())
+}
+
+struct Inox2dOpenglExampleApp {
+	on_window: Option<(OpenglRenderer, ExampleSceneController)>,
+	model: Model,
+	width: u32,
+	height: u32,
+}
+
+impl Inox2dOpenglExampleApp {
+	pub fn new(model: Model) -> Self {
+		Self {
+			on_window: None,
+			model,
+			width: 0,
+			height: 0,
+		}
+	}
+}
+
+impl App for Inox2dOpenglExampleApp {
+	fn resume_window(&mut self, gl: glow::Context) {
+		match OpenglRenderer::new(gl) {
+			Ok(mut renderer) => {
+				tracing::info!("Initializing Inox2D renderer");
+				renderer.prepare(&self.model).unwrap();
+				renderer.resize(self.width, self.height);
+				renderer.camera.scale = Vec2::splat(0.15);
+				tracing::info!("Inox2D renderer initialized");
+
+				let scene_ctrl = ExampleSceneController::new(&renderer.camera, 0.5);
+				self.on_window = Some((renderer, scene_ctrl));
+			}
+			Err(e) => {
+				tracing::error!("{}", e);
+				self.on_window = None;
+			}
+		}
+	}
+
+	fn resize(&mut self, width: i32, height: i32) {
+		self.width = width as u32;
+		self.height = height as u32;
+
+		if let Some((renderer, _)) = &mut self.on_window {
+			renderer.resize(self.width, self.height);
+		}
+	}
+
+	fn draw(&mut self) {
+		let Some((renderer, scene_ctrl)) = &mut self.on_window else {
+			return;
+		};
+
+		tracing::debug!("Redrawingggggg");
+		scene_ctrl.update(&mut renderer.camera);
+
+		renderer.clear();
+
+		let puppet = &mut self.model.puppet;
+		puppet.begin_set_params();
+		let t = scene_ctrl.current_elapsed();
+		puppet.set_param("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
+		puppet.end_set_params();
+
+		renderer.render(puppet);
+	}
+
+	fn handle_window_event(&mut self, event: WindowEvent, elwt: &EventLoopWindowTarget<()>) {
+		match event {
+			WindowEvent::CloseRequested => elwt.exit(),
+			WindowEvent::KeyboardInput {
+				event:
+					KeyEvent {
+						state: ElementState::Pressed,
+						physical_key: PhysicalKey::Code(KeyCode::Escape),
+						..
+					},
+				..
+			} => {
+				tracing::info!("There is an Escape D:");
+				elwt.exit();
+			}
+			event => {
+				if let Some((renderer, scene_ctrl)) = &mut self.on_window {
+					scene_ctrl.interact(&event, &renderer.camera)
+				}
+			}
+		}
+	}
 }
