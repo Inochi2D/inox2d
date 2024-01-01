@@ -298,11 +298,11 @@ pub struct PuppetPhysics {
 }
 
 /// Inochi2D puppet.
-#[derive(Clone, Debug)]
-pub struct Puppet<T = ()> {
+#[derive(Debug)]
+pub struct Puppet {
 	pub meta: PuppetMeta,
 	pub physics: PuppetPhysics,
-	pub nodes: InoxNodeTree<T>,
+	pub nodes: InoxNodeTree,
 	pub parameters: HashMap<String, Param>,
 	pub render_ctx: RenderCtx,
 }

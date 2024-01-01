@@ -6,7 +6,7 @@ mod pipeline;
 
 use inox2d::math::camera::Camera;
 use inox2d::model::Model;
-use inox2d::nodes::node_data::{InoxData, MaskMode};
+use inox2d::nodes::components::{InoxData, MaskMode};
 use inox2d::puppet::Puppet;
 use inox2d::render::RenderCtxKind;
 

@@ -3,8 +3,9 @@ use glam::{vec2, Vec2};
 use crate::math::interp::{bi_interpolate_f32, bi_interpolate_vec2s_additive, InterpRange, InterpolateMode};
 use crate::math::matrix::Matrix2d;
 use crate::nodes::node::InoxNodeUuid;
+use crate::nodes::node_tree::InoxNodeTree;
 use crate::puppet::Puppet;
-use crate::render::{NodeRenderCtxs, PartRenderCtx, RenderCtxKind};
+use crate::render::{NodeRenderCtx, PartRenderCtx};
 
 /// Parameter binding to a node. This allows to animate a node based on the value of the parameter that owns it.
 #[derive(Debug, Clone)]
@@ -60,7 +61,7 @@ pub struct Param {
 }
 
 impl Param {
-	pub fn apply(&self, val: Vec2, node_render_ctxs: &mut NodeRenderCtxs, deform_buf: &mut [Vec2]) {
+	pub fn apply(&self, val: Vec2, nodes: &mut InoxNodeTree, deform_buf: &mut [Vec2]) {
 		let val = val.clamp(self.min, self.max);
 		let val_normed = (val - self.min) / (self.max - self.min);
 
@@ -87,7 +88,8 @@ impl Param {
 
 		// Apply offset on each binding
 		for binding in &self.bindings {
-			let node_offsets = node_render_ctxs.get_mut(&binding.node).unwrap();
+			let node = nodes.get_node_mut(binding.node).unwrap();
+			let node_offsets = node.components.get_mut::<NodeRenderCtx>().unwrap();
 
 			let range_in = InterpRange::new(
 				vec2(self.axis_points.x[x_mindex], self.axis_points.y[y_mindex]),
@@ -151,11 +153,11 @@ impl Param {
 						matrix[(x_maxdex, y_maxdex)].as_slice(),
 					);
 
-					if let RenderCtxKind::Part(PartRenderCtx {
+					if let Some(PartRenderCtx {
 						vert_offset, vert_len, ..
-					}) = node_offsets.kind
+					}) = node.components.get::<PartRenderCtx>()
 					{
-						let def_beg = vert_offset as usize;
+						let def_beg = *vert_offset as usize;
 						let def_end = def_beg + vert_len;
 
 						bi_interpolate_vec2s_additive(
@@ -180,8 +182,12 @@ impl Puppet {
 
 	pub fn begin_set_params(&mut self) {
 		// Reset all transform and deform offsets before applying bindings
-		for (key, value) in self.render_ctx.node_render_ctxs.iter_mut() {
-			value.trans_offset = self.nodes.get_node(*key).expect("node to be in tree").trans_offset;
+		for node in self.nodes.arena.iter_mut() {
+			let node = node.get_mut();
+
+			if let Some(node_render_ctx) = node.components.get_mut::<NodeRenderCtx>() {
+				node_render_ctx.trans_offset = node.trans_offset;
+			}
 		}
 
 		for v in self.render_ctx.vertex_buffers.deforms.iter_mut() {
@@ -197,7 +203,7 @@ impl Puppet {
 
 		param.apply(
 			val,
-			&mut self.render_ctx.node_render_ctxs,
+			&mut self.nodes,
 			self.render_ctx.vertex_buffers.deforms.as_mut_slice(),
 		);
 	}

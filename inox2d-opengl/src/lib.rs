@@ -10,12 +10,13 @@ use std::ops::Deref;
 use gl_buffer::RenderCtxOpenglExt;
 use glam::{uvec2, Mat4, UVec2, Vec2, Vec3};
 use glow::HasContext;
+use inox2d::mesh::Mesh;
 use inox2d::texture::{parallel_decode_model_textures, TextureId};
 use tracing::{debug, error};
 
 use inox2d::math::camera::Camera;
 use inox2d::model::{Model, ModelTexture};
-use inox2d::nodes::node_data::{BlendMode, Composite, Part};
+use inox2d::nodes::components::{BlendMode, Composite, Part};
 use inox2d::puppet::Puppet;
 use inox2d::render::{InoxRenderer, InoxRendererCommon, NodeRenderCtx, PartRenderCtx};
 
@@ -283,6 +284,8 @@ impl OpenglRenderer {
 					gl.blend_equation(glow::FUNC_SUBTRACT);
 					gl.blend_func(glow::ONE_MINUS_DST_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
 				}
+				// TODO add remaining blend modes
+				_ => todo!(),
 			}
 		}
 	}
@@ -497,11 +500,12 @@ impl InoxRenderer for OpenglRenderer {
 		node_render_ctx: &NodeRenderCtx,
 		part: &Part,
 		part_render_ctx: &PartRenderCtx,
+		mesh: &Mesh,
 	) {
 		let gl = &self.gl;
 
 		self.bind_part_textures(part);
-		self.set_blend_mode(part.draw_state.blend_mode);
+		self.set_blend_mode(part.blending.mode);
 
 		let part_shader = &self.part_shader;
 		self.bind_shader(part_shader);
@@ -516,7 +520,7 @@ impl InoxRenderer for OpenglRenderer {
 			part_mask_shader.set_mvp(gl, mvp);
 
 			// frag uniforms
-			part_mask_shader.set_threshold(gl, part.draw_state.mask_threshold.clamp(0.0, 1.0));
+			part_mask_shader.set_threshold(gl, part.masks.threshold.clamp(0.0, 1.0));
 		} else {
 			let part_shader = &self.part_shader;
 			self.bind_shader(part_shader);
@@ -525,16 +529,16 @@ impl InoxRenderer for OpenglRenderer {
 			part_shader.set_mvp(gl, mvp);
 
 			// frag uniforms
-			part_shader.set_opacity(gl, part.draw_state.opacity);
-			part_shader.set_mult_color(gl, part.draw_state.tint);
-			part_shader.set_screen_color(gl, part.draw_state.screen_tint);
+			part_shader.set_opacity(gl, part.blending.opacity);
+			part_shader.set_mult_color(gl, part.blending.tint_multiply);
+			part_shader.set_screen_color(gl, part.blending.tint_screen);
 		}
 
 		unsafe {
 			gl.bind_vertex_array(Some(self.vao));
 			gl.draw_elements(
 				glow::TRIANGLES,
-				part.mesh.indices.len() as i32,
+				mesh.indices.len() as i32,
 				glow::UNSIGNED_SHORT,
 				part_render_ctx.index_offset as i32 * mem::size_of::<u16>() as i32,
 			);
@@ -570,7 +574,7 @@ impl InoxRenderer for OpenglRenderer {
 			gl.bind_framebuffer(glow::FRAMEBUFFER, None);
 		}
 
-		let comp = &composite.draw_state;
+		let comp = &composite;
 		if as_mask {
 			/*
 			cShaderMask.use();
@@ -591,11 +595,11 @@ impl InoxRenderer for OpenglRenderer {
 				gl.bind_texture(glow::TEXTURE_2D, Some(self.cf_bump));
 			}
 
-			self.set_blend_mode(comp.blend_mode);
+			self.set_blend_mode(comp.blending.mode);
 
-			let opacity = comp.opacity.clamp(0.0, 1.0);
-			let tint = comp.tint.clamp(Vec3::ZERO, Vec3::ONE);
-			let screen_tint = comp.screen_tint.clamp(Vec3::ZERO, Vec3::ONE);
+			let opacity = comp.blending.opacity.clamp(0.0, 1.0);
+			let tint = comp.blending.tint_multiply.clamp(Vec3::ZERO, Vec3::ONE);
+			let screen_tint = comp.blending.tint_screen.clamp(Vec3::ZERO, Vec3::ONE);
 
 			let composite_shader = &self.composite_shader;
 			self.bind_shader(composite_shader);

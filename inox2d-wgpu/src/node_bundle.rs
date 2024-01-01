@@ -5,7 +5,7 @@ use wgpu::{BindGroup, Device, RenderBundle};
 use inox2d::{
 	nodes::{
 		node::InoxNodeUuid,
-		node_data::{InoxData, Mask, Part},
+		components::{InoxData, Mask, Part},
 	},
 	puppet::Puppet,
 	render::RenderCtxKind,

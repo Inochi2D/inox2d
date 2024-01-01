@@ -1,46 +1,50 @@
+use std::any::{Any, TypeId};
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 use crate::math::transform::TransformOffset;
-
-use super::node_data::InoxData;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct InoxNodeUuid(pub(crate) u32);
 
-#[derive(Clone, Debug)]
-pub struct InoxNode<T = ()> {
+#[derive(Debug)]
+pub struct InoxNode {
 	pub uuid: InoxNodeUuid,
 	pub name: String,
+	pub type_name: String,
 	pub enabled: bool,
 	pub zsort: f32,
 	pub trans_offset: TransformOffset,
 	pub lock_to_root: bool,
-	pub data: InoxData<T>,
+	pub components: Components,
 }
 
-impl<T> InoxNode<T> {
-	pub fn is_node(&self) -> bool {
-		self.data.is_node()
+#[derive(Debug, Default)]
+pub struct Components(HashMap<TypeId, Box<dyn Any>>);
+
+impl Components {
+	pub fn add<T: 'static>(&mut self, component: T) {
+		self.0.insert(TypeId::of::<T>(), Box::new(component));
 	}
 
-	pub fn is_part(&self) -> bool {
-		self.data.is_part()
+	pub fn extend(&mut self, components: Components) {
+		self.0.extend(components.0);
 	}
 
-	pub fn is_composite(&self) -> bool {
-		self.data.is_composite()
+	pub fn remove<T: 'static>(&mut self) -> Option<Box<T>> {
+		self.0.remove(&TypeId::of::<T>()).and_then(|c| c.downcast().ok())
 	}
 
-	pub fn is_simple_physics(&self) -> bool {
-		self.data.is_simple_physics()
+	pub fn get<T: 'static>(&self) -> Option<&T> {
+		self.0.get(&TypeId::of::<T>()).and_then(|c| c.downcast_ref::<T>())
 	}
 
-	pub fn is_custom(&self) -> bool {
-		self.data.is_custom()
+	pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
+		self.0.get_mut(&TypeId::of::<T>()).and_then(|c| c.downcast_mut::<T>())
 	}
 
-	pub fn node_type_name(&self) -> &'static str {
-		self.data.data_type_name()
+	pub fn has<T: 'static>(&self) -> bool {
+		self.0.contains_key(&TypeId::of::<T>())
 	}
 }

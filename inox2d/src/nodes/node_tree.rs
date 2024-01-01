@@ -3,34 +3,35 @@ use std::fmt::Display;
 
 use indextree::{Arena, NodeId};
 
+use super::components::Composite;
 use super::node::{InoxNode, InoxNodeUuid};
 
-#[derive(Clone, Debug)]
-pub struct InoxNodeTree<T = ()> {
+#[derive(Debug)]
+pub struct InoxNodeTree {
 	pub root: indextree::NodeId,
-	pub arena: Arena<InoxNode<T>>,
+	pub arena: Arena<InoxNode>,
 	pub uuids: HashMap<InoxNodeUuid, indextree::NodeId>,
 }
 
-impl<T> InoxNodeTree<T> {
-	fn get_internal_node(&self, uuid: InoxNodeUuid) -> Option<&indextree::Node<InoxNode<T>>> {
+impl InoxNodeTree {
+	fn get_internal_node(&self, uuid: InoxNodeUuid) -> Option<&indextree::Node<InoxNode>> {
 		self.arena.get(*self.uuids.get(&uuid)?)
 	}
-	fn get_internal_node_mut(&mut self, uuid: InoxNodeUuid) -> Option<&mut indextree::Node<InoxNode<T>>> {
+	fn get_internal_node_mut(&mut self, uuid: InoxNodeUuid) -> Option<&mut indextree::Node<InoxNode>> {
 		self.arena.get_mut(*self.uuids.get(&uuid)?)
 	}
 
 	#[allow(clippy::borrowed_box)]
-	pub fn get_node(&self, uuid: InoxNodeUuid) -> Option<&InoxNode<T>> {
+	pub fn get_node(&self, uuid: InoxNodeUuid) -> Option<&InoxNode> {
 		Some(self.get_internal_node(uuid)?.get())
 	}
 
-	pub fn get_node_mut(&mut self, uuid: InoxNodeUuid) -> Option<&mut InoxNode<T>> {
+	pub fn get_node_mut(&mut self, uuid: InoxNodeUuid) -> Option<&mut InoxNode> {
 		Some(self.get_internal_node_mut(uuid)?.get_mut())
 	}
 
 	#[allow(clippy::borrowed_box)]
-	pub fn get_parent(&self, uuid: InoxNodeUuid) -> Option<&InoxNode<T>> {
+	pub fn get_parent(&self, uuid: InoxNodeUuid) -> Option<&InoxNode> {
 		let node = self.get_internal_node(uuid)?;
 		Some(self.arena.get(node.parent()?)?.get())
 	}
@@ -49,7 +50,7 @@ impl<T> InoxNodeTree<T> {
 
 	fn rec_all_childen_from_node(
 		&self,
-		node: &InoxNode<T>,
+		node: &InoxNode,
 		zsort: f32,
 		skip_composites: bool,
 	) -> Vec<(InoxNodeUuid, f32)> {
@@ -58,7 +59,7 @@ impl<T> InoxNodeTree<T> {
 		let mut vec = vec![(node_state.uuid, zsort)];
 
 		// Skip composite children because they're a special case
-		if !skip_composites || !node.data.is_composite() {
+		if !skip_composites || !node.components.has::<Composite>() {
 			for child_uuid in self.children_uuids(node.uuid).unwrap_or_default() {
 				if let Some(child) = self.get_node(child_uuid) {
 					vec.extend(self.rec_all_childen_from_node(child, zsort, skip_composites));
@@ -69,11 +70,11 @@ impl<T> InoxNodeTree<T> {
 		vec
 	}
 
-	pub fn ancestors(&self, uuid: InoxNodeUuid) -> indextree::Ancestors<InoxNode<T>> {
+	pub fn ancestors(&self, uuid: InoxNodeUuid) -> indextree::Ancestors<InoxNode> {
 		self.uuids[&uuid].ancestors(&self.arena)
 	}
 
-	fn sort_by_zsort(&self, node: &InoxNode<T>, skip_composites: bool) -> Vec<InoxNodeUuid> {
+	fn sort_by_zsort(&self, node: &InoxNode, skip_composites: bool) -> Vec<InoxNodeUuid> {
 		let uuid_zsorts = self.rec_all_childen_from_node(node, 0.0, skip_composites);
 		sort_uuids_by_zsort(uuid_zsorts)
 	}
@@ -99,11 +100,11 @@ impl<T> InoxNodeTree<T> {
 	}
 }
 
-fn rec_fmt<T>(
+fn rec_fmt(
 	indent: usize,
 	f: &mut std::fmt::Formatter<'_>,
 	node_id: NodeId,
-	arena: &Arena<InoxNode<T>>,
+	arena: &Arena<InoxNode>,
 ) -> std::fmt::Result {
 	let Some(node) = arena.get(node_id) else {
 		return Ok(());
@@ -111,7 +112,7 @@ fn rec_fmt<T>(
 
 	let node = node.get();
 
-	let type_name = node.node_type_name();
+	let type_name = &node.type_name;
 	#[cfg(feature = "owo")]
 	let type_name = {
 		use owo_colors::OwoColorize;
@@ -126,7 +127,7 @@ fn rec_fmt<T>(
 	Ok(())
 }
 
-impl<T> Display for InoxNodeTree<T> {
+impl Display for InoxNodeTree {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		let Some(root_node) = self.arena.get(self.root) else {
 			return write!(f, "(empty)");
@@ -134,7 +135,7 @@ impl<T> Display for InoxNodeTree<T> {
 
 		let root_node = root_node.get();
 
-		let type_name = root_node.node_type_name();
+		let type_name = &root_node.type_name;
 		#[cfg(feature = "owo")]
 		let type_name = {
 			use owo_colors::OwoColorize;

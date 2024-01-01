@@ -8,10 +8,10 @@ use crate::math::interp::{InterpolateMode, UnknownInterpolateModeError};
 use crate::math::matrix::{Matrix2d, Matrix2dFromSliceVecsError};
 use crate::math::transform::TransformOffset;
 use crate::mesh::{f32s_as_vec2s, Mesh};
-use crate::nodes::node::{InoxNode, InoxNodeUuid};
-use crate::nodes::node_data::{
-	BlendMode, Composite, Drawable, InoxData, Mask, MaskMode, Part, UnknownBlendModeError, UnknownMaskModeError,
+use crate::nodes::components::{
+	BlendMode, Blending, Composite, Mask, MaskMode, Masks, Part, UnknownBlendModeError, UnknownMaskModeError,
 };
+use crate::nodes::node::{Components, InoxNode, InoxNodeUuid};
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::nodes::physics::SimplePhysics;
 use crate::params::{AxisPoints, Binding, BindingValues, Param};
@@ -78,34 +78,50 @@ fn default_deserialize_custom<T>(node_type: &str, _obj: &JsonObject) -> InoxPars
 	Err(InoxParseError::UnknownNodeType(node_type.to_owned()))
 }
 
-pub fn deserialize_node_ext<T>(
+pub fn deserialize_node_ext(
 	obj: &JsonObject,
-	deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
-) -> InoxParseResult<InoxNode<T>> {
+	deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<Components>,
+) -> InoxParseResult<InoxNode> {
 	let node_type = obj.get_str("type")?;
+
 	Ok(InoxNode {
 		uuid: InoxNodeUuid(obj.get_u32("uuid")?),
-		name: obj.get_str("name")?.to_owned(),
+		name: obj.get_str("name")?.to_string(),
+		type_name: node_type.to_string(),
 		enabled: obj.get_bool("enabled")?,
 		zsort: obj.get_f32("zsort")?,
 		trans_offset: vals("transform", deserialize_transform(&obj.get_object("transform")?))?,
 		lock_to_root: obj.get_bool("lockToRoot")?,
-		data: vals("data", deserialize_node_data(node_type, obj, deserialize_node_custom))?,
+		components: vals(
+			"(components)",
+			deserialize_node_data(node_type, obj, deserialize_node_custom),
+		)?,
 	})
 }
 
-fn deserialize_node_data<T>(
+fn deserialize_node_data(
 	node_type: &str,
 	obj: &JsonObject,
-	deserialize_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
-) -> InoxParseResult<InoxData<T>> {
-	Ok(match node_type {
-		"Node" => InoxData::Node,
-		"Part" => InoxData::Part(deserialize_part(obj)?),
-		"Composite" => InoxData::Composite(deserialize_composite(obj)?),
-		"SimplePhysics" => InoxData::SimplePhysics(deserialize_simple_physics(obj)?),
-		node_type => InoxData::Custom((deserialize_custom)(node_type, obj)?),
-	})
+	deserialize_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<Components>,
+) -> InoxParseResult<Components> {
+	let mut components = Components::default();
+
+	match node_type {
+		"Node" => {}
+		"Part" => {
+			let drawable = deserialize_blending(obj)?;
+
+			let mesh = vals("mesh", deserialize_mesh(&obj.get_object("mesh")?))?;
+			components.add(mesh);
+
+			components.add(deserialize_part(obj)?);
+		}
+		"Composite" => components.add(deserialize_composite(obj)?),
+		"SimplePhysics" => components.add(deserialize_simple_physics(obj)?),
+		node_type => components.extend((deserialize_custom)(node_type, obj)?),
+	}
+
+	Ok(components)
 }
 
 fn deserialize_part(obj: &JsonObject) -> InoxParseResult<Part> {
@@ -139,17 +155,38 @@ fn deserialize_part(obj: &JsonObject) -> InoxParseResult<Part> {
 	};
 
 	Ok(Part {
-		draw_state: deserialize_drawable(obj)?,
-		mesh: vals("mesh", deserialize_mesh(&obj.get_object("mesh")?))?,
 		tex_albedo: TextureId(tex_albedo),
 		tex_emissive: TextureId(tex_emissive),
 		tex_bumpmap: TextureId(tex_bumpmap),
+
+		emission_strength: obj.get_f32("emissionStrength").unwrap_or(1.),
+		blending: deserialize_blending(obj)?,
+		masks: deserialize_masks(obj)?,
+	})
+}
+
+fn deserialize_masks(obj: &JsonObject) -> InoxParseResult<Masks> {
+	Ok(Masks {
+		threshold: obj.get_f32("mask_threshold")?,
+		sources: {
+			if let Ok(masks) = obj.get_list("masks") {
+				masks
+					.iter()
+					.filter_map(|mask| deserialize_mask(&JsonObject(mask.as_object()?)).ok())
+					.collect::<Vec<_>>()
+			} else {
+				Vec::new()
+			}
+		},
 	})
 }
 
 fn deserialize_composite(obj: &JsonObject) -> InoxParseResult<Composite> {
-	let draw_state = deserialize_drawable(obj)?;
-	Ok(Composite { draw_state })
+	Ok(Composite {
+		blending: deserialize_blending(obj)?,
+		masks: deserialize_masks(obj)?,
+		propagate_mesh_group: obj.get_bool("propagate_meshgroup").unwrap_or_default(),
+	})
 }
 
 fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics> {
@@ -166,22 +203,11 @@ fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics
 	})
 }
 
-fn deserialize_drawable(obj: &JsonObject) -> InoxParseResult<Drawable> {
-	Ok(Drawable {
-		blend_mode: BlendMode::try_from(obj.get_str("blend_mode")?)?,
-		tint: obj.get_vec3("tint")?,
-		screen_tint: obj.get_vec3("screenTint")?,
-		mask_threshold: obj.get_f32("mask_threshold")?,
-		masks: {
-			if let Ok(masks) = obj.get_list("masks") {
-				masks
-					.iter()
-					.filter_map(|mask| deserialize_mask(&JsonObject(mask.as_object()?)).ok())
-					.collect::<Vec<_>>()
-			} else {
-				Vec::new()
-			}
-		},
+fn deserialize_blending(obj: &JsonObject) -> InoxParseResult<Blending> {
+	Ok(Blending {
+		mode: BlendMode::try_from(obj.get_str("blend_mode")?)?,
+		tint_multiply: obj.get_vec3("tint")?,
+		tint_screen: obj.get_vec3("screenTint")?,
 		opacity: obj.get_f32("opacity")?,
 	})
 }
@@ -259,10 +285,10 @@ pub fn deserialize_puppet(val: &json::JsonValue) -> InoxParseResult<Puppet> {
 	deserialize_puppet_ext(val, &default_deserialize_custom)
 }
 
-pub fn deserialize_puppet_ext<T>(
+pub fn deserialize_puppet_ext(
 	val: &json::JsonValue,
-	deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
-) -> InoxParseResult<Puppet<T>> {
+	deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<Components>,
+) -> InoxParseResult<Puppet> {
 	let Some(obj) = val.as_object() else {
 		return Err(InoxParseError::JsonError(JsonError::ValueIsNotObject(
 			"(puppet)".to_owned(),
@@ -270,11 +296,11 @@ pub fn deserialize_puppet_ext<T>(
 	};
 	let obj = JsonObject(obj);
 
-	let nodes = vals(
+	let mut nodes = vals(
 		"nodes",
 		deserialize_nodes(&obj.get_object("nodes")?, deserialize_node_custom),
 	)?;
-	let render_ctx = RenderCtx::new(&nodes);
+	let render_ctx = RenderCtx::new(&mut nodes);
 
 	Ok(Puppet {
 		meta: vals("meta", deserialize_puppet_meta(&obj.get_object("meta")?))?,
@@ -379,10 +405,10 @@ fn deserialize_axis_points(vals: &[json::JsonValue]) -> InoxParseResult<AxisPoin
 	Ok(AxisPoints { x, y })
 }
 
-fn deserialize_nodes<T>(
+fn deserialize_nodes(
 	obj: &JsonObject,
-	deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
-) -> InoxParseResult<InoxNodeTree<T>> {
+	deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<Components>,
+) -> InoxParseResult<InoxNodeTree> {
 	let mut arena = Arena::new();
 	let mut uuids = HashMap::new();
 
@@ -409,10 +435,10 @@ fn deserialize_nodes<T>(
 	Ok(node_tree)
 }
 
-fn deserialize_nodes_rec<T>(
+fn deserialize_nodes_rec(
 	obj: &JsonObject,
-	deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
-	node_tree: &mut InoxNodeTree<T>,
+	deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<Components>,
+	node_tree: &mut InoxNodeTree,
 ) -> InoxParseResult<indextree::NodeId> {
 	let node = deserialize_node_ext(obj, deserialize_node_custom)?;
 	let uuid = node.uuid;
