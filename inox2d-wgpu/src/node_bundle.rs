@@ -64,9 +64,9 @@ fn part_bundle_for_part(
 		uniform_group,
 		&[(setup.uniform_alignment_needed * buffers.uniform_index_map[&uuid]) as u32],
 	);
-	encoder.set_bind_group(1, &model_texture_binds[part.tex_albedo], &[]);
-	encoder.set_bind_group(2, &model_texture_binds[part.tex_emissive], &[]);
-	encoder.set_bind_group(3, &model_texture_binds[part.tex_bumpmap], &[]);
+	encoder.set_bind_group(1, &model_texture_binds[part.tex_albedo.raw()], &[]);
+	encoder.set_bind_group(2, &model_texture_binds[part.tex_emissive.raw()], &[]);
+	encoder.set_bind_group(3, &model_texture_binds[part.tex_bumpmap.raw()], &[]);
 
 	let node_rinf = &puppet.render_ctx.node_render_ctxs[&uuid];
 	if let RenderCtxKind::Part(pinf) = &node_rinf.kind {

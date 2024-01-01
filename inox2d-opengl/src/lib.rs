@@ -10,6 +10,7 @@ use std::ops::Deref;
 use gl_buffer::RenderCtxOpenglExt;
 use glam::{uvec2, Mat4, UVec2, Vec2, Vec3};
 use glow::HasContext;
+use inox2d::texture::{parallel_decode_model_textures, TextureId};
 use tracing::{debug, error};
 
 use inox2d::math::camera::Camera;
@@ -17,7 +18,6 @@ use inox2d::model::{Model, ModelTexture};
 use inox2d::nodes::node_data::{BlendMode, Composite, Part};
 use inox2d::puppet::Puppet;
 use inox2d::render::{InoxRenderer, InoxRendererCommon, NodeRenderCtx, PartRenderCtx};
-use inox2d::texture::decode_model_textures;
 
 use self::shader::ShaderCompileError;
 use self::shaders::{CompositeMaskShader, CompositeShader, PartMaskShader, PartShader};
@@ -37,7 +37,7 @@ pub struct GlCache {
 	pub blend_mode: Option<BlendMode>,
 	pub program: Option<glow::Program>,
 	pub vao: Option<glow::VertexArray>,
-	pub albedo: Option<usize>,
+	pub albedo: Option<TextureId>,
 }
 
 impl GlCache {
@@ -97,7 +97,7 @@ impl GlCache {
 		}
 	}
 
-	pub fn update_albedo(&mut self, albedo: usize) -> bool {
+	pub fn update_albedo(&mut self, albedo: TextureId) -> bool {
 		if let Some(prev_texture) = self.albedo.replace(albedo) {
 			prev_texture != albedo
 		} else {
@@ -188,11 +188,11 @@ impl OpenglRenderer {
 
 	fn upload_model_textures(&mut self, model_textures: &[ModelTexture]) -> Result<(), TextureError> {
 		// decode textures in parallel
-		let shalltexs = decode_model_textures(model_textures);
+		let shalltexs = parallel_decode_model_textures(model_textures.iter(), None);
 
 		// upload textures
 		for (i, shalltex) in shalltexs.iter().enumerate() {
-			debug!("Uploading shallow texture {}", i);
+			debug!("Uploading shallow texture {:?}", i);
 			let tex = texture::Texture::from_shallow_texture(&self.gl, shalltex)?;
 			self.textures.push(tex);
 		}
@@ -302,9 +302,9 @@ impl OpenglRenderer {
 		}
 
 		let gl = &self.gl;
-		self.textures[part.tex_albedo].bind_on(gl, 0);
-		self.textures[part.tex_bumpmap].bind_on(gl, 1);
-		self.textures[part.tex_emissive].bind_on(gl, 2);
+		self.textures[part.tex_albedo.raw()].bind_on(gl, 0);
+		self.textures[part.tex_bumpmap.raw()].bind_on(gl, 1);
+		self.textures[part.tex_emissive.raw()].bind_on(gl, 2);
 	}
 
 	/// Clear the texture cache
