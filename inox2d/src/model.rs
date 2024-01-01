@@ -1,11 +1,12 @@
 use std::fmt;
+use std::sync::Arc;
 
 use crate::puppet::Puppet;
 
 #[derive(Clone, Debug)]
 pub struct ModelTexture {
 	pub format: image::ImageFormat,
-	pub data: Vec<u8>,
+	pub data: Arc<[u8]>,
 }
 
 #[derive(Clone, Debug)]

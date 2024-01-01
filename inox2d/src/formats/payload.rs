@@ -21,6 +21,7 @@ use crate::puppet::{
 	UnknownPuppetAllowedUsersError,
 };
 use crate::render::RenderCtx;
+use crate::texture::TextureId;
 
 use super::json::{JsonError, JsonObject, SerialExtend};
 
@@ -111,14 +112,14 @@ fn deserialize_part(obj: &JsonObject) -> InoxParseResult<Part> {
 	let (tex_albedo, tex_emissive, tex_bumpmap) = {
 		let textures = obj.get_list("textures")?;
 
-		let tex_albedo = match textures.first().ok_or(InoxParseError::NoAlbedoTexture)?.as_number() {
+		let tex_albedo: usize = match textures.first().ok_or(InoxParseError::NoAlbedoTexture)?.as_number() {
 			Some(val) => val
 				.try_into()
 				.map_err(|_| InoxParseError::JsonError(JsonError::ParseIntError("0".to_owned()).nested("textures")))?,
 			None => return Err(InoxParseError::NoAlbedoTexture),
 		};
 
-		let tex_emissive = match textures.get(1).and_then(JsonValue::as_number) {
+		let tex_emissive: usize = match textures.get(1).and_then(JsonValue::as_number) {
 			Some(val) => (val.try_into())
 				// Map u32::MAX to nothing
 				.map(|val| if val == u32::MAX as usize { 0 } else { val })
@@ -126,7 +127,7 @@ fn deserialize_part(obj: &JsonObject) -> InoxParseResult<Part> {
 			None => 0,
 		};
 
-		let tex_bumpmap = match textures.get(2).and_then(JsonValue::as_number) {
+		let tex_bumpmap: usize = match textures.get(2).and_then(JsonValue::as_number) {
 			Some(val) => (val.try_into())
 				// Map u32::MAX to nothing
 				.map(|val| if val == u32::MAX as usize { 0 } else { val })
@@ -140,9 +141,9 @@ fn deserialize_part(obj: &JsonObject) -> InoxParseResult<Part> {
 	Ok(Part {
 		draw_state: deserialize_drawable(obj)?,
 		mesh: vals("mesh", deserialize_mesh(&obj.get_object("mesh")?))?,
-		tex_albedo,
-		tex_emissive,
-		tex_bumpmap,
+		tex_albedo: TextureId(tex_albedo),
+		tex_emissive: TextureId(tex_emissive),
+		tex_bumpmap: TextureId(tex_bumpmap),
 	})
 }
 

@@ -9,10 +9,10 @@ use inox2d::model::Model;
 use inox2d::nodes::node_data::{InoxData, MaskMode};
 use inox2d::puppet::Puppet;
 use inox2d::render::RenderCtxKind;
-use inox2d::texture::decode_model_textures;
 
 use encase::ShaderType;
 use glam::{vec3, Mat4, UVec2, Vec2, Vec3};
+use inox2d::texture::parallel_decode_model_textures;
 use tracing::warn;
 use wgpu::{util::DeviceExt, *};
 
@@ -52,7 +52,7 @@ impl Renderer {
 			..SamplerDescriptor::default()
 		});
 
-		let shalltexs = decode_model_textures(&model.textures);
+		let shalltexs = parallel_decode_model_textures(model.textures.iter(), None);
 		for shalltex in &shalltexs {
 			let texture_size = wgpu::Extent3d {
 				width: shalltex.width(),
@@ -167,9 +167,9 @@ impl Renderer {
 				todo!()
 			};
 
-			render_pass.set_bind_group(1, &self.model_texture_binds[part.tex_albedo], &[]);
-			render_pass.set_bind_group(2, &self.model_texture_binds[part.tex_emissive], &[]);
-			render_pass.set_bind_group(3, &self.model_texture_binds[part.tex_bumpmap], &[]);
+			render_pass.set_bind_group(1, &self.model_texture_binds[part.tex_albedo.raw()], &[]);
+			render_pass.set_bind_group(2, &self.model_texture_binds[part.tex_emissive.raw()], &[]);
+			render_pass.set_bind_group(3, &self.model_texture_binds[part.tex_bumpmap.raw()], &[]);
 
 			render_pass.set_bind_group(
 				0,

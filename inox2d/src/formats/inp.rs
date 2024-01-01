@@ -1,6 +1,7 @@
 use std::io::{self, Read};
 use std::str::Utf8Error;
 use std::string::FromUtf8Error;
+use std::sync::Arc;
 
 use image::ImageFormat;
 
@@ -62,13 +63,15 @@ pub fn parse_inp<R: Read>(mut data: R) -> Result<Model, ParseInpError> {
 	for _ in 0..tex_count {
 		let tex_length = read_be_u32(&mut data)? as usize;
 		let tex_encoding = read_u8(&mut data)?;
+
 		let format = match tex_encoding {
 			0 => ImageFormat::Png, // PNG
 			1 => ImageFormat::Tga, // TGA
 			2 => return Err(ParseInpError::Bc7NotSupported),
 			n => return Err(ParseInpError::InvalidTexEncoding(n)),
 		};
-		let data = read_vec(&mut data, tex_length)?;
+
+		let data: Arc<[u8]> = read_vec(&mut data, tex_length)?.into();
 		textures.push(ModelTexture { format, data });
 	}
 

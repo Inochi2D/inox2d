@@ -1,6 +1,7 @@
 use glam::Vec3;
 
 use crate::mesh::Mesh;
+use crate::texture::TextureId;
 
 use super::node::InoxNodeUuid;
 use super::physics::SimplePhysics;
@@ -123,9 +124,9 @@ impl Drawable {
 pub struct Part {
 	pub draw_state: Drawable,
 	pub mesh: Mesh,
-	pub tex_albedo: usize,
-	pub tex_emissive: usize,
-	pub tex_bumpmap: usize,
+	pub tex_albedo: TextureId,
+	pub tex_emissive: TextureId,
+	pub tex_bumpmap: TextureId,
 }
 
 #[derive(Debug, Clone)]
