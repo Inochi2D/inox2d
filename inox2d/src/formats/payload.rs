@@ -109,8 +109,6 @@ fn deserialize_node_data(
 	match node_type {
 		"Node" => {}
 		"Part" => {
-			let drawable = deserialize_blending(obj)?;
-
 			let mesh = vals("mesh", deserialize_mesh(&obj.get_object("mesh")?))?;
 			components.add(mesh);
 

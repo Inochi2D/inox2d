@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-use std::path::Component;
-
 use glam::{vec2, Mat4, Vec2};
 
 use crate::math::transform::TransformOffset;
@@ -115,7 +112,7 @@ impl RenderCtx {
 
 			if node.components.has::<Part>() {
 				if let Some(mesh) = node.components.get::<Mesh>() {
-					let (index_offset, vert_offset) = vertex_buffers.push(&mesh);
+					let (index_offset, vert_offset) = vertex_buffers.push(mesh);
 
 					node.components.add(PartRenderCtx {
 						index_offset,
