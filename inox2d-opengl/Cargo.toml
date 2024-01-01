@@ -10,7 +10,7 @@ categories = ["graphics", "rendering"]
 
 [dependencies]
 inox2d = { path = "../inox2d" }
-glam = "0.24.0"
+glam = "0.25.0"
 glow = { version = "0.12.1" }
 thiserror = "1.0.39"
 tracing = "0.1.37"

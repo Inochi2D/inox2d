@@ -8,7 +8,7 @@ inox2d = { path = "../../inox2d" }
 inox2d-opengl = { path = "../../inox2d-opengl" }
 
 console_error_panic_hook = "0.1.7"
-glam = "0.24.0"
+glam = "0.25.0"
 glow = "0.12.1"
 js-sys = "0.3.64"
 reqwest = "0.11.18"
