@@ -81,7 +81,7 @@ impl Puppet {
             };
             let nrc = &self.render_ctx.node_render_ctxs[&driver.uuid];
 
-            let output = system.update(dt, nrc, system.param);
+            let output = system.update(dt, nrc);
             let param_uuid = system.param;
             self.set_param(param_uuid, output);
         }

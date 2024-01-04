@@ -2,7 +2,6 @@ use std::path::PathBuf;
 use std::{error::Error, fs, num::NonZeroU32};
 
 use inox2d::formats::inp::parse_inp;
-use inox2d::nodes::node_data::InoxData;
 use inox2d_opengl::OpenglRenderer;
 
 use clap::Parser;

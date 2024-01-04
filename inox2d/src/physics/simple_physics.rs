@@ -3,8 +3,7 @@ use std::f32::consts::PI;
 use glam::{vec2, vec4, Vec2};
 
 use super::{ParamMapMode, SimplePhysics, SimplePhysicsSystem};
-use crate::params::ParamUuid;
-use crate::puppet::{Puppet, PuppetPhysics};
+use crate::puppet::PuppetPhysics;
 use crate::render::NodeRenderCtx;
 
 impl SimplePhysics {
@@ -51,12 +50,7 @@ impl SimplePhysics {
         param_value * oscale
     }
 
-    pub fn update(
-        &mut self,
-        dt: f32,
-        node_render_ctx: &NodeRenderCtx,
-        param_uuid: ParamUuid,
-    ) -> Vec2 {
+    pub fn update(&mut self, dt: f32, node_render_ctx: &NodeRenderCtx) -> Vec2 {
         // Timestep is limited to 10 seconds.
         // If you're getting 0.1 FPS, you have bigger issues to deal with.
         let mut h = dt.min(10.);

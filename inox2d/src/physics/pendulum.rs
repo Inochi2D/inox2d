@@ -1,6 +1,6 @@
 use super::{
     runge_kutta::{self, PhysicsState, PhysicsSystem},
-    SimplePhysics, SimplePhysicsProps,
+    SimplePhysicsProps,
 };
 
 use glam::Vec2;
