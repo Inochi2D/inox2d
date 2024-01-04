@@ -14,14 +14,15 @@ use crate::nodes::node_data::{
     UnknownMaskModeError,
 };
 use crate::nodes::node_tree::InoxNodeTree;
-use crate::nodes::physics::{SimplePhysics, SimplePhysicsProps};
 use crate::params::{AxisPoints, Binding, BindingValues, Param, ParamUuid};
+use crate::physics::{
+    pendulum::Pendulum, ParamMapMode, SimplePhysics, SimplePhysicsProps, SimplePhysicsSystem,
+};
 use crate::puppet::{
     Puppet, PuppetAllowedModification, PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta,
     PuppetPhysics, PuppetUsageRights, UnknownPuppetAllowedModificationError,
     UnknownPuppetAllowedRedistributionError, UnknownPuppetAllowedUsersError,
 };
-use crate::system::{ParamMapMode, Pendulum, SimplePhysicsSystem};
 
 use super::json::{JsonError, JsonObject, SerialExtend};
 

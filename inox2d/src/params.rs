@@ -279,6 +279,8 @@ impl Puppet {
     }
 
     pub fn end_set_params(&mut self) {
+        // TODO: find better places for these two update calls and pass elapsed time in
+        self.update_physics(0.01);
         self.update_trans();
     }
 }

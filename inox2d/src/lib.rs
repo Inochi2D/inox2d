@@ -40,7 +40,7 @@ pub mod mesh;
 pub mod model;
 pub mod nodes;
 pub mod params;
+pub mod physics;
 pub mod puppet;
 pub mod render;
-pub mod system;
 pub mod texture;

@@ -3,7 +3,7 @@ use glam::Vec3;
 use crate::mesh::Mesh;
 
 use super::node::InoxNodeUuid;
-use super::physics::SimplePhysics;
+use crate::physics::SimplePhysics;
 
 #[derive(Debug, Clone)]
 pub struct Composite {
