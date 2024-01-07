@@ -8,8 +8,8 @@ use crate::puppet::Puppet;
 
 use glam::{vec2, Vec2};
 
-use self::pendulum::rigid_pendulum::{self, RigidPendulum};
-use self::pendulum::spring_pendulum::{self, SpringPendulum};
+use self::pendulum::rigid::RigidPendulum;
+use self::pendulum::spring::SpringPendulum;
 use self::runge_kutta::PhysicsState;
 
 /// Physics model to use for simple physics
@@ -57,7 +57,7 @@ impl SimplePhysicsSystem {
                 state.setv_angle(f32::atan2(-d_bob.x, d_bob.y));
 
                 // Run the pendulum simulation in terms of angle
-                runge_kutta::tick(&rigid_pendulum::eval, state, props, anchor, dt);
+                runge_kutta::tick(&pendulum::rigid::eval, state, props, anchor, dt);
 
                 // Update the bob position at the new angle
                 let angle = state.getv_angle();
@@ -70,8 +70,10 @@ impl SimplePhysicsSystem {
                 ref mut bob,
                 ref mut state,
             } => {
+                state.setv_bob(*bob);
+
                 // Run the spring pendulum simulation
-                runge_kutta::tick(&spring_pendulum::eval, state, props, anchor, dt);
+                runge_kutta::tick(&pendulum::spring::eval, state, props, anchor, dt);
 
                 *bob = state.getv_bob();
 
@@ -101,7 +103,7 @@ impl Default for SimplePhysicsProps {
     fn default() -> Self {
         Self {
             gravity: 1.,
-            length: 0.,
+            length: 1.,
             frequency: 1.,
             angle_damping: 0.5,
             length_damping: 0.5,
