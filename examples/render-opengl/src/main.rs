@@ -78,9 +78,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 renderer.clear();
 
                 puppet.begin_set_params();
-                let t = scene_ctrl.current_elapsed() * 5.0;
-                puppet.set_named_param("Head:: Yaw-Pitch", Vec2::new(t.cos(), 0.0));
-                puppet.end_set_params();
+                let t = scene_ctrl.current_elapsed();
+                puppet.set_named_param("Head:: Yaw-Pitch", Vec2::new((t * 1.0).cos() * 10., 0.0));
+                puppet.end_set_params(scene_ctrl.dt());
 
                 renderer.render(&puppet);
 
