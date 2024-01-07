@@ -1,86 +1,162 @@
-use super::{
-    runge_kutta::{self, PhysicsState, PhysicsSystem},
-    SimplePhysicsProps,
-};
+pub mod rigid_pendulum {
+    use glam::Vec2;
 
-use glam::Vec2;
+    use crate::physics::runge_kutta::PhysicsState;
+    use crate::physics::SimplePhysicsProps;
 
-#[derive(Default, Debug, Clone)]
-pub struct Pendulum {
-    /// bob is happy
-    pub bob: Vec2,
-    /// contains the angle and delta-angle
-    physics_state: PhysicsState<2>,
-}
+    pub struct RigidPendulum;
 
-impl Pendulum {
-    pub fn angle(&self) -> f32 {
-        self.physics_state.vars[0]
+    impl PhysicsState<2, RigidPendulum> {
+        // angle
+
+        pub fn getv_angle(&self) -> f32 {
+            self.vars[0]
+        }
+
+        pub fn setv_angle(&mut self, angle: f32) {
+            self.vars[0] = angle;
+        }
+
+        pub fn getd_angle(&self) -> f32 {
+            self.derivatives[0]
+        }
+
+        pub fn setd_angle(&mut self, angle: f32) {
+            self.derivatives[0] = angle;
+        }
+
+        // dangle
+
+        pub fn getv_dangle(&self) -> f32 {
+            self.vars[1]
+        }
+
+        pub fn setv_dangle(&mut self, dangle: f32) {
+            self.vars[1] = dangle;
+        }
+
+        pub fn getd_dangle(&self) -> f32 {
+            self.derivatives[1]
+        }
+
+        pub fn setd_dangle(&mut self, dangle: f32) {
+            self.derivatives[1] = dangle;
+        }
     }
 
-    pub fn set_angle(&mut self, angle: f32) {
-        self.physics_state.vars[0] = angle;
-    }
-
-    pub fn set_derivative_angle(&mut self, angle: f32) {
-        self.physics_state.derivatives[0] = angle;
-    }
-
-    pub fn delta_angle(&self) -> f32 {
-        self.physics_state.vars[1]
-    }
-
-    pub fn set_delta_angle(&mut self, delta_angle: f32) {
-        self.physics_state.vars[1] = delta_angle;
-    }
-
-    pub fn set_derivative_delta_angle(&mut self, delta_angle: f32) {
-        self.physics_state.derivatives[1] = delta_angle;
-    }
-}
-
-impl PhysicsSystem<2> for Pendulum {
-    fn state(&self) -> &PhysicsState<2> {
-        &self.physics_state
-    }
-
-    fn state_mut(&mut self) -> &mut PhysicsState<2> {
-        &mut self.physics_state
-    }
-
-    fn set_state(&mut self, state: PhysicsState<2>) {
-        self.physics_state = state;
-    }
-
-    fn eval(&mut self, physics_props: &SimplePhysicsProps, _t: f32) -> &mut PhysicsState<2> {
-        self.set_derivative_angle(self.delta_angle());
+    pub fn eval(
+        state: &mut PhysicsState<2, RigidPendulum>,
+        physics_props: &SimplePhysicsProps,
+        _anchor: Vec2,
+        _t: f32,
+    ) {
+        state.setd_angle(state.getv_dangle());
 
         let dd = {
             let length_ratio = physics_props.gravity / physics_props.length;
             let crit_damp = 2. * length_ratio.sqrt();
-            let dd = -length_ratio * self.angle().sin();
-            dd - self.delta_angle() * physics_props.angle_damping * crit_damp
+            let dd = -length_ratio * state.getv_angle().sin();
+            dd - state.getv_dangle() * physics_props.angle_damping * crit_damp
         };
-        self.set_derivative_delta_angle(dd);
 
-        &mut self.physics_state
+        state.setd_dangle(dd);
     }
 }
 
-impl Pendulum {
-    pub fn tick(&mut self, anchor: &Vec2, props: &SimplePhysicsProps, dt: f32) -> Vec2 {
-        // Compute the angle against the updated anchor position
-        let delta_bob = self.bob - *anchor;
-        self.set_angle(f32::atan2(-delta_bob.x, delta_bob.y));
+pub mod spring_pendulum {
+    use crate::physics::runge_kutta::PhysicsState;
+    use crate::physics::SimplePhysicsProps;
+    use glam::{vec2, Vec2};
+    use std::f32::consts::PI;
 
-        // Run the pendulum simulation in terms of angle
-        runge_kutta::tick(self, props, dt);
+    #[derive(Debug, Clone)]
+    pub struct SpringPendulum;
 
-        // Update bob's position at the new angle
-        let angle = self.angle();
-        let delta_bob = Vec2::new(-angle.sin(), angle.cos());
-        self.bob = *anchor + delta_bob * props.length;
+    impl PhysicsState<4, SpringPendulum> {
+        // bob
 
-        self.bob
+        pub fn getv_bob(&self) -> Vec2 {
+            vec2(self.vars[0], self.vars[1])
+        }
+
+        pub fn setv_bob(&mut self, bob: Vec2) {
+            self.vars[0] = bob.x;
+            self.vars[1] = bob.y;
+        }
+
+        pub fn getd_bob(&self) -> Vec2 {
+            vec2(self.derivatives[0], self.derivatives[1])
+        }
+
+        pub fn setd_bob(&mut self, bob: Vec2) {
+            self.derivatives[0] = bob.x;
+            self.derivatives[1] = bob.y;
+        }
+
+        // dbob
+
+        pub fn getv_dbob(&self) -> Vec2 {
+            vec2(self.vars[2], self.vars[3])
+        }
+
+        pub fn setv_dbob(&mut self, dbob: Vec2) {
+            self.vars[2] = dbob.x;
+            self.vars[3] = dbob.y;
+        }
+
+        pub fn getd_dbob(&self) -> Vec2 {
+            vec2(self.derivatives[2], self.derivatives[3])
+        }
+
+        pub fn setd_dbob(&mut self, dbob: Vec2) {
+            self.derivatives[2] = dbob.x;
+            self.derivatives[3] = dbob.y;
+        }
+    }
+
+    pub fn eval(
+        state: &mut PhysicsState<4, SpringPendulum>,
+        props: &SimplePhysicsProps,
+        anchor: Vec2,
+        _t: f32,
+    ) {
+        state.setd_bob(state.getv_dbob());
+
+        // These are normalized vs. mass
+        let spring_ksqrt = props.frequency * 2. * PI;
+        let spring_k = spring_ksqrt.powi(2);
+
+        let g = props.gravity;
+        let rest_length = props.length - g / spring_k;
+
+        let off_pos = state.getv_bob() - anchor;
+        let off_pos_norm = off_pos.normalize();
+
+        let length_ratio = props.gravity / props.length;
+        let crit_damp_angle = 2. * length_ratio.sqrt();
+        let crit_damp_length = 2. * spring_ksqrt;
+
+        let dist = anchor.distance(state.getv_bob()).abs();
+        let force = vec2(0., g) - (off_pos_norm * (dist - rest_length) * spring_k);
+
+        let d_bob = state.getv_dbob();
+        let d_bob_rot = vec2(
+            d_bob.x * off_pos_norm.y + d_bob.y * off_pos_norm.x,
+            d_bob.y * off_pos_norm.y - d_bob.x * off_pos_norm.x,
+        );
+
+        let dd_bob_rot = -vec2(
+            d_bob_rot.x * props.angle_damping * crit_damp_angle,
+            d_bob_rot.y * props.length_damping * crit_damp_length,
+        );
+
+        let dd_bob_damping = vec2(
+            dd_bob_rot.x * off_pos_norm.y - d_bob_rot.y * off_pos_norm.x,
+            dd_bob_rot.y * off_pos_norm.y + d_bob_rot.x * off_pos_norm.x,
+        );
+
+        let dd_bob = force + dd_bob_damping;
+
+        state.setd_dbob(dd_bob);
     }
 }

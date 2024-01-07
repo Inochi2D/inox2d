@@ -15,9 +15,7 @@ use crate::nodes::node_data::{
 };
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::params::{AxisPoints, Binding, BindingValues, Param, ParamUuid};
-use crate::physics::{
-    pendulum::Pendulum, ParamMapMode, SimplePhysics, SimplePhysicsProps, SimplePhysicsSystem,
-};
+use crate::physics::{ParamMapMode, SimplePhysics, SimplePhysicsProps, SimplePhysicsSystem};
 use crate::puppet::{
     Puppet, PuppetAllowedModification, PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta,
     PuppetPhysics, PuppetUsageRights, UnknownPuppetAllowedModificationError,
@@ -177,11 +175,9 @@ fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics
     let param = ParamUuid(obj.get_u32("param")?);
 
     let system = match obj.get_str("model_type")? {
-        "pendulum" => SimplePhysicsSystem::Pendulum(Pendulum::default()),
-        // "spring_pendulum" => todo!(),
-        // _ => todo!(),
-        // TODO
-        _ => SimplePhysicsSystem::Pendulum(Pendulum::default()),
+        "Pendulum" => SimplePhysicsSystem::new_rigid_pendulum(),
+        "SpringPendulum" => SimplePhysicsSystem::new_spring_pendulum(),
+        _ => todo!(),
     };
     let map_mode = match obj.get_str("map_mode")? {
         "angle_length" => ParamMapMode::AngleLength,

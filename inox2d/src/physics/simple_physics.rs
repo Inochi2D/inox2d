@@ -16,7 +16,7 @@ impl SimplePhysics {
         self.anchor = vec2(anchor_pos.x, anchor_pos.y);
     }
 
-    fn calc_outputs(&mut self, node_render_ctx: &NodeRenderCtx) -> Vec2 {
+    fn calc_outputs(&self, node_render_ctx: &NodeRenderCtx) -> Vec2 {
         let oscale = self.final_output_scale();
 
         // "Okay, so this is confusing. We want to translate the angle back to local space, but not the coordinates."
@@ -59,21 +59,21 @@ impl SimplePhysics {
 
         // Minimum physics timestep: 0.01s
         while h > 0.01 {
-            self.system.tick(&self.anchor, &self.props, 0.01);
+            self.tick(0.01);
             h -= 0.01;
         }
 
-        self.system.tick(&self.anchor, &self.props, h);
+        self.tick(h);
 
         self.calc_outputs(node_render_ctx)
     }
 
     pub fn update_anchor(&mut self) {
-        let bob = self.anchor + vec2(0.0, self.final_length());
+        let new_bob = self.anchor + vec2(0.0, self.final_length());
 
         match &mut self.system {
-            SimplePhysicsSystem::Pendulum(system) => system.bob = bob,
-            // spring pendulum when
+            SimplePhysicsSystem::RigidPendulum { ref mut bob, .. } => *bob = new_bob,
+            SimplePhysicsSystem::SpringPendulum { ref mut bob, .. } => *bob = new_bob,
         }
     }
 
