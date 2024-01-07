@@ -29,7 +29,7 @@ impl SimplePhysicsSystem {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct SimplePhysicsProps {
     /// Gravity scale (1.0 = puppet gravity)
     pub gravity: f32,
@@ -43,6 +43,19 @@ pub struct SimplePhysicsProps {
     pub length_damping: f32,
 
     pub output_scale: Vec2,
+}
+
+impl Default for SimplePhysicsProps {
+    fn default() -> Self {
+        Self {
+            gravity: 1.,
+            length: 1.,
+            frequency: 1.,
+            angle_damping: 1.,
+            length_damping: 1.,
+            output_scale: Vec2::ONE,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
