@@ -1,12 +1,14 @@
-use crate::physics::runge_kutta::PhysicsState;
+use crate::physics::runge_kutta::{PhysicsState, self};
 use crate::physics::SimplePhysicsProps;
 use glam::{vec2, Vec2};
 use std::f32::consts::PI;
 
-#[derive(Debug, Clone)]
-pub struct SpringPendulum;
+/// Marker type for a spring pendulum physics state
+struct SpringPendulum;
 
-impl PhysicsState<4, SpringPendulum> {
+type SpringPendulumState = PhysicsState<4, SpringPendulum>;
+
+impl SpringPendulumState {
     // bob
 
     pub fn getv_bob(&self) -> Vec2 {
@@ -18,9 +20,9 @@ impl PhysicsState<4, SpringPendulum> {
         self.vars[1] = bob.y;
     }
 
-    pub fn getd_bob(&self) -> Vec2 {
-        vec2(self.derivatives[0], self.derivatives[1])
-    }
+    // pub fn getd_bob(&self) -> Vec2 {
+    //     vec2(self.derivatives[0], self.derivatives[1])
+    // }
 
     pub fn setd_bob(&mut self, bob: Vec2) {
         self.derivatives[0] = bob.x;
@@ -33,14 +35,14 @@ impl PhysicsState<4, SpringPendulum> {
         vec2(self.vars[2], self.vars[3])
     }
 
-    pub fn setv_dbob(&mut self, dbob: Vec2) {
-        self.vars[2] = dbob.x;
-        self.vars[3] = dbob.y;
-    }
+    // pub fn setv_dbob(&mut self, dbob: Vec2) {
+    //     self.vars[2] = dbob.x;
+    //     self.vars[3] = dbob.y;
+    // }
 
-    pub fn getd_dbob(&self) -> Vec2 {
-        vec2(self.derivatives[2], self.derivatives[3])
-    }
+    // pub fn getd_dbob(&self) -> Vec2 {
+    //     vec2(self.derivatives[2], self.derivatives[3])
+    // }
 
     pub fn setd_dbob(&mut self, dbob: Vec2) {
         self.derivatives[2] = dbob.x;
@@ -48,12 +50,7 @@ impl PhysicsState<4, SpringPendulum> {
     }
 }
 
-pub fn eval(
-    state: &mut PhysicsState<4, SpringPendulum>,
-    props: &SimplePhysicsProps,
-    anchor: Vec2,
-    _t: f32,
-) {
+fn eval(state: &mut SpringPendulumState, props: &SimplePhysicsProps, anchor: Vec2, _t: f32) {
     state.setd_bob(state.getv_dbob());
 
     // These are normalized vs. mass
@@ -92,4 +89,23 @@ pub fn eval(
     let dd_bob = force + dd_bob_damping;
 
     state.setd_dbob(dd_bob);
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct SpringPendulumSystem {
+    pub bob: Vec2,
+    state: SpringPendulumState,
+}
+
+impl SpringPendulumSystem {
+    pub fn tick(&mut self, anchor: Vec2, props: &SimplePhysicsProps, dt: f32) -> Vec2 {
+        self.state.setv_bob(self.bob);
+
+        // Run the spring pendulum simulation
+        runge_kutta::tick(&eval, &mut self.state, props, anchor, dt);
+
+        self.bob = self.state.getv_bob();
+
+        self.bob
+    }
 }

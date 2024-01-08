@@ -6,41 +6,28 @@ use crate::nodes::node_data::InoxData;
 use crate::params::ParamUuid;
 use crate::puppet::Puppet;
 
-use glam::{vec2, Vec2};
+use glam::Vec2;
 
-use self::pendulum::rigid::RigidPendulum;
-use self::pendulum::spring::SpringPendulum;
-use self::runge_kutta::PhysicsState;
+use self::pendulum::rigid::RigidPendulumSystem;
+use self::pendulum::spring::SpringPendulumSystem;
 
 /// Physics model to use for simple physics
 #[derive(Debug, Clone)]
 pub enum SimplePhysicsSystem {
     /// Rigid pendulum
-    RigidPendulum {
-        bob: Vec2,
-        state: PhysicsState<2, RigidPendulum>,
-    },
+    RigidPendulum(RigidPendulumSystem),
 
     // Springy pendulum
-    SpringPendulum {
-        bob: Vec2,
-        state: PhysicsState<4, SpringPendulum>,
-    },
+    SpringPendulum(SpringPendulumSystem),
 }
 
 impl SimplePhysicsSystem {
     pub fn new_rigid_pendulum() -> Self {
-        Self::RigidPendulum {
-            bob: Vec2::ZERO,
-            state: PhysicsState::default(),
-        }
+        Self::RigidPendulum(RigidPendulumSystem::default())
     }
 
     pub fn new_spring_pendulum() -> Self {
-        Self::SpringPendulum {
-            bob: Vec2::ZERO,
-            state: PhysicsState::default(),
-        }
+        Self::SpringPendulum(SpringPendulumSystem::default())
     }
 
     fn tick(&mut self, anchor: Vec2, props: &SimplePhysicsProps, dt: f32) -> Vec2 {
@@ -48,37 +35,8 @@ impl SimplePhysicsSystem {
         // as for inox2d, users are not expected to bring their own physics system,
         // no need to do dynamic dispatch with something like Box<dyn SimplePhysicsSystem>
         match self {
-            SimplePhysicsSystem::RigidPendulum {
-                ref mut bob,
-                ref mut state,
-            } => {
-                // Compute the angle against the updated anchor position
-                let d_bob = *bob - anchor;
-                state.setv_angle(f32::atan2(-d_bob.x, d_bob.y));
-
-                // Run the pendulum simulation in terms of angle
-                runge_kutta::tick(&pendulum::rigid::eval, state, props, anchor, dt);
-
-                // Update the bob position at the new angle
-                let angle = state.getv_angle();
-                let d_bob = vec2(-angle.sin(), angle.cos());
-                *bob = anchor + d_bob * props.length;
-
-                *bob
-            }
-            SimplePhysicsSystem::SpringPendulum {
-                ref mut bob,
-                ref mut state,
-            } => {
-                state.setv_bob(*bob);
-
-                // Run the spring pendulum simulation
-                runge_kutta::tick(&pendulum::spring::eval, state, props, anchor, dt);
-
-                *bob = state.getv_bob();
-
-                *bob
-            }
+            SimplePhysicsSystem::RigidPendulum(system) => system.tick(anchor, props, dt),
+            SimplePhysicsSystem::SpringPendulum(system) => system.tick(anchor, props, dt),
         }
     }
 }

@@ -69,11 +69,11 @@ impl SimplePhysics {
     }
 
     pub fn update_anchor(&mut self) {
-        let new_bob = self.anchor + vec2(0.0, self.final_length());
+        let bob = self.anchor + vec2(0.0, self.final_length());
 
         match &mut self.system {
-            SimplePhysicsSystem::RigidPendulum { ref mut bob, .. } => *bob = new_bob,
-            SimplePhysicsSystem::SpringPendulum { ref mut bob, .. } => *bob = new_bob,
+            SimplePhysicsSystem::RigidPendulum(system) => system.bob = bob,
+            SimplePhysicsSystem::SpringPendulum(system) => system.bob = bob,
         }
     }
 

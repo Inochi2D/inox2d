@@ -1,11 +1,14 @@
-use glam::Vec2;
+use glam::{Vec2, vec2};
 
-use crate::physics::runge_kutta::PhysicsState;
+use crate::physics::runge_kutta::{PhysicsState, self};
 use crate::physics::SimplePhysicsProps;
 
-pub struct RigidPendulum;
+/// Marker type for a rigid pendulum physics state
+struct RigidPendulum;
 
-impl PhysicsState<2, RigidPendulum> {
+type RigidPendulumState = PhysicsState<2, RigidPendulum>;
+
+impl RigidPendulumState {
     // angle
 
     pub fn getv_angle(&self) -> f32 {
@@ -16,9 +19,9 @@ impl PhysicsState<2, RigidPendulum> {
         self.vars[0] = angle;
     }
 
-    pub fn getd_angle(&self) -> f32 {
-        self.derivatives[0]
-    }
+    // pub fn getd_angle(&self) -> f32 {
+    //     self.derivatives[0]
+    // }
 
     pub fn setd_angle(&mut self, angle: f32) {
         self.derivatives[0] = angle;
@@ -30,21 +33,21 @@ impl PhysicsState<2, RigidPendulum> {
         self.vars[1]
     }
 
-    pub fn setv_dangle(&mut self, dangle: f32) {
-        self.vars[1] = dangle;
-    }
+    // pub fn setv_dangle(&mut self, dangle: f32) {
+    //     self.vars[1] = dangle;
+    // }
 
-    pub fn getd_dangle(&self) -> f32 {
-        self.derivatives[1]
-    }
+    // pub fn getd_dangle(&self) -> f32 {
+    //     self.derivatives[1]
+    // }
 
     pub fn setd_dangle(&mut self, dangle: f32) {
         self.derivatives[1] = dangle;
     }
 }
 
-pub fn eval(
-    state: &mut PhysicsState<2, RigidPendulum>,
+fn eval(
+    state: &mut RigidPendulumState,
     physics_props: &SimplePhysicsProps,
     _anchor: Vec2,
     _t: f32,
@@ -59,4 +62,28 @@ pub fn eval(
     };
 
     state.setd_dangle(dd);
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct RigidPendulumSystem {
+    pub bob: Vec2,
+    state: RigidPendulumState,
+}
+
+impl RigidPendulumSystem {
+    pub fn tick(&mut self, anchor: Vec2, props: &SimplePhysicsProps, dt: f32) -> Vec2 {
+        // Compute the angle against the updated anchor position
+        let d_bob = self.bob - anchor;
+        self.state.setv_angle(f32::atan2(-d_bob.x, d_bob.y));
+
+        // Run the pendulum simulation in terms of angle
+        runge_kutta::tick(&eval, &mut self.state, props, anchor, dt);
+
+        // Update the bob position at the new angle
+        let angle = self.state.getv_angle();
+        let d_bob = vec2(-angle.sin(), angle.cos());
+        self.bob = anchor + d_bob * props.length;
+
+        self.bob
+    }
 }
