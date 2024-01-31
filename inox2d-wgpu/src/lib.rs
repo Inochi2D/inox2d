@@ -12,7 +12,7 @@ use inox2d::render::RenderCtxKind;
 
 use encase::ShaderType;
 use glam::{vec3, Mat4, UVec2, Vec2, Vec3};
-use inox2d::texture::parallel_decode_model_textures;
+use inox2d::texture::decode_model_textures;
 use tracing::warn;
 use wgpu::{util::DeviceExt, *};
 
@@ -52,7 +52,7 @@ impl Renderer {
 			..SamplerDescriptor::default()
 		});
 
-		let shalltexs = parallel_decode_model_textures(model.textures.iter(), None);
+		let shalltexs = decode_model_textures(model.textures.iter());
 		for shalltex in &shalltexs {
 			let texture_size = wgpu::Extent3d {
 				width: shalltex.width(),

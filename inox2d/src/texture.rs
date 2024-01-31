@@ -1,5 +1,4 @@
 use std::io;
-use std::sync::mpsc;
 
 use image::{ImageBuffer, ImageError, ImageFormat, Rgba};
 use tracing::error;
@@ -86,22 +85,35 @@ fn decode_texture(mtex: ModelTexture) -> Result<ShallowTexture, DecodeTextureErr
 	}
 }
 
-pub fn parallel_decode_model_textures<'a>(
+#[cfg(target_arch = "wasm32")]
+pub fn decode_model_textures<'a>(
 	model_textures: impl ExactSizeIterator<Item = &'a ModelTexture>,
-	n_threads: Option<usize>,
 ) -> Vec<ShallowTexture> {
+	(model_textures.cloned())
+		.map(decode_texture)
+		.inspect(|res| {
+			if let Err(e) = res {
+				tracing::error!("{}", e);
+			}
+		})
+		.filter_map(Result::ok)
+		.collect::<Vec<_>>()
+}
+
+/// Decodes model textures in parallel, using as many threads as we can use minus one.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn decode_model_textures<'a>(
+	model_textures: impl ExactSizeIterator<Item = &'a ModelTexture>,
+) -> Vec<ShallowTexture> {
+	use std::sync::mpsc;
+
 	// get number of optimal threads from computer
-	let mut max_num_threads = std::thread::available_parallelism().unwrap().get();
+	let mut num_threads = std::thread::available_parallelism().unwrap().get();
 
 	// remove at least one thread to not torture the computer
-	if max_num_threads > 1 {
-		max_num_threads -= 1;
+	if num_threads > 1 {
+		num_threads -= 1;
 	}
-
-	let mut num_threads = match n_threads {
-		Some(n_threads) => n_threads.min(max_num_threads),
-		None => max_num_threads,
-	};
 
 	// do not use more threads than there are images
 	if num_threads > model_textures.len() {
