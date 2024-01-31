@@ -63,15 +63,16 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 	let context_options = js_sys::Object::new();
 	js_sys::Reflect::set(&context_options, &"stencil".into(), &true.into()).unwrap();
 
+	let canvas = web_sys::window()
+		.unwrap()
+		.document()
+		.unwrap()
+		.get_element_by_id("canvas")
+		.unwrap()
+		.dyn_into::<web_sys::HtmlCanvasElement>()
+		.unwrap();
+
 	let gl = {
-		let canvas = web_sys::window()
-			.unwrap()
-			.document()
-			.unwrap()
-			.get_element_by_id("canvas")
-			.unwrap()
-			.dyn_into::<web_sys::HtmlCanvasElement>()
-			.unwrap();
 		let webgl2_context = canvas
 			.get_context_with_context_options("webgl2", &context_options)
 			.unwrap()
@@ -91,12 +92,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 	let model = parse_inp(model_bytes.as_ref())?;
 
 	info!("Initializing Inox2D renderer");
-	let window_size = window.inner_size();
 	let mut renderer = OpenglRenderer::new(gl)?;
 
 	info!("Creating buffers and uploading model textures");
 	renderer.prepare(&model)?;
-	renderer.resize(window_size.width, window_size.height);
 	renderer.camera.scale = Vec2::splat(0.15);
 	info!("Inox2D renderer initialized");
 
@@ -145,6 +144,8 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 				WindowEvent::Resized(physical_size) => {
 					// Handle window resizing
 					renderer.borrow_mut().resize(physical_size.width, physical_size.height);
+					canvas.set_width(physical_size.width);
+					canvas.set_height(physical_size.height);
 					window.request_redraw();
 				}
 				WindowEvent::CloseRequested => elwt.exit(),
