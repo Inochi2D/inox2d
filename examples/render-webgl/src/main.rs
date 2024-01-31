@@ -52,6 +52,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 	use wasm_bindgen::prelude::Closure;
 	use wasm_bindgen::JsCast;
 	use winit::event::{Event, WindowEvent};
+	use winit::platform::web::EventLoopExtWebSys;
 
 	use crate::scene::WasmSceneController;
 
@@ -134,7 +135,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 	}
 
 	// Event loop
-	events.run(move |event, elwt| {
+	events.spawn(move |event, elwt| {
 		// it needs to be present
 		let _window = &window;
 		elwt.set_control_flow(winit::event_loop::ControlFlow::Wait);
@@ -156,7 +157,8 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 			}
 			_ => (),
 		}
-	})?;
+	});
+
 	Ok(())
 }
 
