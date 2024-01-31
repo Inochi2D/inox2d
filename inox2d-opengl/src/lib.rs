@@ -10,8 +10,7 @@ use std::ops::Deref;
 use gl_buffer::RenderCtxOpenglExt;
 use glam::{uvec2, Mat4, UVec2, Vec2, Vec3};
 use glow::HasContext;
-use inox2d::texture::{parallel_decode_model_textures, TextureId};
-use tracing::{debug, error};
+use inox2d::texture::{decode_model_textures, TextureId};
 
 use inox2d::math::camera::Camera;
 use inox2d::model::{Model, ModelTexture};
@@ -188,11 +187,11 @@ impl OpenglRenderer {
 
 	fn upload_model_textures(&mut self, model_textures: &[ModelTexture]) -> Result<(), TextureError> {
 		// decode textures in parallel
-		let shalltexs = parallel_decode_model_textures(model_textures.iter(), None);
+		let shalltexs = decode_model_textures(model_textures.iter());
 
 		// upload textures
 		for (i, shalltex) in shalltexs.iter().enumerate() {
-			debug!("Uploading shallow texture {:?}", i);
+			tracing::debug!("Uploading shallow texture {:?}", i);
 			let tex = texture::Texture::from_shallow_texture(&self.gl, shalltex)?;
 			self.textures.push(tex);
 		}
