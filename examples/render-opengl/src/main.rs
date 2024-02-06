@@ -2,7 +2,6 @@ use std::path::PathBuf;
 use std::{error::Error, fs, num::NonZeroU32};
 
 use inox2d::formats::inp::parse_inp;
-use inox2d::nodes::node_data::InoxData;
 use inox2d_opengl::OpenglRenderer;
 
 use clap::Parser;
@@ -79,26 +78,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 renderer.clear();
 
                 puppet.begin_set_params();
-                let t = scene_ctrl.current_elapsed() * 5.0;
-                puppet.set_named_param("Head:: Yaw-Pitch", Vec2::new(t.cos(), 0.0));
-                puppet.end_set_params();
-
-                // TODO: this for loop won't compile (even if we clone all the driver UUIDs)
-                // because Rust is not bad enough to allow an OOP architecture :(
-                //
-                for driver_uuid in puppet.drivers.clone() {
-                    let Some(driver) = puppet.nodes.get_node_mut(driver_uuid) else {
-                        continue;
-                    };
-
-                    match &mut driver.data {
-                        InoxData::SimplePhysics(system) => {
-                            let nrc = &puppet.render_ctx.node_render_ctxs[&driver.uuid];
-                            system.update_driver(0.01, nrc, &mut puppet, system.param);
-                        }
-                        _ => (),
-                    }
-                }
+                let t = scene_ctrl.current_elapsed();
+                puppet.set_named_param("Head:: Yaw-Pitch", Vec2::new((t * 1.0).cos() * 10., 0.0));
+                puppet.end_set_params(scene_ctrl.dt());
 
                 renderer.render(&puppet);
 
