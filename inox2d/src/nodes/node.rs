@@ -1,13 +1,13 @@
-use std::fmt::Debug;
-
 use crate::math::transform::TransformOffset;
 
 use super::node_data::InoxData;
-
+pub type Uuid = u32;
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct InoxNodeUuid(pub(crate) u32);
-
+pub struct InoxNodeUuid(pub(crate) Uuid);
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub struct InoxParamUuid(pub Uuid);
 #[derive(Clone, Debug)]
 pub struct InoxNode<T = ()> {
 	pub uuid: InoxNodeUuid,

@@ -1,8 +1,10 @@
 use glam::Vec2;
 
+use super::node::InoxParamUuid;
+
 #[derive(Debug, Clone)]
 pub struct SimplePhysics {
-	pub param: u32,
+	pub param: InoxParamUuid,
 	pub model_type: String,
 	pub map_mode: String,
 	pub gravity: f32,

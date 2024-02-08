@@ -3,13 +3,12 @@ use std::collections::HashMap;
 use glam::{vec2, Vec2};
 use indextree::Arena;
 use json::JsonValue;
-use uuid::Uuid;
 
 use crate::math::interp::{InterpolateMode, UnknownInterpolateModeError};
 use crate::math::matrix::{Matrix2d, Matrix2dFromSliceVecsError};
 use crate::math::transform::TransformOffset;
 use crate::mesh::{f32s_as_vec2s, Mesh};
-use crate::nodes::node::{InoxNode, InoxNodeUuid};
+use crate::nodes::node::{InoxNode, InoxNodeUuid, InoxParamUuid};
 use crate::nodes::node_data::{
 	BlendMode, Composite, Drawable, InoxData, Mask, MaskMode, Part, UnknownBlendModeError, UnknownMaskModeError,
 };
@@ -155,7 +154,7 @@ fn deserialize_composite(obj: &JsonObject) -> InoxParseResult<Composite> {
 
 fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics> {
 	Ok(SimplePhysics {
-		param: obj.get_u32("param")?,
+		param: InoxParamUuid(obj.get_u32("param")?),
 		model_type: obj.get_str("model_type")?.to_owned(),
 		map_mode: obj.get_str("map_mode")?.to_owned(),
 		gravity: obj.get_f32("gravity")?,
@@ -290,18 +289,18 @@ pub fn deserialize_puppet_ext<T>(
 	})
 }
 
-fn deserialize_params(vals: &[json::JsonValue]) -> HashMap<Uuid, Param> {
+fn deserialize_params(vals: &[json::JsonValue]) -> HashMap<InoxParamUuid, Param> {
 	vals.iter()
 		.filter_map(|param| deserialize_param(&JsonObject(param.as_object()?)).ok())
 		.collect()
 }
 
-fn deserialize_param(obj: &JsonObject) -> InoxParseResult<(Uuid, Param)> {
-	let uuid = Uuid::from_u64_pair(0, obj.get_u64("uuid")?);
+fn deserialize_param(obj: &JsonObject) -> InoxParseResult<(InoxParamUuid, Param)> {
+	let uuid = InoxParamUuid(obj.get_u32("uuid")?);
 	Ok((
 		uuid,
 		Param {
-			uuid: obj.get_u32("uuid")?,
+			uuid,
 			name: obj.get_str("name").map(String::from).ok(),
 			is_vec2: obj.get_bool("is_vec2")?,
 			min: obj.get_vec2("min")?,

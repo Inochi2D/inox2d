@@ -3,8 +3,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use uuid::Uuid;
-
+use crate::nodes::node::InoxParamUuid;
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::params::Param;
 use crate::render::RenderCtx;
@@ -305,7 +304,7 @@ pub struct Puppet<T = ()> {
 	pub meta: PuppetMeta,
 	pub physics: PuppetPhysics,
 	pub nodes: InoxNodeTree<T>,
-	pub parameters: HashMap<Uuid, Param>,
-	pub param_names: HashMap<String, Uuid>,
+	pub parameters: HashMap<InoxParamUuid, Param>,
+	pub param_names: HashMap<String, InoxParamUuid>,
 	pub render_ctx: RenderCtx,
 }

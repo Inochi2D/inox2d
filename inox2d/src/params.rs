@@ -2,7 +2,7 @@ use glam::{vec2, Vec2};
 
 use crate::math::interp::{bi_interpolate_f32, bi_interpolate_vec2s_additive, InterpRange, InterpolateMode};
 use crate::math::matrix::Matrix2d;
-use crate::nodes::node::InoxNodeUuid;
+use crate::nodes::node::{InoxNodeUuid, InoxParamUuid};
 use crate::puppet::Puppet;
 use crate::render::{NodeRenderCtxs, PartRenderCtx, RenderCtxKind};
 
@@ -49,7 +49,7 @@ fn ranges_out(
 /// Parameter. A simple bounded value that is used to animate nodes through bindings.
 #[derive(Debug, Clone)]
 pub struct Param {
-	pub uuid: u32,
+	pub uuid: InoxParamUuid,
 	pub name: Option<String>,
 	pub is_vec2: bool,
 	pub min: Vec2,
@@ -175,9 +175,11 @@ impl Param {
 
 impl Puppet {
 	pub fn get_param(&self, name: &str) -> Option<&Param> {
-		self.param_names
-			.get(name)
-			.map(|pn| self.parameters.get(pn).expect("param index mismatch {pn}"))
+		self.param_names.get(name).map(|pu| {
+			self.parameters
+				.get(pu)
+				.unwrap_or_else(|| panic!("param index mismatch {pu:?}"))
+		})
 	}
 
 	pub fn begin_set_params(&mut self) {
