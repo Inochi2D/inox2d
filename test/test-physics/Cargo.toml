@@ -1,0 +1,18 @@
+[package]
+name = "test-physics"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+common = { path = "../../examples/common" }
+inox2d = { path = "../../inox2d" }
+inox2d-wgpu = { path = "../../inox2d-wgpu" }
+
+clap = { version = "4.1.8", features = ["derive"] }
+glam = { version = "0.24", features = ["bytemuck"] }
+pollster = "0.3.0"
+raw-window-handle = "0.5.1"
+tracing = "0.1.37"
+tracing-subscriber = "0.3.16"
+winit = { version = "0.29", features = ["rwh_05"] }
+wgpu = "0.18"

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use glam::{vec2, Vec2};
 use indextree::Arena;
 use json::JsonValue;
+use uuid::Uuid;
 
 use crate::math::interp::{InterpolateMode, UnknownInterpolateModeError};
 use crate::math::matrix::{Matrix2d, Matrix2dFromSliceVecsError};
@@ -275,29 +276,33 @@ pub fn deserialize_puppet_ext<T>(
 		deserialize_nodes(&obj.get_object("nodes")?, deserialize_node_custom),
 	)?;
 	let render_ctx = RenderCtx::new(&nodes);
-
+	let param_map = deserialize_params(obj.get_list("param")?);
 	Ok(Puppet {
 		meta: vals("meta", deserialize_puppet_meta(&obj.get_object("meta")?))?,
 		physics: vals("physics", deserialize_puppet_physics(&obj.get_object("physics")?))?,
 		nodes,
-		parameters: deserialize_params(obj.get_list("param")?),
 		render_ctx,
+		param_names: param_map
+			.iter()
+			.filter_map(|(u, p)| p.name.as_ref().map(|n| (n.into(), *u)))
+			.collect(),
+		parameters: param_map,
 	})
 }
 
-fn deserialize_params(vals: &[json::JsonValue]) -> HashMap<String, Param> {
+fn deserialize_params(vals: &[json::JsonValue]) -> HashMap<Uuid, Param> {
 	vals.iter()
-		.map_while(|param| deserialize_param(&JsonObject(param.as_object()?)).ok())
+		.filter_map(|param| deserialize_param(&JsonObject(param.as_object()?)).ok())
 		.collect()
 }
 
-fn deserialize_param(obj: &JsonObject) -> InoxParseResult<(String, Param)> {
-	let name = obj.get_str("name")?.to_owned();
+fn deserialize_param(obj: &JsonObject) -> InoxParseResult<(Uuid, Param)> {
+	let uuid = Uuid::from_u64_pair(0, obj.get_u64("uuid")?);
 	Ok((
-		name.clone(),
+		uuid,
 		Param {
 			uuid: obj.get_u32("uuid")?,
-			name,
+			name: obj.get_str("name").map(String::from).ok(),
 			is_vec2: obj.get_bool("is_vec2")?,
 			min: obj.get_vec2("min")?,
 			max: obj.get_vec2("max")?,

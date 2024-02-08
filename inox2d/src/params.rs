@@ -50,7 +50,7 @@ fn ranges_out(
 #[derive(Debug, Clone)]
 pub struct Param {
 	pub uuid: u32,
-	pub name: String,
+	pub name: Option<String>,
 	pub is_vec2: bool,
 	pub min: Vec2,
 	pub max: Vec2,
@@ -175,7 +175,9 @@ impl Param {
 
 impl Puppet {
 	pub fn get_param(&self, name: &str) -> Option<&Param> {
-		self.parameters.get(name)
+		self.param_names
+			.get(name)
+			.map(|pn| self.parameters.get(pn).expect("param index mismatch {pn}"))
 	}
 
 	pub fn begin_set_params(&mut self) {
@@ -191,8 +193,9 @@ impl Puppet {
 
 	pub fn set_param(&mut self, param_name: &str, val: Vec2) {
 		let param = self
-			.parameters
+			.param_names
 			.get(param_name)
+			.map(|pn| self.parameters.get(pn).expect("param index mismatch {pn}"))
 			.unwrap_or_else(|| panic!("No parameter named: {}", param_name));
 
 		param.apply(

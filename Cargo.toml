@@ -5,4 +5,5 @@ members = [
     "inox2d-opengl",
     "inox2d-wgpu",
     "examples/*",
+    "test/*"
 ]
