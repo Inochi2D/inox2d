@@ -79,7 +79,13 @@ pub async fn run(model: Model) {
 
 	let mut scene_ctrl = ExampleSceneController::new(&renderer.camera, 0.5);
 	let mut puppet = model.puppet;
-
+	puppet.nodes.arena.iter_mut().for_each(|n| {
+		let nn = n.get_mut();
+		if nn.name == "Point A" {
+			nn.trans_offset.scale *= Vec2::splat(2.);
+		}
+	});
+	//	println!("{:?}", puppet);
 	event_loop
 		.run(move |event, elwt| match event {
 			Event::WindowEvent {
