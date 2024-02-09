@@ -1,0 +1,5 @@
+let make_param_set_args = import! inox_test_framework
+let float = import! std.float
+let sin_y = float.sin seed
+let cos_x = float.sin seed
+    in make_param_set_args "Head:: Yaw-Pitch" cos_x sin_y

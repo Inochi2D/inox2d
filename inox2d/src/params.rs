@@ -197,7 +197,11 @@ impl Puppet {
 		let param = self
 			.param_names
 			.get(param_name)
-			.map(|pn| self.parameters.get(pn).expect("param index mismatch {pn}"))
+			.map(|pu| {
+				self.parameters
+					.get(pu)
+					.unwrap_or_else(|| panic!("param index mismatch {pu:?}"))
+			})
 			.unwrap_or_else(|| panic!("No parameter named: {}", param_name));
 
 		param.apply(

@@ -1,5 +1,7 @@
 use common::scene::ExampleSceneController;
 use glam::{uvec2, vec2, Vec2};
+use gluon::{import::add_extern_module, new_vm, primitive, ThreadExt};
+use gluon_codegen::{Getable, Pushable, Trace, VmType};
 use wgpu::CompositeAlphaMode;
 use winit::{
 	event::*,
@@ -8,15 +10,14 @@ use winit::{
 	window::WindowBuilder,
 };
 
-use inox2d::formats::inp::parse_inp;
 use inox2d::model::Model;
+use inox2d::{formats::inp::parse_inp, puppet::Puppet};
 use inox2d_wgpu::Renderer;
-use std::fs;
 use std::path::PathBuf;
+use std::{borrow::BorrowMut, fs};
 
 use clap::Parser;
-
-pub async fn run(model: Model) {
+pub async fn run_with_script(model: Model, script: String) {
 	let event_loop = EventLoop::new().unwrap();
 	let window = WindowBuilder::new()
 		.with_inner_size(winit::dpi::PhysicalSize::new(800, 800))
@@ -67,6 +68,7 @@ pub async fn run(model: Model) {
 		view_formats: Vec::new(),
 	};
 	surface.configure(&device, &config);
+	let vm = new_vm();
 
 	let mut renderer = Renderer::new(
 		&device,
@@ -79,12 +81,7 @@ pub async fn run(model: Model) {
 
 	let mut scene_ctrl = ExampleSceneController::new(&renderer.camera, 0.5);
 	let mut puppet = model.puppet;
-	puppet.nodes.arena.iter_mut().for_each(|n| {
-		let nn = n.get_mut();
-		if nn.name == "Point A" {
-			nn.trans_offset.scale *= Vec2::splat(2.);
-		}
-	});
+	add_extern_module(&vm, "inox_test_framework", load_mpsa);
 	//	println!("{:?}", puppet);
 	event_loop
 		.run(move |event, elwt| match event {
@@ -96,7 +93,11 @@ pub async fn run(model: Model) {
 
 				puppet.begin_set_params();
 				let t = scene_ctrl.current_elapsed();
-				puppet.set_param("Anchor Positioner", vec2(t.cos(), t.sin()));
+				let seeded_script = format!("let seed = {}\n{}", t, script);
+				let (param_set_args, _) = vm.run_expr::<ParamSetArgs>("m", &seeded_script).unwrap();
+
+				set_test_param(puppet.borrow_mut(), param_set_args);
+				//				puppet.set_param("Anchor Positioner", vec2(t.cos(), t.sin()));
 				puppet.end_set_params();
 
 				let output = surface.get_current_texture().unwrap();
@@ -146,15 +147,39 @@ pub async fn run(model: Model) {
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-	#[arg(help = "Path to the .inp file. .inx files don't work!")]
+	#[arg(
+		help = "Path to the .inp file. .inx files don't work!",
+		default_value = "./inochi2d-models/arrows-doublespringpendulum.inp"
+	)]
 	inp_path: PathBuf,
+	#[arg(short, long, default_value = "./test/test-physics/physics_test.glu")]
+	script_path: PathBuf,
 }
-
+pub fn make_param_set_args(name: &str, val_x: f32, val_y: f32) -> ParamSetArgs {
+	ParamSetArgs {
+		name: name.into(),
+		val_x,
+		val_y,
+	}
+}
+fn load_mpsa(vm: &gluon::Thread) -> gluon::vm::Result<gluon::vm::ExternModule> {
+	gluon::vm::ExternModule::new(vm, primitive!(3, make_param_set_args))
+}
+#[derive(VmType, Clone, Debug, Trace, Getable, Pushable)]
+#[gluon_userdata(clone)]
+pub struct ParamSetArgs {
+	pub name: String,
+	pub val_x: f32,
+	pub val_y: f32,
+}
+fn set_test_param(puppet: &mut Puppet, ParamSetArgs { name, val_x, val_y }: ParamSetArgs) {
+	puppet.set_param(&name, vec2(val_x, val_y));
+}
 fn main() {
 	let cli = Cli::parse();
-
+	let script = String::from_utf8(fs::read(cli.script_path).unwrap()).unwrap();
 	let data = fs::read(cli.inp_path).unwrap();
 	let model = parse_inp(data.as_slice()).unwrap();
 
-	pollster::block_on(run(model));
+	pollster::block_on(run_with_script(model, script));
 }
