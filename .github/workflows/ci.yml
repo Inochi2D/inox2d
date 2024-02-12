@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -40,6 +40,7 @@ jobs:
       - name: Setup aarch64
         if: matrix.config.target == 'aarch64-unknown-linux-gnu'
         run: |
+          sudo apt update
           sudo apt install gcc-aarch64-linux-gnu
           echo "[target.aarch64-unknown-linux-gnu]" >> ~/.cargo/config
           echo "linker = \"aarch64-linux-gnu-gcc\"" >> ~/.cargo/config
@@ -74,7 +75,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
         with:

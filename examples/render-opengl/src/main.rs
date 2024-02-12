@@ -1,122 +1,152 @@
 use std::path::PathBuf;
-use std::{error::Error, fs, num::NonZeroU32};
+use std::{error::Error, fs};
 
 use inox2d::formats::inp::parse_inp;
+use inox2d::model::Model;
+use inox2d::render::InoxRenderer;
 use inox2d_opengl::OpenglRenderer;
 
 use clap::Parser;
-use glam::{uvec2, Vec2};
-use glutin::surface::GlSurface;
-use tracing::{debug, info};
+use glam::Vec2;
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*};
-use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
+
+use winit::event::{ElementState, KeyEvent, WindowEvent};
 
 use common::scene::ExampleSceneController;
-use opengl::{launch_opengl_window, App};
+use winit::event_loop::EventLoopWindowTarget;
+use winit::keyboard::{KeyCode, PhysicalKey};
 
-mod opengl;
+use app_frame::App;
+use winit::window::WindowBuilder;
+
+use crate::app_frame::AppFrame;
+
+mod app_frame;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    #[arg(help = "Path to the .inp file. .inx files don't work!")]
-    inp_path: PathBuf,
+	#[arg(help = "Path to the .inp file. .inx files don't work!")]
+	inp_path: PathBuf,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let cli = Cli::parse();
+	let cli = Cli::parse();
 
-    tracing_subscriber::registry()
-        .with(fmt::layer())
-        .with(LevelFilter::INFO)
-        .init();
+	tracing_subscriber::registry()
+		.with(fmt::layer())
+		.with(LevelFilter::INFO)
+		.init();
 
-    info!("Parsing puppet");
+	tracing::info!("Parsing puppet");
 
-    let data = fs::read(cli.inp_path).unwrap();
-    let model = parse_inp(data.as_slice()).unwrap();
-    let puppet = model.puppet;
-    info!(
-        "Successfully parsed puppet: {}",
-        (puppet.meta.name.as_deref()).unwrap_or("<no puppet name specified in file>")
-    );
+	let data = fs::read(cli.inp_path).unwrap();
+	let model = parse_inp(data.as_slice()).unwrap();
+	tracing::info!(
+		"Successfully parsed puppet: {}",
+		(model.puppet.meta.name.as_deref()).unwrap_or("<no puppet name specified in file>")
+	);
 
-    info!("Setting up windowing and OpenGL");
-    let App {
-        gl,
-        gl_ctx,
-        gl_surface,
-        gl_display,
-        events,
-        window,
-    } = launch_opengl_window()?;
+	tracing::info!("Setting up windowing and OpenGL");
+	let app_frame = AppFrame::init(
+		WindowBuilder::new()
+			.with_transparent(true)
+			.with_resizable(true)
+			.with_inner_size(winit::dpi::PhysicalSize::new(600, 800))
+			.with_title("Render Inochi2D Puppet (OpenGL)"),
+	)?;
 
-    info!("Initializing Inox2D renderer");
-    let window_size = window.inner_size();
-    let viewport = uvec2(window_size.width, window_size.height);
-    let mut renderer = OpenglRenderer::new(gl, viewport, &puppet)?;
-    renderer.upload_model_textures(&model.textures)?;
-    renderer.camera.scale = Vec2::splat(0.15);
-    info!("Inox2D renderer initialized");
+	app_frame.run(Inox2dOpenglExampleApp::new(model))?;
 
-    let mut scene_ctrl = ExampleSceneController::new(&renderer.camera, 0.5);
-    let mut puppet = puppet;
+	Ok(())
+}
 
-    // Event loop
-    events.run(move |event, _, control_flow| {
-        // They need to be present
-        let _gl_display = &gl_display;
-        let _window = &window;
+struct Inox2dOpenglExampleApp {
+	on_window: Option<(OpenglRenderer, ExampleSceneController)>,
+	model: Model,
+	width: u32,
+	height: u32,
+}
 
-        control_flow.set_wait();
+impl Inox2dOpenglExampleApp {
+	pub fn new(model: Model) -> Self {
+		Self {
+			on_window: None,
+			model,
+			width: 0,
+			height: 0,
+		}
+	}
+}
 
-        match event {
-            Event::RedrawRequested(_) => {
-                debug!("Redrawing");
-                scene_ctrl.update(&mut renderer.camera);
+impl App for Inox2dOpenglExampleApp {
+	fn resume_window(&mut self, gl: glow::Context) {
+		match OpenglRenderer::new(gl) {
+			Ok(mut renderer) => {
+				tracing::info!("Initializing Inox2D renderer");
+				renderer.prepare(&self.model).unwrap();
+				renderer.resize(self.width, self.height);
+				renderer.camera.scale = Vec2::splat(0.15);
+				tracing::info!("Inox2D renderer initialized");
 
-                renderer.clear();
+				let scene_ctrl = ExampleSceneController::new(&renderer.camera, 0.5);
+				self.on_window = Some((renderer, scene_ctrl));
+			}
+			Err(e) => {
+				tracing::error!("{}", e);
+				self.on_window = None;
+			}
+		}
+	}
 
-                puppet.begin_set_params();
-                let t = scene_ctrl.current_elapsed();
-                puppet.set_named_param("Head:: Yaw-Pitch", Vec2::new((t * 1.0).cos() * 10., 0.0));
-                puppet.end_set_params(scene_ctrl.dt());
+	fn resize(&mut self, width: i32, height: i32) {
+		self.width = width as u32;
+		self.height = height as u32;
 
-                renderer.render(&puppet);
+		if let Some((renderer, _)) = &mut self.on_window {
+			renderer.resize(self.width, self.height);
+		}
+	}
 
-                gl_surface.swap_buffers(&gl_ctx).unwrap();
-                window.request_redraw();
-            }
-            Event::WindowEvent { ref event, .. } => match event {
-                WindowEvent::Resized(physical_size) => {
-                    // Handle window resizing
-                    renderer.resize(physical_size.width, physical_size.height);
-                    gl_surface.resize(
-                        &gl_ctx,
-                        NonZeroU32::new(physical_size.width).unwrap(),
-                        NonZeroU32::new(physical_size.height).unwrap(),
-                    );
-                    window.request_redraw();
-                }
-                WindowEvent::CloseRequested => control_flow.set_exit(),
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            virtual_keycode: Some(VirtualKeyCode::Escape),
-                            state: ElementState::Pressed,
-                            ..
-                        },
-                    ..
-                } => {
-                    info!("There is an Escape D:");
-                    control_flow.set_exit();
-                }
-                _ => scene_ctrl.interact(&window, event, &renderer.camera),
-            },
-            Event::MainEventsCleared => {
-                window.request_redraw();
-            }
-            _ => (),
-        }
-    })
+	fn draw(&mut self) {
+		let Some((renderer, scene_ctrl)) = &mut self.on_window else {
+			return;
+		};
+
+		tracing::debug!("Redrawingggggg");
+		scene_ctrl.update(&mut renderer.camera);
+
+		renderer.clear();
+
+		let puppet = &mut self.model.puppet;
+		puppet.begin_set_params();
+		let t = scene_ctrl.current_elapsed();
+		puppet.set_named_param("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
+		puppet.end_set_params(scene_ctrl.dt());
+
+		renderer.render(puppet);
+	}
+
+	fn handle_window_event(&mut self, event: WindowEvent, elwt: &EventLoopWindowTarget<()>) {
+		match event {
+			WindowEvent::CloseRequested => elwt.exit(),
+			WindowEvent::KeyboardInput {
+				event:
+					KeyEvent {
+						state: ElementState::Pressed,
+						physical_key: PhysicalKey::Code(KeyCode::Escape),
+						..
+					},
+				..
+			} => {
+				tracing::info!("There is an Escape D:");
+				elwt.exit();
+			}
+			event => {
+				if let Some((renderer, scene_ctrl)) = &mut self.on_window {
+					scene_ctrl.interact(&event, &renderer.camera)
+				}
+			}
+		}
+	}
 }
