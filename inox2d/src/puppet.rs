@@ -301,7 +301,7 @@ impl Default for PuppetMeta {
 }
 
 /// Global physics parameters for the puppet.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct PuppetPhysics {
     pub pixels_per_meter: f32,
     pub gravity: f32,

@@ -50,7 +50,7 @@ impl SimplePhysics {
         param_value * oscale
     }
 
-    pub fn update(&mut self, dt: f32, node_render_ctx: &NodeRenderCtx) -> Vec2 {
+    pub fn update(&mut self, dt: f32, puppet_physics: PuppetPhysics, node_render_ctx: &NodeRenderCtx) -> Vec2 {
         // Timestep is limited to 10 seconds.
         // If you're getting 0.1 FPS, you have bigger issues to deal with.
         let mut h = dt.min(10.);
@@ -59,11 +59,11 @@ impl SimplePhysics {
 
         // Minimum physics timestep: 0.01s
         while h > 0.01 {
-            self.tick(0.01);
+            self.tick(0.01, puppet_physics);
             h -= 0.01;
         }
 
-        self.tick(h);
+        self.tick(h, puppet_physics);
 
         self.calc_outputs(node_render_ctx)
     }

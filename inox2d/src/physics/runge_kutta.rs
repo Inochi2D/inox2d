@@ -3,8 +3,6 @@ use std::marker::PhantomData;
 
 use glam::Vec2;
 
-use super::SimplePhysicsProps;
-
 pub struct PhysicsState<const N: usize, T> {
     pub vars: [f32; N],
     pub derivatives: [f32; N],
@@ -44,37 +42,37 @@ impl<const N: usize, T> Default for PhysicsState<N, T> {
     }
 }
 
-pub fn tick<const N: usize, T>(
-	eval: &impl Fn(&mut PhysicsState<N, T>, &SimplePhysicsProps, Vec2, f32),
-	phys: &mut PhysicsState<N, T>,
-	physics_props: &SimplePhysicsProps,
+pub fn tick<const N: usize, T, P>(
+    eval: &impl Fn(&mut PhysicsState<N, T>, &P, Vec2, f32),
+    phys: &mut PhysicsState<N, T>,
+    props: P,
     anchor: Vec2,
-	h: f32,
+    h: f32,
 ) {
     let curs = phys.vars;
     phys.derivatives = [0.; N];
 
     let t = phys.t;
 
-    (eval)(phys, physics_props, anchor, t);
+    (eval)(phys, &props, anchor, t);
     let k1s = phys.derivatives;
 
     for i in 0..N {
         phys.vars[i] = curs[i] + h * k1s[i] / 2.;
     }
-    (eval)(phys, physics_props, anchor, t + h / 2.);
+    (eval)(phys, &props, anchor, t + h / 2.);
     let k2s = phys.derivatives;
 
     for i in 0..N {
         phys.vars[i] = curs[i] + h * k2s[i] / 2.;
     }
-    (eval)(phys, physics_props, anchor, t + h / 2.);
+    (eval)(phys, &props, anchor, t + h / 2.);
     let k3s = phys.derivatives;
 
     for i in 0..N {
         phys.vars[i] = curs[i] + h * k3s[i];
     }
-    (eval)(phys, physics_props, anchor, t + h);
+    (eval)(phys, &props, anchor, t + h);
     let k4s = phys.derivatives;
 
     for i in 0..N {

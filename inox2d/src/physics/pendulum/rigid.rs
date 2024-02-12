@@ -2,6 +2,7 @@ use glam::{vec2, Vec2};
 
 use crate::physics::runge_kutta::{self, PhysicsState};
 use crate::physics::SimplePhysicsProps;
+use crate::puppet::PuppetPhysics;
 
 /// Marker type for a rigid pendulum physics state
 struct RigidPendulum;
@@ -47,10 +48,15 @@ impl RigidPendulumState {
     }
 }
 
-fn eval(state: &mut RigidPendulumState, props: &SimplePhysicsProps, _anchor: Vec2, _t: f32) {
+fn eval(
+    state: &mut RigidPendulumState,
+    &(puppet_physics, props): &(PuppetPhysics, &SimplePhysicsProps),
+    _anchor: Vec2,
+    _t: f32,
+) {
     // https://www.myphysicslab.com/pendulum/pendulum-en.html
 
-    let g = props.gravity;
+    let g = props.gravity * puppet_physics.pixels_per_meter * puppet_physics.gravity;
     let r = props.length;
 
     // θ' = ω
@@ -74,13 +80,19 @@ pub struct RigidPendulumSystem {
 }
 
 impl RigidPendulumSystem {
-    pub fn tick(&mut self, anchor: Vec2, props: &SimplePhysicsProps, dt: f32) -> Vec2 {
+    pub fn tick(
+        &mut self,
+        anchor: Vec2,
+        puppet_physics: PuppetPhysics,
+        props: &SimplePhysicsProps,
+        dt: f32,
+    ) -> Vec2 {
         // Compute the angle against the updated anchor position
         let d_bob = self.bob - anchor;
         self.state.set_vθ(f32::atan2(-d_bob.x, d_bob.y));
 
         // Run the pendulum simulation in terms of angle
-        runge_kutta::tick(&eval, &mut self.state, props, anchor, dt);
+        runge_kutta::tick(&eval, &mut self.state, (puppet_physics, props), anchor, dt);
 
         // Update the bob position at the new angle
         let angle = self.state.get_vθ();

@@ -4,7 +4,7 @@ mod simple_physics;
 
 use crate::nodes::node_data::InoxData;
 use crate::params::ParamUuid;
-use crate::puppet::Puppet;
+use crate::puppet::{Puppet, PuppetPhysics};
 
 use glam::Vec2;
 
@@ -30,13 +30,23 @@ impl SimplePhysicsSystem {
         Self::SpringPendulum(SpringPendulumSystem::default())
     }
 
-    fn tick(&mut self, anchor: Vec2, props: &SimplePhysicsProps, dt: f32) -> Vec2 {
+    fn tick(
+        &mut self,
+        anchor: Vec2,
+        puppet_physics: PuppetPhysics,
+        props: &SimplePhysicsProps,
+        dt: f32,
+    ) -> Vec2 {
         // enum dispatch, fill the branches once other systems are implemented
         // as for inox2d, users are not expected to bring their own physics system,
         // no need to do dynamic dispatch with something like Box<dyn SimplePhysicsSystem>
         match self {
-            SimplePhysicsSystem::RigidPendulum(system) => system.tick(anchor, props, dt),
-            SimplePhysicsSystem::SpringPendulum(system) => system.tick(anchor, props, dt),
+            SimplePhysicsSystem::RigidPendulum(system) => {
+                system.tick(anchor, puppet_physics, props, dt)
+            }
+            SimplePhysicsSystem::SpringPendulum(system) => {
+                system.tick(anchor, puppet_physics, props, dt)
+            }
         }
     }
 }
@@ -94,15 +104,15 @@ pub struct SimplePhysics {
 }
 
 impl SimplePhysics {
-    pub fn tick(&mut self, dt: f32) {
-        self.output = self.system.tick(self.anchor, &self.props, dt);
+    pub fn tick(&mut self, dt: f32, puppet_physics: PuppetPhysics) {
+        self.output = self.system.tick(self.anchor, puppet_physics, &self.props, dt);
     }
 }
 
 impl Puppet {
     /// Update the puppet's nodes' absolute transforms, by applying further displacements yielded by the physics system
     /// in response to displacements caused by parameter changes
-    pub fn update_physics(&mut self, dt: f32) {
+    pub fn update_physics(&mut self, dt: f32, puppet_physics: PuppetPhysics) {
         for driver_uuid in self.drivers.clone() {
             let Some(driver) = self.nodes.get_node_mut(driver_uuid) else {
                 continue;
@@ -112,7 +122,7 @@ impl Puppet {
             };
             let nrc = &self.render_ctx.node_render_ctxs[&driver.uuid];
 
-            let output = system.update(dt, nrc);
+            let output = system.update(dt, puppet_physics, nrc);
             let param_uuid = system.param;
             self.set_param(param_uuid, output);
         }

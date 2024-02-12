@@ -1,5 +1,6 @@
 use crate::physics::runge_kutta::{self, PhysicsState};
 use crate::physics::SimplePhysicsProps;
+use crate::puppet::PuppetPhysics;
 use glam::{vec2, Vec2};
 use std::f32::consts::PI;
 
@@ -51,14 +52,19 @@ impl SpringPendulumState {
     }
 }
 
-fn eval(state: &mut SpringPendulumState, props: &SimplePhysicsProps, anchor: Vec2, _t: f32) {
+fn eval(
+    state: &mut SpringPendulumState,
+    &(puppet_physics, props): &(PuppetPhysics, &SimplePhysicsProps),
+    anchor: Vec2,
+    _t: f32,
+) {
     state.set_dbob(state.get_vbobvel());
 
     // These are normalized vs. mass
     let spring_ksqrt = props.frequency * 2. * PI;
     let spring_k = spring_ksqrt.powi(2);
 
-    let g = props.gravity;
+    let g = props.gravity * puppet_physics.pixels_per_meter * puppet_physics.gravity;
     let rest_length = props.length - g / spring_k;
 
     let off_pos = state.get_vbob() - anchor;
@@ -99,11 +105,11 @@ pub struct SpringPendulumSystem {
 }
 
 impl SpringPendulumSystem {
-    pub fn tick(&mut self, anchor: Vec2, props: &SimplePhysicsProps, dt: f32) -> Vec2 {
+    pub fn tick(&mut self, anchor: Vec2, puppet_physics: PuppetPhysics, props: &SimplePhysicsProps, dt: f32) -> Vec2 {
         self.state.set_vbob(self.bob);
 
         // Run the spring pendulum simulation
-        runge_kutta::tick(&eval, &mut self.state, props, anchor, dt);
+        runge_kutta::tick(&eval, &mut self.state, (puppet_physics, props), anchor, dt);
 
         self.bob = self.state.get_vbob();
 
