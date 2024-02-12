@@ -111,7 +111,7 @@ fn deserialize_part(obj: &JsonObject) -> InoxParseResult<Part> {
 	let (tex_albedo, tex_emissive, tex_bumpmap) = {
 		let textures = obj.get_list("textures")?;
 
-		let tex_albedo = match textures.get(0).ok_or(InoxParseError::NoAlbedoTexture)?.as_number() {
+		let tex_albedo = match textures.first().ok_or(InoxParseError::NoAlbedoTexture)?.as_number() {
 			Some(val) => val
 				.try_into()
 				.map(TextureId)
