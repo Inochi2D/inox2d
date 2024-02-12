@@ -4,7 +4,7 @@ use crate::mesh::Mesh;
 use crate::texture::TextureId;
 
 use super::node::InoxNodeUuid;
-use super::physics::SimplePhysics;
+use crate::physics::SimplePhysics;
 
 #[derive(Debug, Clone)]
 pub struct Composite {

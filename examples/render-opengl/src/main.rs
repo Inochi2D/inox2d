@@ -121,8 +121,8 @@ impl App for Inox2dOpenglExampleApp {
 		let puppet = &mut self.model.puppet;
 		puppet.begin_set_params();
 		let t = scene_ctrl.current_elapsed();
-		puppet.set_param("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
-		puppet.end_set_params();
+		puppet.set_named_param("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
+		puppet.end_set_params(scene_ctrl.dt());
 
 		renderer.render(puppet);
 	}

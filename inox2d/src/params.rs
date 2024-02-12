@@ -46,10 +46,13 @@ fn ranges_out(
 	(out_top, out_btm)
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ParamUuid(pub u32);
+
 /// Parameter. A simple bounded value that is used to animate nodes through bindings.
 #[derive(Debug, Clone)]
 pub struct Param {
-	pub uuid: u32,
+	pub uuid: ParamUuid,
 	pub name: String,
 	pub is_vec2: bool,
 	pub min: Vec2,
@@ -174,8 +177,20 @@ impl Param {
 }
 
 impl Puppet {
-	pub fn get_param(&self, name: &str) -> Option<&Param> {
-		self.parameters.get(name)
+	pub fn get_param(&self, uuid: ParamUuid) -> Option<&Param> {
+		self.params.get(&uuid)
+	}
+
+	pub fn get_param_mut(&mut self, uuid: ParamUuid) -> Option<&mut Param> {
+		self.params.get_mut(&uuid)
+	}
+
+	pub fn get_named_param(&self, name: &str) -> Option<&Param> {
+		self.params.get(self.param_names.get(name)?)
+	}
+
+	pub fn get_named_param_mut(&mut self, name: &str) -> Option<&mut Param> {
+		self.params.get_mut(self.param_names.get(name)?)
 	}
 
 	pub fn begin_set_params(&mut self) {
@@ -189,11 +204,16 @@ impl Puppet {
 		}
 	}
 
-	pub fn set_param(&mut self, param_name: &str, val: Vec2) {
-		let param = self
-			.parameters
-			.get(param_name)
-			.unwrap_or_else(|| panic!("No parameter named: {}", param_name));
+	pub fn set_named_param(&mut self, param_name: &str, val: Vec2) {
+		let param_uuid =
+			(self.param_names.get(param_name)).unwrap_or_else(|| panic!("No parameter named {:?}", param_name));
+
+		self.set_param(*param_uuid, val);
+	}
+
+	pub fn set_param(&mut self, param_uuid: ParamUuid, val: Vec2) {
+		let param =
+			(self.params.get_mut(&param_uuid)).unwrap_or_else(|| panic!("No parameter with uuid: {:?}", param_uuid));
 
 		param.apply(
 			val,
@@ -202,7 +222,9 @@ impl Puppet {
 		);
 	}
 
-	pub fn end_set_params(&mut self) {
+	pub fn end_set_params(&mut self, dt: f32) {
+		// TODO: find better places for these two update calls and pass elapsed time in
+		self.update_physics(dt, self.physics);
 		self.update_trans();
 	}
 }

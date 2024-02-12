@@ -13,14 +13,13 @@ use crate::nodes::node_data::{
 	BlendMode, Composite, Drawable, InoxData, Mask, MaskMode, Part, UnknownBlendModeError, UnknownMaskModeError,
 };
 use crate::nodes::node_tree::InoxNodeTree;
-use crate::nodes::physics::SimplePhysics;
-use crate::params::{AxisPoints, Binding, BindingValues, Param};
+use crate::params::{AxisPoints, Binding, BindingValues, Param, ParamUuid};
+use crate::physics::{ParamMapMode, SimplePhysics, SimplePhysicsProps, SimplePhysicsSystem};
 use crate::puppet::{
 	Puppet, PuppetAllowedModification, PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta, PuppetPhysics,
 	PuppetUsageRights, UnknownPuppetAllowedModificationError, UnknownPuppetAllowedRedistributionError,
 	UnknownPuppetAllowedUsersError,
 };
-use crate::render::RenderCtx;
 use crate::texture::TextureId;
 
 use super::json::{JsonError, JsonObject, SerialExtend};
@@ -112,27 +111,30 @@ fn deserialize_part(obj: &JsonObject) -> InoxParseResult<Part> {
 	let (tex_albedo, tex_emissive, tex_bumpmap) = {
 		let textures = obj.get_list("textures")?;
 
-		let tex_albedo: usize = match textures.first().ok_or(InoxParseError::NoAlbedoTexture)?.as_number() {
+		let tex_albedo = match textures.first().ok_or(InoxParseError::NoAlbedoTexture)?.as_number() {
 			Some(val) => val
 				.try_into()
+				.map(TextureId)
 				.map_err(|_| InoxParseError::JsonError(JsonError::ParseIntError("0".to_owned()).nested("textures")))?,
 			None => return Err(InoxParseError::NoAlbedoTexture),
 		};
 
-		let tex_emissive: usize = match textures.get(1).and_then(JsonValue::as_number) {
+		let tex_emissive = match textures.get(1).and_then(JsonValue::as_number) {
 			Some(val) => (val.try_into())
 				// Map u32::MAX to nothing
 				.map(|val| if val == u32::MAX as usize { 0 } else { val })
+				.map(TextureId)
 				.map_err(|_| InoxParseError::JsonError(JsonError::ParseIntError("1".to_owned()).nested("textures")))?,
-			None => 0,
+			None => TextureId(0),
 		};
 
-		let tex_bumpmap: usize = match textures.get(2).and_then(JsonValue::as_number) {
+		let tex_bumpmap = match textures.get(2).and_then(JsonValue::as_number) {
 			Some(val) => (val.try_into())
 				// Map u32::MAX to nothing
 				.map(|val| if val == u32::MAX as usize { 0 } else { val })
+				.map(TextureId)
 				.map_err(|_| InoxParseError::JsonError(JsonError::ParseIntError("2".to_owned()).nested("textures")))?,
-			None => 0,
+			None => TextureId(0),
 		};
 
 		(tex_albedo, tex_emissive, tex_bumpmap)
@@ -141,9 +143,9 @@ fn deserialize_part(obj: &JsonObject) -> InoxParseResult<Part> {
 	Ok(Part {
 		draw_state: deserialize_drawable(obj)?,
 		mesh: vals("mesh", deserialize_mesh(&obj.get_object("mesh")?))?,
-		tex_albedo: TextureId(tex_albedo),
-		tex_emissive: TextureId(tex_emissive),
-		tex_bumpmap: TextureId(tex_bumpmap),
+		tex_albedo,
+		tex_emissive,
+		tex_bumpmap,
 	})
 }
 
@@ -153,16 +155,48 @@ fn deserialize_composite(obj: &JsonObject) -> InoxParseResult<Composite> {
 }
 
 fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics> {
+	let param = ParamUuid(obj.get_u32("param")?);
+
+	let system = match obj.get_str("model_type")? {
+		"Pendulum" => SimplePhysicsSystem::new_rigid_pendulum(),
+		"SpringPendulum" => SimplePhysicsSystem::new_spring_pendulum(),
+		_ => todo!(),
+	};
+	let map_mode = match obj.get_str("map_mode")? {
+		"angle_length" => ParamMapMode::AngleLength,
+		"XY" => ParamMapMode::XY,
+		a => todo!("{}", a),
+	};
+
+	let local_only = obj.get_bool("local_only").unwrap_or_default();
+	let gravity = obj.get_f32("gravity")?;
+	let length = obj.get_f32("length")?;
+	let frequency = obj.get_f32("frequency")?;
+	let angle_damping = obj.get_f32("angle_damping")?;
+	let length_damping = obj.get_f32("length_damping")?;
+
+	let output_scale = obj.get_vec2("output_scale")?;
+
 	Ok(SimplePhysics {
-		param: obj.get_u32("param")?,
-		model_type: obj.get_str("model_type")?.to_owned(),
-		map_mode: obj.get_str("map_mode")?.to_owned(),
-		gravity: obj.get_f32("gravity")?,
-		length: obj.get_f32("length")?,
-		frequency: obj.get_f32("frequency")?,
-		angle_damping: obj.get_f32("angle_damping")?,
-		length_damping: obj.get_f32("length_damping")?,
-		output_scale: obj.get_vec2("output_scale")?,
+		param,
+
+		system,
+		map_mode,
+
+		offset_props: SimplePhysicsProps::default(),
+		props: SimplePhysicsProps {
+			gravity,
+			length,
+			frequency,
+			angle_damping,
+			length_damping,
+			output_scale,
+		},
+
+		local_only,
+
+		anchor: Vec2::ZERO,
+		output: Vec2::ZERO,
 	})
 }
 
@@ -274,15 +308,14 @@ pub fn deserialize_puppet_ext<T>(
 		"nodes",
 		deserialize_nodes(&obj.get_object("nodes")?, deserialize_node_custom),
 	)?;
-	let render_ctx = RenderCtx::new(&nodes);
 
-	Ok(Puppet {
-		meta: vals("meta", deserialize_puppet_meta(&obj.get_object("meta")?))?,
-		physics: vals("physics", deserialize_puppet_physics(&obj.get_object("physics")?))?,
-		nodes,
-		parameters: deserialize_params(obj.get_list("param")?),
-		render_ctx,
-	})
+	let meta = vals("meta", deserialize_puppet_meta(&obj.get_object("meta")?))?;
+
+	let physics = vals("physics", deserialize_puppet_physics(&obj.get_object("physics")?))?;
+
+	let parameters = deserialize_params(obj.get_list("param")?);
+
+	Ok(Puppet::new(meta, physics, nodes, parameters))
 }
 
 fn deserialize_params(vals: &[json::JsonValue]) -> HashMap<String, Param> {
@@ -296,7 +329,7 @@ fn deserialize_param(obj: &JsonObject) -> InoxParseResult<(String, Param)> {
 	Ok((
 		name.clone(),
 		Param {
-			uuid: obj.get_u32("uuid")?,
+			uuid: ParamUuid(obj.get_u32("uuid")?),
 			name,
 			is_vec2: obj.get_bool("is_vec2")?,
 			min: obj.get_vec2("min")?,

@@ -3,8 +3,10 @@
 use std::collections::HashMap;
 use std::fmt;
 
+use crate::nodes::node::InoxNodeUuid;
+use crate::nodes::node_data::InoxData;
 use crate::nodes::node_tree::InoxNodeTree;
-use crate::params::Param;
+use crate::params::{Param, ParamUuid};
 use crate::render::RenderCtx;
 
 /// Who is allowed to use the puppet?
@@ -291,7 +293,7 @@ impl Default for PuppetMeta {
 }
 
 /// Global physics parameters for the puppet.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct PuppetPhysics {
 	pub pixels_per_meter: f32,
 	pub gravity: f32,
@@ -303,6 +305,47 @@ pub struct Puppet<T = ()> {
 	pub meta: PuppetMeta,
 	pub physics: PuppetPhysics,
 	pub nodes: InoxNodeTree<T>,
-	pub parameters: HashMap<String, Param>,
+	pub drivers: Vec<InoxNodeUuid>,
+	pub(crate) params: HashMap<ParamUuid, Param>,
+	pub(crate) param_names: HashMap<String, ParamUuid>,
 	pub render_ctx: RenderCtx,
+}
+
+impl<T> Puppet<T> {
+	pub fn new(
+		meta: PuppetMeta,
+		physics: PuppetPhysics,
+		nodes: InoxNodeTree<T>,
+		named_params: HashMap<String, Param>,
+	) -> Self {
+		let render_ctx = RenderCtx::new(&nodes);
+
+		let drivers = (nodes.arena.iter())
+			.filter_map(|node| {
+				let node = node.get();
+
+				match node.data {
+					InoxData::SimplePhysics(_) => Some(node.uuid),
+					_ => None,
+				}
+			})
+			.collect::<Vec<_>>();
+
+		let mut params = HashMap::new();
+		let mut param_names = HashMap::new();
+		for (name, param) in named_params {
+			param_names.insert(name, param.uuid);
+			params.insert(param.uuid, param);
+		}
+
+		Self {
+			meta,
+			physics,
+			nodes,
+			drivers,
+			params,
+			param_names,
+			render_ctx,
+		}
+	}
 }

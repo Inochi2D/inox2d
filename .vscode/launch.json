@@ -1,7 +1,4 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
@@ -26,35 +23,35 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug example 'render_opengl'",
+            "name": "Debug example 'parse-inp'",
             "cargo": {
                 "args": [
                     "build",
-                    "--example=render_opengl",
+                    "--example=parse-inp",
                     "--package=inox2d"
                 ],
                 "filter": {
-                    "name": "render_opengl",
+                    "name": "parse-inp",
                     "kind": "example"
                 }
             },
-            "args": ["../Aka.inp"],
+            "args": [],
             "cwd": "${workspaceFolder}"
         },
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in example 'render_opengl'",
+            "name": "Debug unit tests in library 'inox2d-opengl'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--example=render_opengl",
-                    "--package=inox2d"
+                    "--lib",
+                    "--package=inox2d-opengl"
                 ],
                 "filter": {
-                    "name": "render_opengl",
-                    "kind": "example"
+                    "name": "inox2d-opengl",
+                    "kind": "lib"
                 }
             },
             "args": [],
@@ -63,35 +60,17 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug example 'render_wgpu'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--example=render_wgpu",
-                    "--package=inox2d"
-                ],
-                "filter": {
-                    "name": "render_wgpu",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in example 'render_wgpu'",
+            "name": "Debug unit tests in library 'inox2d-wgpu'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--example=render_wgpu",
-                    "--package=inox2d"
+                    "--lib",
+                    "--package=inox2d-wgpu"
                 ],
                 "filter": {
-                    "name": "render_wgpu",
-                    "kind": "example"
+                    "name": "inox2d-wgpu",
+                    "kind": "lib"
                 }
             },
             "args": [],
@@ -100,16 +79,36 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug example 'parse_inp'",
+            "name": "Debug example 'render-opengl'",
             "cargo": {
                 "args": [
                     "build",
-                    "--example=parse_inp",
-                    "--package=inox2d"
+                    "--bin=render-opengl",
+                    "--package=render-opengl"
                 ],
                 "filter": {
-                    "name": "parse_inp",
-                    "kind": "example"
+                    "name": "render-opengl",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                // "~/Documents/inochi-models/Aka.inp"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'render-webgl'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=render-webgl",
+                    "--package=render-webgl"
+                ],
+                "filter": {
+                    "name": "render-webgl",
+                    "kind": "bin"
                 }
             },
             "args": [],
@@ -118,17 +117,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in example 'parse_inp'",
+            "name": "Debug example 'render-wgpu'",
             "cargo": {
                 "args": [
-                    "test",
-                    "--no-run",
-                    "--example=parse_inp",
-                    "--package=inox2d"
+                    "build",
+                    "--bin=render-wgpu",
+                    "--package=render-wgpu"
                 ],
                 "filter": {
-                    "name": "parse_inp",
-                    "kind": "example"
+                    "name": "render-wgpu",
+                    "kind": "bin"
                 }
             },
             "args": [],

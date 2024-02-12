@@ -84,6 +84,10 @@ impl WasmSceneController {
 		}
 	}
 
+	pub fn dt(&self) -> f32 {
+		self.current_elapsed - self.prev_elapsed
+	}
+
 	pub fn current_elapsed(&self) -> f32 {
 		self.current_elapsed
 	}

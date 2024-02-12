@@ -123,8 +123,8 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 				let mut puppet = puppet.borrow_mut();
 				puppet.begin_set_params();
 				let t = scene_ctrl.borrow().current_elapsed();
-				puppet.set_param("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
-				puppet.end_set_params();
+				puppet.set_named_param("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
+				puppet.end_set_params(scene_ctrl.borrow().dt());
 			}
 			renderer.borrow().render(&puppet.borrow());
 
