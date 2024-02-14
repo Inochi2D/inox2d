@@ -165,7 +165,7 @@ impl AppFrame {
 						.unwrap();
 
 					// Load the OpenGL function pointers (this needs a current context in WGL)
-					let gl = unsafe {
+					let mut gl = unsafe {
 						glow::Context::from_loader_function(|symbol| {
 							self.gl_display.get_proc_address(&CString::new(symbol).unwrap()) as *const _
 						})

@@ -27,7 +27,7 @@ pub async fn run(model: Model) {
 		.unwrap();
 
 	let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::default());
-	let surface = unsafe { instance.create_surface(&window) }.unwrap();
+	let surface = instance.create_surface(&window).unwrap();
 	let adapter = instance
 		.request_adapter(&wgpu::RequestAdapterOptions {
 			power_preference: wgpu::PowerPreference::default(),
@@ -40,9 +40,9 @@ pub async fn run(model: Model) {
 	let (device, queue) = adapter
 		.request_device(
 			&wgpu::DeviceDescriptor {
-				features: wgpu::Features::ADDRESS_MODE_CLAMP_TO_BORDER,
-				limits: wgpu::Limits::default(),
 				label: None,
+				required_features: wgpu::Features::ADDRESS_MODE_CLAMP_TO_BORDER,
+				required_limits: wgpu::Limits::default(),
 			},
 			None,
 		)
@@ -65,6 +65,7 @@ pub async fn run(model: Model) {
 		present_mode: wgpu::PresentMode::Fifo,
 		alpha_mode,
 		view_formats: Vec::new(),
+		desired_maximum_frame_latency: 2,
 	};
 	surface.configure(&device, &config);
 
@@ -81,7 +82,7 @@ pub async fn run(model: Model) {
 	let mut puppet = model.puppet;
 
 	event_loop
-		.run(move |event, elwt| match event {
+		.run(|event, elwt| match event {
 			Event::WindowEvent {
 				window_id: _,
 				event: WindowEvent::RedrawRequested,
@@ -140,7 +141,7 @@ pub async fn run(model: Model) {
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-	#[arg(help = "Path to the .inp file. .inx files don't work!")]
+	#[arg(help = "Path to the .inp or .inx file.")]
 	inp_path: PathBuf,
 }
 

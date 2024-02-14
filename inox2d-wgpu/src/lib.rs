@@ -14,6 +14,7 @@ use encase::ShaderType;
 use glam::{vec3, Mat4, UVec2, Vec2, Vec3};
 use inox2d::texture::decode_model_textures;
 use tracing::warn;
+use wgpu::util::TextureDataOrder;
 use wgpu::{util::DeviceExt, *};
 
 use self::node_bundle::{CompositeData, PartData};
@@ -72,6 +73,7 @@ impl Renderer {
 					label: Some("texture"),
 					view_formats: &[],
 				},
+				TextureDataOrder::LayerMajor,
 				shalltex.pixels(),
 			);
 
