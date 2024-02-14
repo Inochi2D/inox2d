@@ -229,7 +229,7 @@ pub fn read_tga<R: Read + Seek>(reader: &mut R) -> Result<TgaImage, TgaDecodeErr
 	let channels: TgaChannels = (header.bits_pp / 8).try_into().unwrap(); // bytes per pixel
 	let tchans = 4;
 	let linebuf_size = header.width * channels as u16;
-	let tline_size = header.height * tchans;
+	let tline_size = header.width * tchans;
 
 	let flip = !is_origin_at_top;
 	let tstride = if flip { -(tline_size as i32) } else { tline_size as i32 };
