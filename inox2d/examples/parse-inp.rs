@@ -8,7 +8,7 @@ use inox2d::formats::inp::parse_inp;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-	#[arg(help = "Path to the .inp file. .inx files don't work!")]
+	#[arg(help = "Path to the .inp or .inx file.")]
 	inp_path: PathBuf,
 }
 

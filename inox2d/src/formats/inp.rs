@@ -37,6 +37,7 @@ const TEX_SECT: &[u8] = b"TEX_SECT";
 /// Optional EXTended Vendor Data section for app provided settings for the puppet
 const EXT_SECT: &[u8] = b"EXT_SECT";
 
+/// Parse `.inp` and `.inx` files.
 pub fn parse_inp<R: Read>(mut data: R) -> Result<Model, ParseInpError> {
 	// check magic bytes
 	let magic = read_n::<_, 8>(&mut data)?;
