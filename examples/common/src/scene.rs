@@ -76,8 +76,6 @@ impl ExampleSceneController {
 					MouseScrollDelta::PixelDelta(pos) => pos.y as f32 / 100.,
 				};
 
-				tracing::info!("delta = {:?}", delta);
-
 				self.hard_scale *= 2_f32.powf(self.scroll_speed * my);
 			}
 			_ => (),
