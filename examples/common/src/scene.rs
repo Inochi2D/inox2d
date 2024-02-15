@@ -72,11 +72,13 @@ impl ExampleSceneController {
 			WindowEvent::MouseWheel { delta, .. } => {
 				// Handle mouse wheel (zoom)
 				let my = match delta {
-					MouseScrollDelta::LineDelta(_, y) => *y * 12.,
-					MouseScrollDelta::PixelDelta(pos) => pos.y as f32,
+					MouseScrollDelta::LineDelta(_, y) => *y,
+					MouseScrollDelta::PixelDelta(pos) => pos.y as f32 / 100.,
 				};
 
-				self.hard_scale *= 2_f32.powf(self.scroll_speed * my * 0.1);
+				tracing::info!("delta = {:?}", delta);
+
+				self.hard_scale *= 2_f32.powf(self.scroll_speed * my);
 			}
 			_ => (),
 		}
