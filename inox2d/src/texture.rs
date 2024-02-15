@@ -5,9 +5,7 @@ use tracing::error;
 
 use crate::model::ModelTexture;
 
-use self::tga::{read_tga, TgaDecodeError, TgaImage};
-
-pub mod tga;
+use simple_tga_reader::{read_tga, TgaDecodeError, TgaImage};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TextureId(pub(crate) usize);
@@ -42,8 +40,8 @@ impl From<TgaImage> for ShallowTexture {
 	fn from(value: TgaImage) -> Self {
 		Self {
 			pixels: value.data,
-			width: value.header.width() as u32,
-			height: value.header.height() as u32,
+			width: value.header.width as u32,
+			height: value.header.height as u32,
 		}
 	}
 }

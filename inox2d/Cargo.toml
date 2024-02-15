@@ -17,6 +17,7 @@ image = { version = "0.24.7", default-features = false, features = [
 indextree = "4.6.0"
 json = "0.12.4"
 owo-colors = { version = "4.0.0", optional = true }
+simple-tga-reader = "0.1.0"
 thiserror = "1.0.39"
 tracing = "0.1.37"
 
