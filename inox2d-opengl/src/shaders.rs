@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use std::ops::Deref;
 
 use glam::{Mat4, Vec2, Vec3};

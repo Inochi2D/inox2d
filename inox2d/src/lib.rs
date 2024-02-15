@@ -22,12 +22,6 @@ fn read_be_u32<R: Read>(data: &mut R) -> io::Result<u32> {
 }
 
 #[inline]
-fn read_le_u16<R: Read>(data: &mut R) -> io::Result<u16> {
-	let buf = read_n::<_, 2>(data)?;
-	Ok(u16::from_le_bytes(buf))
-}
-
-#[inline]
 fn read_vec<R: Read>(data: &mut R, n: usize) -> io::Result<Vec<u8>> {
 	let mut buf = vec![0_u8; n];
 	data.read_exact(&mut buf)?;

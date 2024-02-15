@@ -105,6 +105,7 @@ impl GlCache {
 	}
 }
 
+#[allow(unused)]
 pub struct OpenglRenderer {
 	gl: glow::Context,
 	support_debug_extension: bool,
@@ -128,6 +129,8 @@ pub struct OpenglRenderer {
 	textures: Vec<Texture>,
 }
 
+// TODO: remove the #[allow(unused)]
+#[allow(unused)]
 impl OpenglRenderer {
 	pub fn new(gl: glow::Context) -> Result<Self, OpenglRendererError> {
 		let vao = unsafe { gl.create_vertex_array().map_err(OpenglRendererError::Opengl)? };
@@ -469,7 +472,9 @@ impl InoxRenderer for OpenglRenderer {
 		}
 	}
 
-	fn draw_mesh_self(&self, as_mask: bool, camera: &Mat4) {
+	fn draw_mesh_self(&self, _as_mask: bool, _camera: &Mat4) {
+		// TODO
+
 		/*
 		maskShader.use();
 		maskShader.setUniform(offset, data.origin);
