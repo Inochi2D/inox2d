@@ -1,7 +1,4 @@
 #[cfg(target_arch = "wasm32")]
-mod scene;
-
-#[cfg(target_arch = "wasm32")]
 fn create_window(event: &winit::event_loop::EventLoop<()>) -> Result<winit::window::Window, winit::error::OsError> {
 	use winit::dpi::PhysicalSize;
 	use winit::platform::web::WindowExtWebSys;
@@ -54,7 +51,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 	use winit::event::{Event, WindowEvent};
 	use winit::platform::web::EventLoopExtWebSys;
 
-	use crate::scene::WasmSceneController;
+	use common::scene::ExampleSceneController;
 
 	let events = winit::event_loop::EventLoop::new().unwrap();
 	let window = create_window(&events)?;
@@ -99,7 +96,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 	renderer.camera.scale = Vec2::splat(0.15);
 	info!("Inox2D renderer initialized");
 
-	let scene_ctrl = WasmSceneController::new(&renderer.camera, 0.5);
+	let scene_ctrl = ExampleSceneController::new(&renderer.camera, 0.5);
 
 	// Refcells because we need to make our own continuous animation loop.
 	// Winit won't help us :(
@@ -149,9 +146,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 					window.request_redraw();
 				}
 				WindowEvent::CloseRequested => elwt.exit(),
-				_ => scene_ctrl
-					.borrow_mut()
-					.interact(&window, event, &renderer.borrow().camera),
+				_ => (scene_ctrl.borrow_mut()).interact(event, &renderer.borrow().camera),
 			},
 			Event::AboutToWait => {
 				window.request_redraw();

@@ -8,4 +8,8 @@ edition = "2021"
 [dependencies]
 glam = "0.25.0"
 inox2d = { path = "../../inox2d" }
+tracing = "0.1.40"
 winit = "0.29"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-time = "1.0.0"

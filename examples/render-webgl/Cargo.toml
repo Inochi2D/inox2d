@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 inox2d = { path = "../../inox2d" }
 inox2d-opengl = { path = "../../inox2d-opengl" }
+common = { path = "../common" }
 
 console_error_panic_hook = "0.1.7"
 glam = "0.25.0"
@@ -13,11 +14,9 @@ glow = "0.13.1"
 js-sys = "0.3.64"
 reqwest = "0.11.18"
 tracing = "0.1.37"
-tracing-subscriber = "0.3.16"
 tracing-wasm = "0.2.1"
 wasm-bindgen = "0.2.87"
 wasm-bindgen-futures = "0.4.37"
-web-time = "1.0.0"
 winit = "0.29"
 
 [dependencies.web-sys]
