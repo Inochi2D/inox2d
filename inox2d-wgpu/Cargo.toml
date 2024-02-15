@@ -9,7 +9,7 @@ keywords = ["gamedev", "graphics", "inochi2d", "vtuber", "wgpu"]
 categories = ["graphics", "rendering"]
 
 [dependencies]
-inox2d = { path = "../inox2d" }
+inox2d = { path = "../inox2d", version = "0.2.0" }
 bytemuck = "1.13.1"
 encase = { version = "0.7.0", features = ["glam"] }
 glam = { version = "0.25.0", features = ["bytemuck"] }

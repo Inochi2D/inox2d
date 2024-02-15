@@ -9,7 +9,7 @@ keywords = ["gamedev", "graphics", "inochi2d", "vtuber", "opengl"]
 categories = ["graphics", "rendering"]
 
 [dependencies]
-inox2d = { path = "../inox2d" }
+inox2d = { path = "../inox2d", version = "0.2.0" }
 glam = "0.25.0"
 glow = { version = "0.13.1" }
 thiserror = "1.0.39"
