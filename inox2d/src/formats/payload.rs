@@ -8,12 +8,12 @@ use crate::math::interp::{InterpolateMode, UnknownInterpolateModeError};
 use crate::math::matrix::{Matrix2d, Matrix2dFromSliceVecsError};
 use crate::math::transform::TransformOffset;
 use crate::mesh::{f32s_as_vec2s, Mesh};
-use crate::node::{InoxNode, InoxNodeUuid};
 use crate::node::data::{
 	BlendMode, Composite, Drawable, InoxData, Mask, MaskMode, ParamMapMode, Part, PhysicsModel, PhysicsProps,
 	SimplePhysics, UnknownBlendModeError, UnknownMaskModeError,
 };
 use crate::node::tree::InoxNodeTree;
+use crate::node::{InoxNode, InoxNodeUuid};
 use crate::params::{AxisPoints, Binding, BindingValues, Param, ParamUuid};
 use crate::physics::runge_kutta::PhysicsState;
 use crate::puppet::{

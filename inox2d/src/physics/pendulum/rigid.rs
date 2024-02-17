@@ -33,14 +33,14 @@ impl PhysicsState<RigidPendulum> {
 		// Compute the angle against the updated anchor position
 		let d_bob = bob - anchor;
 		self.vars.θ = f32::atan2(-d_bob.x, d_bob.y);
-	
+
 		// Run the pendulum simulation in terms of angle
 		runge_kutta::tick(&eval, self, (puppet_physics, props), anchor, dt);
-	
+
 		// Update the bob position at the new angle
 		let angle = self.vars.θ;
 		let d_bob = vec2(-angle.sin(), angle.cos());
-	
+
 		anchor + d_bob * props.length
 	}
 }
