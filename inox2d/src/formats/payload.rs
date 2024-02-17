@@ -70,15 +70,11 @@ fn vals<T>(key: &str, res: InoxParseResult<T>) -> InoxParseResult<T> {
 	res.map_err(|e| e.nested(key))
 }
 
-pub fn deserialize_node(obj: &JsonObject) -> InoxParseResult<InoxNode> {
-	deserialize_node_ext(obj, &default_deserialize_custom)
-}
-
 fn default_deserialize_custom<T>(node_type: &str, _obj: &JsonObject) -> InoxParseResult<T> {
 	Err(InoxParseError::UnknownNodeType(node_type.to_owned()))
 }
 
-pub fn deserialize_node_ext<T>(
+fn deserialize_node<T>(
 	obj: &JsonObject,
 	deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
 ) -> InoxParseResult<InoxNode<T>> {
@@ -420,7 +416,7 @@ fn deserialize_nodes<T>(
 	let mut arena = Arena::new();
 	let mut uuids = HashMap::new();
 
-	let root_node = deserialize_node_ext(obj, deserialize_node_custom)?;
+	let root_node = deserialize_node(obj, deserialize_node_custom)?;
 	let root_uuid = root_node.uuid;
 	let root = arena.new_node(root_node);
 	uuids.insert(root_uuid, root);
@@ -448,7 +444,7 @@ fn deserialize_nodes_rec<T>(
 	deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
 	node_tree: &mut InoxNodeTree<T>,
 ) -> InoxParseResult<indextree::NodeId> {
-	let node = deserialize_node_ext(obj, deserialize_node_custom)?;
+	let node = deserialize_node(obj, deserialize_node_custom)?;
 	let uuid = node.uuid;
 	let node_id = node_tree.arena.new_node(node);
 	node_tree.uuids.insert(uuid, node_id);

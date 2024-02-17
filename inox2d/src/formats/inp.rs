@@ -6,10 +6,10 @@ use std::sync::Arc;
 use image::ImageFormat;
 
 use crate::model::{Model, ModelTexture, VendorData};
-use crate::{read_be_u32, read_n, read_u8, read_vec};
 
 use super::json::JsonError;
 use super::payload::{deserialize_puppet, InoxParseError};
+use super::{read_be_u32, read_n, read_u8, read_vec};
 
 #[derive(Debug, thiserror::Error)]
 #[error("Could not parse INP file\n  - {0}")]

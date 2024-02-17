@@ -41,23 +41,24 @@ pub enum JsonError {
 	ParseVec2Error { key: String, msg: String },
 	#[error("Error while parsing vec3 at {key:?}\n  - {msg}")]
 	ParseVec3Error { key: String, msg: String },
-	#[error("Error in list at index {index}\n  - {inner}")]
-	ErrorInList { index: usize, inner: Box<JsonError> },
-	#[error("Error in object at {key:?}\n  - {inner}")]
-	ErrorInObject { key: String, inner: Box<JsonError> },
+	#[error("Error in list at index {index}\n  - {source}")]
+	ErrorInList { index: usize, source: Box<JsonError> },
+	#[error("Error in object at {key:?}\n  - {source}")]
+	ErrorInObject { key: String, source: Box<JsonError> },
 }
 
 impl JsonError {
 	pub fn nested(self, key: &str) -> Self {
 		Self::ErrorInObject {
 			key: key.to_owned(),
-			inner: Box::new(self),
+			source: Box::new(self),
 		}
 	}
 }
 
 pub struct JsonObject<'a>(pub &'a json::object::Object);
 
+#[allow(unused)]
 impl<'a> JsonObject<'a> {
 	fn get(&self, key: &str) -> JsonResult<&json::JsonValue> {
 		match self.0.get(key) {
