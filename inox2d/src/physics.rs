@@ -1,102 +1,13 @@
 pub mod pendulum;
-mod runge_kutta;
-mod simple_physics;
+pub(crate) mod runge_kutta;
 
-use crate::nodes::node_data::InoxData;
-use crate::params::ParamUuid;
+use std::f32::consts::PI;
+
+use glam::{vec2, vec4, Vec2};
+
+use crate::nodes::node_data::{InoxData, ParamMapMode, PhysicsModel, SimplePhysics};
 use crate::puppet::{Puppet, PuppetPhysics};
-
-use glam::Vec2;
-
-use self::pendulum::rigid::RigidPendulumSystem;
-use self::pendulum::spring::SpringPendulumSystem;
-
-/// Physics model to use for simple physics
-#[derive(Debug, Clone)]
-pub enum SimplePhysicsSystem {
-	/// Rigid pendulum
-	RigidPendulum(RigidPendulumSystem),
-
-	// Springy pendulum
-	SpringPendulum(SpringPendulumSystem),
-}
-
-impl SimplePhysicsSystem {
-	pub fn new_rigid_pendulum() -> Self {
-		Self::RigidPendulum(RigidPendulumSystem::default())
-	}
-
-	pub fn new_spring_pendulum() -> Self {
-		Self::SpringPendulum(SpringPendulumSystem::default())
-	}
-
-	fn tick(&mut self, anchor: Vec2, puppet_physics: PuppetPhysics, props: &SimplePhysicsProps, dt: f32) -> Vec2 {
-		// enum dispatch, fill the branches once other systems are implemented
-		// as for inox2d, users are not expected to bring their own physics system,
-		// no need to do dynamic dispatch with something like Box<dyn SimplePhysicsSystem>
-		match self {
-			SimplePhysicsSystem::RigidPendulum(system) => system.tick(anchor, puppet_physics, props, dt),
-			SimplePhysicsSystem::SpringPendulum(system) => system.tick(anchor, puppet_physics, props, dt),
-		}
-	}
-}
-
-#[derive(Debug, Clone)]
-pub struct SimplePhysicsProps {
-	/// Gravity scale (1.0 = puppet gravity)
-	pub gravity: f32,
-	/// Pendulum/spring rest length (pixels)
-	pub length: f32,
-	/// Resonant frequency (Hz)
-	pub frequency: f32,
-	/// Angular damping ratio
-	pub angle_damping: f32,
-	/// Length damping ratio
-	pub length_damping: f32,
-
-	pub output_scale: Vec2,
-}
-
-impl Default for SimplePhysicsProps {
-	fn default() -> Self {
-		Self {
-			gravity: 1.,
-			length: 1.,
-			frequency: 1.,
-			angle_damping: 0.5,
-			length_damping: 0.5,
-			output_scale: Vec2::ONE,
-		}
-	}
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ParamMapMode {
-	AngleLength,
-	XY,
-}
-
-#[derive(Debug, Clone)]
-pub struct SimplePhysics {
-	pub param: ParamUuid,
-
-	pub system: SimplePhysicsSystem,
-	pub map_mode: ParamMapMode,
-
-	pub props: SimplePhysicsProps,
-
-	/// Whether physics system listens to local transform only.
-	pub local_only: bool,
-
-	pub anchor: Vec2,
-	pub output: Vec2,
-}
-
-impl SimplePhysics {
-	pub fn tick(&mut self, dt: f32, puppet_physics: PuppetPhysics) {
-		self.output = self.system.tick(self.anchor, puppet_physics, &self.props, dt);
-	}
-}
+use crate::render::NodeRenderCtx;
 
 impl Puppet {
 	/// Update the puppet's nodes' absolute transforms, by applying further displacements yielded by the physics system
@@ -106,14 +17,92 @@ impl Puppet {
 			let Some(driver) = self.nodes.get_node_mut(driver_uuid) else {
 				continue;
 			};
+
 			let InoxData::SimplePhysics(ref mut system) = driver.data else {
 				continue;
 			};
+
 			let nrc = &self.render_ctx.node_render_ctxs[&driver.uuid];
 
 			let output = system.update(dt, puppet_physics, nrc);
 			let param_uuid = system.param;
 			self.set_param(param_uuid, output);
 		}
+	}
+}
+
+impl SimplePhysics {
+	fn update(&mut self, dt: f32, puppet_physics: PuppetPhysics, node_render_ctx: &NodeRenderCtx) -> Vec2 {
+		// Timestep is limited to 10 seconds.
+		// If you're getting 0.1 FPS, you have bigger issues to deal with.
+		let mut dt = dt.min(10.);
+
+		let anchor = self.calc_anchor(node_render_ctx);
+
+		// Minimum physics timestep: 0.01s
+		while dt > 0.01 {
+			self.tick(0.01, anchor, puppet_physics);
+			dt -= 0.01;
+		}
+
+		self.tick(dt, anchor, puppet_physics);
+
+		self.output = self.calc_output(anchor, node_render_ctx);
+
+		self.output
+	}
+
+	fn tick(&mut self, dt: f32, anchor: Vec2, puppet_physics: PuppetPhysics) {
+		// enum dispatch, fill the branches once other systems are implemented
+		// as for inox2d, users are not expected to bring their own physics system,
+		// no need to do dynamic dispatch with something like Box<dyn SimplePhysicsSystem>
+		self.bob = match &mut self.model_type {
+			PhysicsModel::RigidPendulum(state) => state.tick(puppet_physics, &self.props, self.bob, anchor, dt),
+			PhysicsModel::SpringPendulum(state) => state.tick(puppet_physics, &self.props, self.bob, anchor, dt),
+		};
+	}
+
+	fn calc_anchor(&self, node_render_ctx: &NodeRenderCtx) -> Vec2 {
+		let anchor = match self.local_only {
+			true => node_render_ctx.trans_offset.translation.extend(1.0),
+			false => node_render_ctx.trans * vec4(0.0, 0.0, 0.0, 1.0),
+		};
+
+		vec2(anchor.x, anchor.y)
+	}
+
+	fn calc_output(&self, anchor: Vec2, node_render_ctx: &NodeRenderCtx) -> Vec2 {
+		let oscale = self.props.output_scale;
+		let output = self.output;
+
+		// "Okay, so this is confusing. We want to translate the angle back to local space, but not the coordinates."
+		// - Asahi Lina
+
+		// Transform the physics output back into local space.
+		// The origin here is the anchor. This gives us the local angle.
+		let local_pos4 = match self.local_only {
+			true => vec4(output.x, output.y, 0.0, 1.0),
+			false => node_render_ctx.trans.inverse() * vec4(output.x, output.y, 0.0, 1.0),
+		};
+
+		let local_angle = vec2(local_pos4.x, local_pos4.y).normalize();
+
+		// Figure out the relative length. We can work this out directly in global space.
+		let relative_length = output.distance(anchor) / self.props.length;
+
+		let param_value = match self.map_mode {
+			ParamMapMode::XY => {
+				let local_pos_norm = local_angle * relative_length;
+				let mut result = local_pos_norm - Vec2::Y;
+				result.y = -result.y; // Y goes up for params
+				result
+			}
+			ParamMapMode::AngleLength => {
+				let a = f32::atan2(-local_angle.x, local_angle.y) / PI;
+				vec2(a, relative_length)
+			}
+		};
+
+		param_value * oscale
 	}
 }

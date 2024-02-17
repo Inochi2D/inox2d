@@ -1,15 +1,32 @@
+use crate::nodes::node_data::PhysicsProps;
 use crate::physics::runge_kutta::{self, IsPhysicsVars, PhysicsState};
-use crate::physics::SimplePhysicsProps;
 use crate::puppet::PuppetPhysics;
 use glam::{vec2, Vec2};
 use std::f32::consts::PI;
 
-/// Marker type for a spring pendulum physics state
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
-struct SpringPendulum {
+pub struct SpringPendulum {
 	pub bob_pos: Vec2,
 	pub bob_vel: Vec2,
+}
+
+impl PhysicsState<SpringPendulum> {
+	pub(crate) fn tick(
+		&mut self,
+		puppet_physics: PuppetPhysics,
+		props: &PhysicsProps,
+		bob: Vec2,
+		anchor: Vec2,
+		dt: f32,
+	) -> Vec2 {
+		self.vars.bob_pos = bob;
+
+		// Run the spring pendulum simulation
+		runge_kutta::tick(&eval, self, (puppet_physics, props), anchor, dt);
+
+		self.vars.bob_pos
+	}
 }
 
 impl IsPhysicsVars<4> for SpringPendulum {
@@ -22,11 +39,9 @@ impl IsPhysicsVars<4> for SpringPendulum {
 	}
 }
 
-type SpringPendulumState = PhysicsState<SpringPendulum>;
-
 fn eval(
-	state: &mut SpringPendulumState,
-	&(puppet_physics, props): &(PuppetPhysics, &SimplePhysicsProps),
+	state: &mut PhysicsState<SpringPendulum>,
+	&(puppet_physics, props): &(PuppetPhysics, &PhysicsProps),
 	anchor: Vec2,
 	_t: f32,
 ) {
@@ -68,23 +83,4 @@ fn eval(
 	let dd_bob = force + dd_bob_damping;
 
 	state.derivatives.bob_vel = dd_bob;
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct SpringPendulumSystem {
-	pub bob: Vec2,
-	state: SpringPendulumState,
-}
-
-impl SpringPendulumSystem {
-	pub fn tick(&mut self, anchor: Vec2, puppet_physics: PuppetPhysics, props: &SimplePhysicsProps, dt: f32) -> Vec2 {
-		self.state.vars.bob_pos = self.bob;
-
-		// Run the spring pendulum simulation
-		runge_kutta::tick(&eval, &mut self.state, (puppet_physics, props), anchor, dt);
-
-		self.bob = self.state.vars.bob_pos;
-
-		self.bob
-	}
 }

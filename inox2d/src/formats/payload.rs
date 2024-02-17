@@ -10,11 +10,12 @@ use crate::math::transform::TransformOffset;
 use crate::mesh::{f32s_as_vec2s, Mesh};
 use crate::nodes::node::{InoxNode, InoxNodeUuid};
 use crate::nodes::node_data::{
-	BlendMode, Composite, Drawable, InoxData, Mask, MaskMode, Part, UnknownBlendModeError, UnknownMaskModeError,
+	BlendMode, Composite, Drawable, InoxData, Mask, MaskMode, ParamMapMode, Part, PhysicsModel, PhysicsProps,
+	SimplePhysics, UnknownBlendModeError, UnknownMaskModeError,
 };
 use crate::nodes::node_tree::InoxNodeTree;
 use crate::params::{AxisPoints, Binding, BindingValues, Param, ParamUuid};
-use crate::physics::{ParamMapMode, SimplePhysics, SimplePhysicsProps, SimplePhysicsSystem};
+use crate::physics::runge_kutta::PhysicsState;
 use crate::puppet::{
 	Puppet, PuppetAllowedModification, PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta, PuppetPhysics,
 	PuppetUsageRights, UnknownPuppetAllowedModificationError, UnknownPuppetAllowedRedistributionError,
@@ -157,11 +158,12 @@ fn deserialize_composite(obj: &JsonObject) -> InoxParseResult<Composite> {
 fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics> {
 	let param = ParamUuid(obj.get_u32("param")?);
 
-	let system = match obj.get_str("model_type")? {
-		"Pendulum" => SimplePhysicsSystem::new_rigid_pendulum(),
-		"SpringPendulum" => SimplePhysicsSystem::new_spring_pendulum(),
-		_ => todo!(),
+	let model_type = match obj.get_str("model_type")? {
+		"Pendulum" => PhysicsModel::RigidPendulum(PhysicsState::default()),
+		"SpringPendulum" => PhysicsModel::SpringPendulum(PhysicsState::default()),
+		a => todo!("{}", a),
 	};
+
 	let map_mode = match obj.get_str("map_mode")? {
 		"angle_length" => ParamMapMode::AngleLength,
 		"XY" => ParamMapMode::XY,
@@ -169,21 +171,21 @@ fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics
 	};
 
 	let local_only = obj.get_bool("local_only").unwrap_or_default();
+
 	let gravity = obj.get_f32("gravity")?;
 	let length = obj.get_f32("length")?;
 	let frequency = obj.get_f32("frequency")?;
 	let angle_damping = obj.get_f32("angle_damping")?;
 	let length_damping = obj.get_f32("length_damping")?;
-
 	let output_scale = obj.get_vec2("output_scale")?;
 
 	Ok(SimplePhysics {
 		param,
 
-		system,
+		model_type,
 		map_mode,
 
-		props: SimplePhysicsProps {
+		props: PhysicsProps {
 			gravity,
 			length,
 			frequency,
@@ -194,7 +196,7 @@ fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics
 
 		local_only,
 
-		anchor: Vec2::ZERO,
+		bob: Vec2::ZERO,
 		output: Vec2::ZERO,
 	})
 }

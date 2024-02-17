@@ -1,15 +1,13 @@
-use glam::Vec3;
+use glam::{Vec2, Vec3};
 
 use crate::mesh::Mesh;
+use crate::params::ParamUuid;
+use crate::physics::pendulum::rigid::RigidPendulum;
+use crate::physics::pendulum::spring::SpringPendulum;
+use crate::physics::runge_kutta::PhysicsState;
 use crate::texture::TextureId;
 
 use super::node::InoxNodeUuid;
-use crate::physics::SimplePhysics;
-
-#[derive(Debug, Clone)]
-pub struct Composite {
-	pub draw_state: Drawable,
-}
 
 /// Blending mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -127,6 +125,79 @@ pub struct Part {
 	pub tex_albedo: TextureId,
 	pub tex_emissive: TextureId,
 	pub tex_bumpmap: TextureId,
+}
+
+#[derive(Debug, Clone)]
+pub struct Composite {
+	pub draw_state: Drawable,
+}
+
+// TODO: PhysicsModel should just be a flat enum with no physics state.
+// There's no reason to store a state if we're not simulating anything.
+// This can be fixed in the component refactor.
+// (I didn't want to create yet another separate PhysicsCtx just for this.)
+
+/// Physics model to use for simple physics
+#[derive(Debug, Clone)]
+pub enum PhysicsModel {
+	/// Rigid pendulum
+	RigidPendulum(PhysicsState<RigidPendulum>),
+
+	/// Springy pendulum
+	SpringPendulum(PhysicsState<SpringPendulum>),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ParamMapMode {
+	AngleLength,
+	XY,
+}
+
+#[derive(Debug, Clone)]
+pub struct PhysicsProps {
+	/// Gravity scale (1.0 = puppet gravity)
+	pub gravity: f32,
+	/// Pendulum/spring rest length (pixels)
+	pub length: f32,
+	/// Resonant frequency (Hz)
+	pub frequency: f32,
+	/// Angular damping ratio
+	pub angle_damping: f32,
+	/// Length damping ratio
+	pub length_damping: f32,
+
+	pub output_scale: Vec2,
+}
+
+impl Default for PhysicsProps {
+	fn default() -> Self {
+		Self {
+			gravity: 1.,
+			length: 1.,
+			frequency: 1.,
+			angle_damping: 0.5,
+			length_damping: 0.5,
+			output_scale: Vec2::ONE,
+		}
+	}
+}
+
+#[derive(Debug, Clone)]
+pub struct SimplePhysics {
+	pub param: ParamUuid,
+
+	pub model_type: PhysicsModel,
+	pub map_mode: ParamMapMode,
+
+	pub props: PhysicsProps,
+
+	/// Whether physics system listens to local transform only.
+	pub local_only: bool,
+
+	// TODO: same as above, this state shouldn't be here.
+	// It is only useful when simulating physics.
+	pub bob: Vec2,
+	pub output: Vec2,
 }
 
 #[derive(Debug, Clone)]
