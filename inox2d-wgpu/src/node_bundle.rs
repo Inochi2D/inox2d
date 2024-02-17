@@ -3,9 +3,9 @@ use tracing::warn;
 use wgpu::{BindGroup, Device, RenderBundle};
 
 use inox2d::{
-	nodes::{
-		node::InoxNodeUuid,
-		node_data::{InoxData, Mask, Part},
+	node::{
+		data::{InoxData, Mask, Part},
+		InoxNodeUuid,
 	},
 	puppet::Puppet,
 	render::RenderCtxKind,

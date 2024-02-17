@@ -5,9 +5,9 @@ use glam::{vec2, Mat4, Vec2};
 use crate::math::transform::TransformOffset;
 use crate::mesh::Mesh;
 use crate::model::Model;
-use crate::nodes::node::InoxNodeUuid;
-use crate::nodes::node_data::{Composite, InoxData, MaskMode, Part};
-use crate::nodes::node_tree::InoxNodeTree;
+use crate::node::InoxNodeUuid;
+use crate::node::data::{Composite, InoxData, MaskMode, Part};
+use crate::node::tree::InoxNodeTree;
 use crate::puppet::Puppet;
 
 #[derive(Clone, Debug)]

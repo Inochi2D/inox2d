@@ -3,9 +3,9 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::nodes::node::InoxNodeUuid;
-use crate::nodes::node_data::InoxData;
-use crate::nodes::node_tree::InoxNodeTree;
+use crate::node::InoxNodeUuid;
+use crate::node::data::InoxData;
+use crate::node::tree::InoxNodeTree;
 use crate::params::{Param, ParamUuid};
 use crate::render::RenderCtx;
 

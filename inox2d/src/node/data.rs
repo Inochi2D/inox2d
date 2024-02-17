@@ -7,7 +7,7 @@ use crate::physics::pendulum::spring::SpringPendulum;
 use crate::physics::runge_kutta::PhysicsState;
 use crate::texture::TextureId;
 
-use super::node::InoxNodeUuid;
+use super::InoxNodeUuid;
 
 /// Blending mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

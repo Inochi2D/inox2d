@@ -1,8 +1,11 @@
+pub mod data;
+pub mod tree;
+
 use std::fmt::Debug;
 
 use crate::math::transform::TransformOffset;
 
-use super::node_data::InoxData;
+use data::InoxData;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]

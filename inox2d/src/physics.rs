@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 
 use glam::{vec2, vec4, Vec2};
 
-use crate::nodes::node_data::{InoxData, ParamMapMode, PhysicsModel, SimplePhysics};
+use crate::node::data::{InoxData, ParamMapMode, PhysicsModel, SimplePhysics};
 use crate::puppet::{Puppet, PuppetPhysics};
 use crate::render::NodeRenderCtx;
 

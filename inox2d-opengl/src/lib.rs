@@ -14,7 +14,7 @@ use inox2d::texture::{decode_model_textures, TextureId};
 
 use inox2d::math::camera::Camera;
 use inox2d::model::{Model, ModelTexture};
-use inox2d::nodes::node_data::{BlendMode, Composite, Part};
+use inox2d::node::data::{BlendMode, Composite, Part};
 use inox2d::puppet::Puppet;
 use inox2d::render::{InoxRenderer, InoxRendererCommon, NodeRenderCtx, PartRenderCtx};
 

@@ -2,7 +2,7 @@ use glam::{vec2, Vec2};
 
 use crate::math::interp::{bi_interpolate_f32, bi_interpolate_vec2s_additive, InterpRange, InterpolateMode};
 use crate::math::matrix::Matrix2d;
-use crate::nodes::node::InoxNodeUuid;
+use crate::node::InoxNodeUuid;
 use crate::puppet::Puppet;
 use crate::render::{NodeRenderCtxs, PartRenderCtx, RenderCtxKind};
 

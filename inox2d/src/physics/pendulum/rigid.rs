@@ -1,6 +1,6 @@
 use glam::{vec2, Vec2};
 
-use crate::nodes::node_data::PhysicsProps;
+use crate::node::data::PhysicsProps;
 use crate::physics::runge_kutta::{self, IsPhysicsVars, PhysicsState};
 use crate::puppet::PuppetPhysics;
 

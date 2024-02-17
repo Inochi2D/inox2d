@@ -32,7 +32,7 @@ pub mod formats;
 pub mod math;
 pub mod mesh;
 pub mod model;
-pub mod nodes;
+pub mod node;
 pub mod params;
 pub mod physics;
 pub mod puppet;

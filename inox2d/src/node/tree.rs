@@ -3,7 +3,7 @@ use std::fmt::Display;
 
 use indextree::{Arena, NodeId};
 
-use super::node::{InoxNode, InoxNodeUuid};
+use super::{InoxNode, InoxNodeUuid};
 
 #[derive(Clone, Debug)]
 pub struct InoxNodeTree<T = ()> {

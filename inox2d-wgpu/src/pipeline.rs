@@ -4,7 +4,7 @@ use encase::ShaderType;
 use glam::{Mat4, Vec2, Vec3};
 use wgpu::*;
 
-use inox2d::nodes::node_data::BlendMode;
+use inox2d::node::data::BlendMode;
 
 fn blend_state_for_blend_mode(mode: BlendMode) -> BlendState {
 	let component = match mode {
