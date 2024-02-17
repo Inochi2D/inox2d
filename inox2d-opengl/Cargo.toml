@@ -1,7 +1,8 @@
 [package]
 name = "inox2d-opengl"
 description = "OpenGL renderer for Inox2D"
-version = "0.1.0"
+authors = ["Speykious"]
+version = "0.3.0"
 edition = "2021"
 repository = "https://github.com/Inochi2D/inox2d"
 license = "BSD-2-Clause"
@@ -9,7 +10,7 @@ keywords = ["gamedev", "graphics", "inochi2d", "vtuber", "opengl"]
 categories = ["graphics", "rendering"]
 
 [dependencies]
-inox2d = { path = "../inox2d", version = "0.2.0" }
+inox2d = { path = "../inox2d", version = "0.3.0" }
 glam = "0.25.0"
 glow = { version = "0.13.1" }
 thiserror = "1.0.39"

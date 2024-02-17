@@ -1,7 +1,8 @@
 [package]
 name = "inox2d-wgpu"
 description = "WGPU renderer for Inox2D"
-version = "0.1.0"
+authors = ["carbonatiuman"]
+version = "0.3.0"
 edition = "2021"
 repository = "https://github.com/Inochi2D/inox2d"
 license = "BSD-2-Clause"
@@ -9,7 +10,7 @@ keywords = ["gamedev", "graphics", "inochi2d", "vtuber", "wgpu"]
 categories = ["graphics", "rendering"]
 
 [dependencies]
-inox2d = { path = "../inox2d", version = "0.2.0" }
+inox2d = { path = "../inox2d", version = "0.3.0" }
 bytemuck = "1.13.1"
 encase = { version = "0.7.0", features = ["glam"] }
 glam = { version = "0.25.0", features = ["bytemuck"] }

@@ -1,7 +1,8 @@
 [package]
 name = "inox2d"
 description = "Officially supported native Rust reimplementation of Inochi2D."
-version = "0.2.0"
+authors = ["Speykious"]
+version = "0.3.0"
 edition = "2021"
 repository = "https://github.com/Inochi2D/inox2d"
 license = "BSD-2-Clause"
