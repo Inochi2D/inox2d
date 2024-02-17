@@ -183,7 +183,6 @@ fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics
 		system,
 		map_mode,
 
-		offset_props: SimplePhysicsProps::default(),
 		props: SimplePhysicsProps {
 			gravity,
 			length,

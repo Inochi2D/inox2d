@@ -17,7 +17,7 @@ impl SimplePhysics {
 	}
 
 	fn calc_outputs(&self, node_render_ctx: &NodeRenderCtx) -> Vec2 {
-		let oscale = self.final_output_scale();
+		let oscale = self.props.output_scale;
 
 		// "Okay, so this is confusing. We want to translate the angle back to local space, but not the coordinates."
 		// - Asahi Lina
@@ -32,7 +32,7 @@ impl SimplePhysics {
 		let local_angle = vec2(local_pos4.x, local_pos4.y).normalize();
 
 		// Figure out the relative length. We can work this out directly in global space.
-		let relative_length = self.output.distance(self.anchor) / self.final_length();
+		let relative_length = self.output.distance(self.anchor) / self.props.length;
 
 		let param_value = match self.map_mode {
 			ParamMapMode::XY => {
@@ -69,35 +69,11 @@ impl SimplePhysics {
 	}
 
 	pub fn update_anchor(&mut self) {
-		let bob = self.anchor + vec2(0.0, self.final_length());
+		let bob = self.anchor + vec2(0.0, self.props.length);
 
 		match &mut self.system {
 			SimplePhysicsSystem::RigidPendulum(system) => system.bob = bob,
 			SimplePhysicsSystem::SpringPendulum(system) => system.bob = bob,
 		}
-	}
-
-	pub fn final_gravity(&self, puppet_physics: &PuppetPhysics) -> f32 {
-		(self.props.gravity * self.offset_props.gravity) * puppet_physics.gravity * puppet_physics.pixels_per_meter
-	}
-
-	pub fn final_length(&self) -> f32 {
-		self.props.length * self.offset_props.length
-	}
-
-	pub fn final_frequency(&self) -> f32 {
-		self.props.frequency * self.offset_props.frequency
-	}
-
-	pub fn final_angle_damping(&self) -> f32 {
-		self.props.angle_damping * self.offset_props.angle_damping
-	}
-
-	pub fn final_length_damping(&self) -> f32 {
-		self.props.length_damping * self.offset_props.length_damping
-	}
-
-	pub fn final_output_scale(&self) -> Vec2 {
-		self.props.output_scale * self.offset_props.output_scale
 	}
 }

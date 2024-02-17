@@ -83,7 +83,6 @@ pub struct SimplePhysics {
 	pub system: SimplePhysicsSystem,
 	pub map_mode: ParamMapMode,
 
-	pub offset_props: SimplePhysicsProps,
 	pub props: SimplePhysicsProps,
 
 	/// Whether physics system listens to local transform only.
