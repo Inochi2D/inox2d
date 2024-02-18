@@ -58,7 +58,10 @@ impl AppFrame {
 		//
 		// XXX if you don't care about running on Android or so you can safely remove
 		// this condition and always pass the window builder.
-		let maydow_builder = cfg!(wgl_backend).then_some(window_builder.clone());
+		let maydow_builder = {
+			let wgl_backend = cfg!(all(feature = "wgl", windows, not(wasm_platform)));
+			wgl_backend.then_some(window_builder.clone())
+		};
 
 		let display_builder = DisplayBuilder::new().with_window_builder(maydow_builder);
 
