@@ -92,7 +92,7 @@
                 }
             },
             "args": [
-                // "~/Documents/inochi-models/Aka.inp"
+                "examples/render-webgl/assets/puppet.inp"
             ],
             "cwd": "${workspaceFolder}"
         },
