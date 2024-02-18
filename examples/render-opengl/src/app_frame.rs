@@ -48,7 +48,9 @@ impl AppFrame {
 		// normal platforms will return multiple configs, so we can find the config
 		// with transparency ourselves inside the `reduce`.
 		if window_builder.transparent() {
-			template = template.with_alpha_size(8).with_transparency(cfg!(cgl_backend));
+			template = template
+				.with_alpha_size(8)
+				.with_transparency(cfg!(all(macos_platform, not(wasm_platform))));
 		} else {
 			template = template.with_transparency(false);
 		}
@@ -59,7 +61,7 @@ impl AppFrame {
 		// XXX if you don't care about running on Android or so you can safely remove
 		// this condition and always pass the window builder.
 		let maydow_builder = {
-			let wgl_backend = cfg!(all(feature = "wgl", windows, not(wasm_platform)));
+			let wgl_backend = cfg!(all(windows, not(wasm_platform)));
 			wgl_backend.then_some(window_builder.clone())
 		};
 
