@@ -56,7 +56,7 @@ pub fn tick<const N: usize, T: IsPhysicsVars<N>, P>(
 		vars[i] = curs[i] + h * (k1s[i] + 2. * k2s[i] + 2. * k3s[i] + k4s[i]) / 6.;
 		if !vars[i].is_finite() {
 			// Simulation failed, revert
-			phys.vars.set_f32s(curs);
+			vars = curs;
 			break;
 		}
 	}
