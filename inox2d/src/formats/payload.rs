@@ -193,7 +193,6 @@ fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics
 		local_only,
 
 		bob: Vec2::ZERO,
-		output: Vec2::ZERO,
 	})
 }
 

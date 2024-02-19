@@ -197,7 +197,6 @@ pub struct SimplePhysics {
 	// TODO: same as above, this state shouldn't be here.
 	// It is only useful when simulating physics.
 	pub bob: Vec2,
-	pub output: Vec2,
 }
 
 #[derive(Debug, Clone)]

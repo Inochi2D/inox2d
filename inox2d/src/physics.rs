@@ -47,9 +47,7 @@ impl SimplePhysics {
 
 		self.tick(dt, anchor, puppet_physics);
 
-		self.output = self.calc_output(anchor, node_render_ctx);
-
-		self.output
+		self.calc_output(anchor, node_render_ctx)
 	}
 
 	fn tick(&mut self, dt: f32, anchor: Vec2, puppet_physics: PuppetPhysics) {
@@ -73,7 +71,7 @@ impl SimplePhysics {
 
 	fn calc_output(&self, anchor: Vec2, node_render_ctx: &NodeRenderCtx) -> Vec2 {
 		let oscale = self.props.output_scale;
-		let output = self.output;
+		let bob = self.bob;
 
 		// "Okay, so this is confusing. We want to translate the angle back to local space, but not the coordinates."
 		// - Asahi Lina
@@ -81,14 +79,14 @@ impl SimplePhysics {
 		// Transform the physics output back into local space.
 		// The origin here is the anchor. This gives us the local angle.
 		let local_pos4 = match self.local_only {
-			true => vec4(output.x, output.y, 0.0, 1.0),
-			false => node_render_ctx.trans.inverse() * vec4(output.x, output.y, 0.0, 1.0),
+			true => vec4(bob.x, bob.y, 0.0, 1.0),
+			false => node_render_ctx.trans.inverse() * vec4(bob.x, bob.y, 0.0, 1.0),
 		};
 
 		let local_angle = vec2(local_pos4.x, local_pos4.y).normalize();
 
 		// Figure out the relative length. We can work this out directly in global space.
-		let relative_length = output.distance(anchor) / self.props.length;
+		let relative_length = bob.distance(anchor) / self.props.length;
 
 		let param_value = match self.map_mode {
 			ParamMapMode::XY => {
