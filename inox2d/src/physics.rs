@@ -26,7 +26,7 @@ impl Puppet {
 
 			let output = system.update(dt, puppet_physics, nrc);
 			let param_uuid = system.param;
-			self.set_param(param_uuid, output);
+			let _ = self.set_param(param_uuid, output);
 		}
 	}
 }

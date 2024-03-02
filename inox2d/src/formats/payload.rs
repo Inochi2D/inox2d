@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use glam::{vec2, vec3, Vec2, Vec3};
+use glam::{vec2, vec3, Vec2};
 use indextree::Arena;
 use json::JsonValue;
 

@@ -204,27 +204,42 @@ impl Puppet {
 		}
 	}
 
-	pub fn set_named_param(&mut self, param_name: &str, val: Vec2) {
-		let param_uuid =
-			(self.param_names.get(param_name)).unwrap_or_else(|| panic!("No parameter named {:?}", param_name));
+	pub fn end_set_params(&mut self, dt: f32) {
+		// TODO: find better places for these two update calls and pass elapsed time in
+		self.update_physics(dt, self.physics);
+		self.update_trans();
+	}
+}
 
-		self.set_param(*param_uuid, val);
+#[derive(Debug, thiserror::Error)]
+pub enum SetParamError {
+	#[error("No parameter named {0}")]
+	NoParameterNamed(String),
+
+	#[error("No parameter with uuid {0:?}")]
+	NoParameterWithUuid(ParamUuid),
+}
+
+impl Puppet {
+	pub fn set_named_param(&mut self, param_name: &str, val: Vec2) -> Result<(), SetParamError> {
+		let Some(param_uuid) = self.param_names.get(param_name) else {
+			return Err(SetParamError::NoParameterNamed(param_name.to_string()));
+		};
+
+		self.set_param(*param_uuid, val)
 	}
 
-	pub fn set_param(&mut self, param_uuid: ParamUuid, val: Vec2) {
-		let param =
-			(self.params.get_mut(&param_uuid)).unwrap_or_else(|| panic!("No parameter with uuid: {:?}", param_uuid));
+	pub fn set_param(&mut self, param_uuid: ParamUuid, val: Vec2) -> Result<(), SetParamError> {
+		let Some(param) = self.params.get_mut(&param_uuid) else {
+			return Err(SetParamError::NoParameterWithUuid(param_uuid));
+		};
 
 		param.apply(
 			val,
 			&mut self.render_ctx.node_render_ctxs,
 			self.render_ctx.vertex_buffers.deforms.as_mut_slice(),
 		);
-	}
 
-	pub fn end_set_params(&mut self, dt: f32) {
-		// TODO: find better places for these two update calls and pass elapsed time in
-		self.update_physics(dt, self.physics);
-		self.update_trans();
+		Ok(())
 	}
 }
