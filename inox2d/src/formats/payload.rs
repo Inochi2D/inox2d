@@ -161,7 +161,7 @@ fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics
 	};
 
 	let map_mode = match obj.get_str("map_mode")? {
-		"angle_length" => ParamMapMode::AngleLength,
+		"AngleLength" => ParamMapMode::AngleLength,
 		"XY" => ParamMapMode::XY,
 		a => todo!("{}", a),
 	};
