@@ -10,9 +10,10 @@ use crate::texture::TextureId;
 use super::InoxNodeUuid;
 
 /// Blending mode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BlendMode {
 	/// Normal blending mode.
+	#[default]
 	Normal,
 	/// Multiply blending mode.
 	Multiply,

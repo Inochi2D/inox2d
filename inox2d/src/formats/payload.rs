@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use glam::{vec2, Vec2};
+use glam::{vec2, vec3, Vec2, Vec3};
 use indextree::Arena;
 use json::JsonValue;
 
@@ -198,10 +198,10 @@ fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics
 
 fn deserialize_drawable(obj: &JsonObject) -> InoxParseResult<Drawable> {
 	Ok(Drawable {
-		blend_mode: BlendMode::try_from(obj.get_str("blend_mode")?)?,
-		tint: obj.get_vec3("tint")?,
-		screen_tint: obj.get_vec3("screenTint")?,
-		mask_threshold: obj.get_f32("mask_threshold")?,
+		blend_mode: BlendMode::try_from(obj.get_str("blend_mode").unwrap_or_default()).unwrap_or_default(),
+		tint: obj.get_vec3("tint").unwrap_or(vec3(1.0, 1.0, 1.0)),
+		screen_tint: obj.get_vec3("screenTint").unwrap_or(vec3(0.0, 0.0, 0.0)),
+		mask_threshold: obj.get_f32("mask_threshold").unwrap_or(0.5),
 		masks: {
 			if let Ok(masks) = obj.get_list("masks") {
 				masks
@@ -212,7 +212,7 @@ fn deserialize_drawable(obj: &JsonObject) -> InoxParseResult<Drawable> {
 				Vec::new()
 			}
 		},
-		opacity: obj.get_f32("opacity")?,
+		opacity: obj.get_f32("opacity").unwrap_or(1.0),
 	})
 }
 
@@ -225,7 +225,7 @@ fn deserialize_mesh(obj: &JsonObject) -> InoxParseResult<Mesh> {
 			.iter()
 			.map_while(JsonValue::as_u16)
 			.collect::<Vec<_>>(),
-		origin: obj.get_vec2("origin")?,
+		origin: obj.get_vec2("origin").unwrap_or_default(),
 	})
 }
 
