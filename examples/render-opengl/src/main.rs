@@ -40,8 +40,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 	tracing::info!("Parsing puppet");
 
-	let data = fs::read(cli.inp_path).unwrap();
-	let model = parse_inp(data.as_slice()).unwrap();
+	let data = fs::read(cli.inp_path)?;
+	let model = parse_inp(data.as_slice())?;
 	tracing::info!(
 		"Successfully parsed puppet: {}",
 		(model.puppet.meta.name.as_deref()).unwrap_or("<no puppet name specified in file>")
