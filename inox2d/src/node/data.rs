@@ -9,6 +9,38 @@ use crate::texture::TextureId;
 
 use super::InoxNodeUuid;
 
+#[derive(Debug, Clone, Copy)]
+pub struct TransformOffset {
+	/// X Y Z
+	pub translation: Vec3,
+	/// Euler angles
+	pub rotation: Vec3,
+	/// X Y zoom
+	pub scale: Vec2,
+	/// Whether the transform should snap to pixels
+	pub pixel_snap: bool,
+}
+
+impl Default for TransformOffset {
+	fn default() -> Self {
+		Self {
+			translation: Vec3::ZERO,
+			rotation: Vec3::ZERO,
+			scale: Vec2::ONE,
+			pixel_snap: false,
+		}
+	}
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InterpolateMode {
+	/// Round to nearest
+	Nearest,
+	/// Linear interpolation
+	Linear,
+	// there's more but I'm not adding them for now.
+}
+
 /// Blending mode.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BlendMode {
@@ -46,49 +78,12 @@ impl BlendMode {
 	];
 }
 
-#[derive(Debug, Clone, thiserror::Error)]
-#[error("Unknown blend mode {0:?}")]
-pub struct UnknownBlendModeError(String);
-
-impl TryFrom<&str> for BlendMode {
-	type Error = UnknownBlendModeError;
-
-	fn try_from(value: &str) -> Result<Self, Self::Error> {
-		match value {
-			"Normal" => Ok(BlendMode::Normal),
-			"Multiply" => Ok(BlendMode::Multiply),
-			"ColorDodge" => Ok(BlendMode::ColorDodge),
-			"LinearDodge" => Ok(BlendMode::LinearDodge),
-			"Screen" => Ok(BlendMode::Screen),
-			"ClipToLower" => Ok(BlendMode::ClipToLower),
-			"SliceFromLower" => Ok(BlendMode::SliceFromLower),
-			unknown => Err(UnknownBlendModeError(unknown.to_owned())),
-		}
-	}
-}
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MaskMode {
 	/// The part should be masked by the drawables specified.
 	Mask,
 	/// The path should be dodge-masked by the drawables specified.
 	Dodge,
-}
-
-#[derive(Debug, Clone, thiserror::Error)]
-#[error("Unknown mask mode {0:?}")]
-pub struct UnknownMaskModeError(String);
-
-impl TryFrom<&str> for MaskMode {
-	type Error = UnknownMaskModeError;
-
-	fn try_from(value: &str) -> Result<Self, Self::Error> {
-		match value {
-			"Mask" => Ok(MaskMode::Mask),
-			"DodgeMask" => Ok(MaskMode::Dodge),
-			unknown => Err(UnknownMaskModeError(unknown.to_owned())),
-		}
-	}
 }
 
 #[derive(Debug, Clone, PartialEq)]

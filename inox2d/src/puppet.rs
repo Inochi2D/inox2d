@@ -35,23 +35,6 @@ impl fmt::Display for PuppetAllowedUsers {
 	}
 }
 
-#[derive(Debug, Clone, thiserror::Error)]
-#[error("Unknown allowed users {0:?}")]
-pub struct UnknownPuppetAllowedUsersError(String);
-
-impl TryFrom<&str> for PuppetAllowedUsers {
-	type Error = UnknownPuppetAllowedUsersError;
-
-	fn try_from(value: &str) -> Result<Self, Self::Error> {
-		match value {
-			"OnlyAuthor" => Ok(PuppetAllowedUsers::OnlyAuthor),
-			"OnlyLicensee" => Ok(PuppetAllowedUsers::OnlyLicensee),
-			"Everyone" => Ok(PuppetAllowedUsers::Everyone),
-			unknown => Err(UnknownPuppetAllowedUsersError(unknown.to_owned())),
-		}
-	}
-}
-
 /// Can the puppet be redistributed?
 #[derive(Clone, Copy, Debug, Default)]
 pub enum PuppetAllowedRedistribution {
@@ -82,23 +65,6 @@ impl fmt::Display for PuppetAllowedRedistribution {
 	}
 }
 
-#[derive(Debug, Clone, thiserror::Error)]
-#[error("Unknown allowed redistribution {0:?}")]
-pub struct UnknownPuppetAllowedRedistributionError(String);
-
-impl TryFrom<&str> for PuppetAllowedRedistribution {
-	type Error = UnknownPuppetAllowedRedistributionError;
-
-	fn try_from(value: &str) -> Result<Self, Self::Error> {
-		match value {
-			"Prohibited" => Ok(PuppetAllowedRedistribution::Prohibited),
-			"ViralLicense" => Ok(PuppetAllowedRedistribution::ViralLicense),
-			"CopyleftLicense" => Ok(PuppetAllowedRedistribution::CopyleftLicense),
-			unknown => Err(UnknownPuppetAllowedRedistributionError(unknown.to_owned())),
-		}
-	}
-}
-
 /// Can the puppet be modified?
 #[derive(Clone, Copy, Debug, Default)]
 pub enum PuppetAllowedModification {
@@ -123,23 +89,6 @@ impl fmt::Display for PuppetAllowedModification {
 				PuppetAllowedModification::AllowRedistribute => "allow redistribute",
 			}
 		)
-	}
-}
-
-#[derive(Debug, Clone, thiserror::Error)]
-#[error("Unknown allowed users {0:?}")]
-pub struct UnknownPuppetAllowedModificationError(String);
-
-impl TryFrom<&str> for PuppetAllowedModification {
-	type Error = UnknownPuppetAllowedModificationError;
-
-	fn try_from(value: &str) -> Result<Self, Self::Error> {
-		match value {
-			"Prohibited" => Ok(PuppetAllowedModification::Prohibited),
-			"AllowPersonal" => Ok(PuppetAllowedModification::AllowPersonal),
-			"AllowRedistribute" => Ok(PuppetAllowedModification::AllowRedistribute),
-			unknown => Err(UnknownPuppetAllowedModificationError(unknown.to_owned())),
-		}
 	}
 }
 

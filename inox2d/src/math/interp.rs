@@ -1,28 +1,6 @@
 use glam::Vec2;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InterpolateMode {
-	/// Round to nearest
-	Nearest,
-	/// Linear interpolation
-	Linear,
-	// there's more but I'm not adding them for now.
-}
-
-#[derive(Debug, Clone, thiserror::Error)]
-#[error("Unknown interpolate mode {0:?}")]
-pub struct UnknownInterpolateModeError(String);
-
-impl TryFrom<&str> for InterpolateMode {
-	type Error = UnknownInterpolateModeError;
-
-	fn try_from(value: &str) -> Result<Self, Self::Error> {
-		match value {
-			"Linear" => Ok(InterpolateMode::Linear),
-			unknown => Err(UnknownInterpolateModeError(unknown.to_owned())),
-		}
-	}
-}
+use crate::node::data::InterpolateMode;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct InterpRange<T> {

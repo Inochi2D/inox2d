@@ -4,13 +4,13 @@ use glam::{vec2, vec3, Vec2};
 use indextree::Arena;
 use json::JsonValue;
 
-use crate::math::interp::{InterpolateMode, UnknownInterpolateModeError};
+use super::enums::*;
+
 use crate::math::matrix::{Matrix2d, Matrix2dFromSliceVecsError};
-use crate::math::transform::TransformOffset;
 use crate::mesh::{f32s_as_vec2s, Mesh};
 use crate::node::data::{
-	BlendMode, Composite, Drawable, InoxData, Mask, MaskMode, ParamMapMode, Part, PhysicsModel, PhysicsProps,
-	SimplePhysics, UnknownBlendModeError, UnknownMaskModeError,
+	BlendMode, Composite, Drawable, InoxData, InterpolateMode, Mask, MaskMode, ParamMapMode, Part, PhysicsModel,
+	PhysicsProps, SimplePhysics, TransformOffset,
 };
 use crate::node::tree::InoxNodeTree;
 use crate::node::{InoxNode, InoxNodeUuid};
@@ -18,8 +18,7 @@ use crate::params::{AxisPoints, Binding, BindingValues, Param, ParamUuid};
 use crate::physics::runge_kutta::PhysicsState;
 use crate::puppet::{
 	Puppet, PuppetAllowedModification, PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta, PuppetPhysics,
-	PuppetUsageRights, UnknownPuppetAllowedModificationError, UnknownPuppetAllowedRedistributionError,
-	UnknownPuppetAllowedUsersError,
+	PuppetUsageRights,
 };
 use crate::texture::TextureId;
 
@@ -39,6 +38,8 @@ pub enum InoxParseError {
 	NoAlbedoTexture,
 	#[error(transparent)]
 	InvalidMatrix2dData(#[from] Matrix2dFromSliceVecsError),
+	#[error(transparent)]
+	UnknownParamMapMode(#[from] UnknownParamMapModeError),
 	#[error(transparent)]
 	UnknownBlendMode(#[from] UnknownBlendModeError),
 	#[error(transparent)]
@@ -160,11 +161,7 @@ fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics
 		a => todo!("{}", a),
 	};
 
-	let map_mode = match obj.get_str("map_mode")? {
-		"AngleLength" => ParamMapMode::AngleLength,
-		"XY" => ParamMapMode::XY,
-		a => todo!("{}", a),
-	};
+	let map_mode = ParamMapMode::try_from(obj.get_str("map_mode")?)?;
 
 	let local_only = obj.get_bool("local_only").unwrap_or_default();
 
@@ -198,7 +195,7 @@ fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics
 
 fn deserialize_drawable(obj: &JsonObject) -> InoxParseResult<Drawable> {
 	Ok(Drawable {
-		blend_mode: BlendMode::try_from(obj.get_str("blend_mode").unwrap_or_default()).unwrap_or_default(),
+		blend_mode: BlendMode::try_from(obj.get_str("blend_mode")?).unwrap_or_default(),
 		tint: obj.get_vec3("tint").unwrap_or(vec3(1.0, 1.0, 1.0)),
 		screen_tint: obj.get_vec3("screenTint").unwrap_or(vec3(0.0, 0.0, 0.0)),
 		mask_threshold: obj.get_f32("mask_threshold").unwrap_or(0.5),
@@ -237,16 +234,12 @@ fn deserialize_mask(obj: &JsonObject) -> InoxParseResult<Mask> {
 }
 
 fn deserialize_transform(obj: &JsonObject) -> InoxParseResult<TransformOffset> {
-	let translation = obj.get_vec3("trans")?;
-	let rotation = obj.get_vec3("rot")?;
-	let scale = obj.get_vec2("scale")?;
-	let pixel_snap = obj.get_bool("pixel_snap").unwrap_or_default();
-
-	Ok(TransformOffset::new()
-		.with_translation(translation)
-		.with_rotation(rotation)
-		.with_scale(scale)
-		.with_pixel_snap(pixel_snap))
+	Ok(TransformOffset {
+		translation: obj.get_vec3("trans")?,
+		rotation: obj.get_vec3("rot")?,
+		scale: obj.get_vec2("scale")?,
+		pixel_snap: obj.get_bool("pixel_snap").unwrap_or_default(),
+	})
 }
 
 fn deserialize_f32s(val: &[json::JsonValue]) -> Vec<f32> {
