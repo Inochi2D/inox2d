@@ -11,7 +11,7 @@ impl TryFrom<&str> for ParamMapMode {
 	fn try_from(value: &str) -> Result<Self, Self::Error> {
 		match value {
 			"AngleLength" => Ok(ParamMapMode::AngleLength),
-			"XY" => Ok(ParamMapMode::AngleLength),
+			"XY" => Ok(ParamMapMode::XY),
 			a => todo!("Param map mode {} unimplemented", a),
 		}
 	}
