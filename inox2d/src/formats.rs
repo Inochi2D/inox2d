@@ -1,4 +1,3 @@
-mod enums;
 pub mod inp;
 mod json;
 mod payload;

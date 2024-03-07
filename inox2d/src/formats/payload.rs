@@ -4,8 +4,6 @@ use glam::{vec2, vec3, Vec2};
 use indextree::Arena;
 use json::JsonValue;
 
-use super::enums::*;
-
 use crate::math::matrix::{Matrix2d, Matrix2dFromSliceVecsError};
 use crate::mesh::{f32s_as_vec2s, Mesh};
 use crate::node::data::{
@@ -38,20 +36,18 @@ pub enum InoxParseError {
 	NoAlbedoTexture,
 	#[error(transparent)]
 	InvalidMatrix2dData(#[from] Matrix2dFromSliceVecsError),
-	#[error(transparent)]
-	UnknownParamMapMode(#[from] UnknownParamMapModeError),
-	#[error(transparent)]
-	UnknownBlendMode(#[from] UnknownBlendModeError),
-	#[error(transparent)]
-	UnknownMaskMode(#[from] UnknownMaskModeError),
-	#[error(transparent)]
-	UnknownInterpolateMode(#[from] UnknownInterpolateModeError),
-	#[error(transparent)]
-	UnknownPuppetAllowedUsers(#[from] UnknownPuppetAllowedUsersError),
-	#[error(transparent)]
-	UnknownPuppetAllowedRedistribution(#[from] UnknownPuppetAllowedRedistributionError),
-	#[error(transparent)]
-	UnknownPuppetAllowedModification(#[from] UnknownPuppetAllowedModificationError),
+	#[error("Unknown param map mode {0:?}")]
+	UnknownParamMapMode(String),
+	#[error("Unknown mask mode {0:?}")]
+	UnknownMaskMode(String),
+	#[error("Unknown interpolate mode {0:?}")]
+	UnknownInterpolateMode(String),
+	#[error("Unknown allowed users {0:?}")]
+	UnknownPuppetAllowedUsers(String),
+	#[error("Unknown allowed redistribution {0:?}")]
+	UnknownPuppetAllowedRedistribution(String),
+	#[error("Unknown allowed modification {0:?}")]
+	UnknownPuppetAllowedModification(String),
 	#[error("Expected even number of floats in list, got {0}")]
 	OddNumberOfFloatsInList(usize),
 	#[error("Expected 2 floats in list, got {0}")]
@@ -161,7 +157,11 @@ fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics
 		a => todo!("{}", a),
 	};
 
-	let map_mode = ParamMapMode::try_from(obj.get_str("map_mode")?)?;
+	let map_mode = match obj.get_str("map_mode")? {
+		"AngleLength" => ParamMapMode::AngleLength,
+		"XY" => ParamMapMode::XY,
+		unknown => return Err(InoxParseError::UnknownParamMapMode(unknown.to_owned())),
+	};
 
 	let local_only = obj.get_bool("local_only").unwrap_or_default();
 
@@ -195,7 +195,16 @@ fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics
 
 fn deserialize_drawable(obj: &JsonObject) -> InoxParseResult<Drawable> {
 	Ok(Drawable {
-		blend_mode: BlendMode::try_from(obj.get_str("blend_mode")?).unwrap_or_default(),
+		blend_mode: match obj.get_str("blend_mode")? {
+			"Normal" => BlendMode::Normal,
+			"Multiply" => BlendMode::Multiply,
+			"ColorDodge" => BlendMode::ColorDodge,
+			"LinearDodge" => BlendMode::LinearDodge,
+			"Screen" => BlendMode::Screen,
+			"ClipToLower" => BlendMode::ClipToLower,
+			"SliceFromLower" => BlendMode::SliceFromLower,
+			_ => BlendMode::default(),
+		},
 		tint: obj.get_vec3("tint").unwrap_or(vec3(1.0, 1.0, 1.0)),
 		screen_tint: obj.get_vec3("screenTint").unwrap_or(vec3(0.0, 0.0, 0.0)),
 		mask_threshold: obj.get_f32("mask_threshold").unwrap_or(0.5),
@@ -229,7 +238,11 @@ fn deserialize_mesh(obj: &JsonObject) -> InoxParseResult<Mesh> {
 fn deserialize_mask(obj: &JsonObject) -> InoxParseResult<Mask> {
 	Ok(Mask {
 		source: InoxNodeUuid(obj.get_u32("source")?),
-		mode: MaskMode::try_from(obj.get_str("mode")?)?,
+		mode: match obj.get_str("mode")? {
+			"Mask" => MaskMode::Mask,
+			"DodgeMask" => MaskMode::Dodge,
+			unknown => return Err(InoxParseError::UnknownMaskMode(unknown.to_owned())),
+		},
 	})
 }
 
@@ -346,7 +359,11 @@ fn deserialize_binding(obj: &JsonObject) -> InoxParseResult<Binding> {
 	Ok(Binding {
 		node: InoxNodeUuid(obj.get_u32("node")?),
 		is_set: Matrix2d::from_slice_vecs(&is_set, true)?,
-		interpolate_mode: InterpolateMode::try_from(obj.get_str("interpolate_mode")?)?,
+		interpolate_mode: match obj.get_str("interpolate_mode")? {
+			"Linear" => InterpolateMode::Linear,
+			"Nearest" => InterpolateMode::Nearest,
+			a => return Err(InoxParseError::UnknownInterpolateMode(a.to_owned())),
+		},
 		values: deserialize_binding_values(obj.get_str("param_name")?, obj.get_list("values")?)?,
 	})
 }
@@ -484,12 +501,27 @@ fn deserialize_puppet_meta(obj: &JsonObject) -> InoxParseResult<PuppetMeta> {
 
 fn deserialize_puppet_usage_rights(obj: &JsonObject) -> InoxParseResult<PuppetUsageRights> {
 	Ok(PuppetUsageRights {
-		allowed_users: PuppetAllowedUsers::try_from(obj.get_str("allowed_users")?)?,
+		allowed_users: match obj.get_str("allowed_users")? {
+			"OnlyAuthor" => PuppetAllowedUsers::OnlyAuthor,
+			"OnlyLicensee" => PuppetAllowedUsers::OnlyLicensee,
+			"Everyone" => PuppetAllowedUsers::Everyone,
+			unknown => return Err(InoxParseError::UnknownPuppetAllowedUsers(unknown.to_owned())),
+		},
 		allow_violence: obj.get_bool("allow_violence")?,
 		allow_sexual: obj.get_bool("allow_sexual")?,
 		allow_commercial: obj.get_bool("allow_commercial")?,
-		allow_redistribution: PuppetAllowedRedistribution::try_from(obj.get_str("allow_redistribution")?)?,
-		allow_modification: PuppetAllowedModification::try_from(obj.get_str("allow_modification")?)?,
+		allow_redistribution: match obj.get_str("allow_redistribution")? {
+			"Prohibited" => PuppetAllowedRedistribution::Prohibited,
+			"ViralLicense" => PuppetAllowedRedistribution::ViralLicense,
+			"CopyleftLicense" => PuppetAllowedRedistribution::CopyleftLicense,
+			unknown => return Err(InoxParseError::UnknownPuppetAllowedRedistribution(unknown.to_owned())),
+		},
+		allow_modification: match obj.get_str("allow_modification")? {
+			"Prohibited" => PuppetAllowedModification::Prohibited,
+			"AllowPersonal" => PuppetAllowedModification::AllowPersonal,
+			"AllowRedistribute" => PuppetAllowedModification::AllowRedistribute,
+			unknown => return Err(InoxParseError::UnknownPuppetAllowedModification(unknown.to_owned())),
+		},
 		require_attribution: obj.get_bool("require_attribution")?,
 	})
 }
