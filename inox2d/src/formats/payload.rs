@@ -151,45 +151,30 @@ fn deserialize_composite(obj: &JsonObject) -> InoxParseResult<Composite> {
 }
 
 fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics> {
-	let param = ParamUuid(obj.get_u32("param")?);
-
-	let model_type = match obj.get_str("model_type")? {
-		"Pendulum" => PhysicsModel::RigidPendulum(PhysicsState::default()),
-		"SpringPendulum" => PhysicsModel::SpringPendulum(PhysicsState::default()),
-		a => todo!("{}", a),
-	};
-
-	let map_mode = match obj.get_str("map_mode")? {
-		"AngleLength" => ParamMapMode::AngleLength,
-		"XY" => ParamMapMode::XY,
-		unknown => return Err(InoxParseError::UnknownParamMapMode(unknown.to_owned())),
-	};
-
-	let local_only = obj.get_bool("local_only").unwrap_or_default();
-
-	let gravity = obj.get_f32("gravity")?;
-	let length = obj.get_f32("length")?;
-	let frequency = obj.get_f32("frequency")?;
-	let angle_damping = obj.get_f32("angle_damping")?;
-	let length_damping = obj.get_f32("length_damping")?;
-	let output_scale = obj.get_vec2("output_scale")?;
-
 	Ok(SimplePhysics {
-		param,
+		param: ParamUuid(obj.get_u32("param")?),
 
-		model_type,
-		map_mode,
-
-		props: PhysicsProps {
-			gravity,
-			length,
-			frequency,
-			angle_damping,
-			length_damping,
-			output_scale,
+		model_type: match obj.get_str("model_type")? {
+			"Pendulum" => PhysicsModel::RigidPendulum(PhysicsState::default()),
+			"SpringPendulum" => PhysicsModel::SpringPendulum(PhysicsState::default()),
+			a => todo!("{}", a),
+		},
+		map_mode: match obj.get_str("map_mode")? {
+			"AngleLength" => ParamMapMode::AngleLength,
+			"XY" => ParamMapMode::XY,
+			unknown => return Err(InoxParseError::UnknownParamMapMode(unknown.to_owned())),
 		},
 
-		local_only,
+		props: PhysicsProps {
+			gravity: obj.get_f32("gravity")?,
+			length: obj.get_f32("length")?,
+			frequency: obj.get_f32("frequency")?,
+			angle_damping: obj.get_f32("angle_damping")?,
+			length_damping: obj.get_f32("length_damping")?,
+			output_scale: obj.get_vec2("output_scale")?,
+		},
+
+		local_only: obj.get_bool("local_only").unwrap_or_default(),
 
 		bob: Vec2::ZERO,
 	})
