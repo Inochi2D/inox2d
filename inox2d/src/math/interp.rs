@@ -9,21 +9,6 @@ pub enum InterpolateMode {
 	// there's more but I'm not adding them for now.
 }
 
-#[derive(Debug, Clone, thiserror::Error)]
-#[error("Unknown interpolate mode {0:?}")]
-pub struct UnknownInterpolateModeError(String);
-
-impl TryFrom<&str> for InterpolateMode {
-	type Error = UnknownInterpolateModeError;
-
-	fn try_from(value: &str) -> Result<Self, Self::Error> {
-		match value {
-			"Linear" => Ok(InterpolateMode::Linear),
-			unknown => Err(UnknownInterpolateModeError(unknown.to_owned())),
-		}
-	}
-}
-
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct InterpRange<T> {
 	pub beg: T,

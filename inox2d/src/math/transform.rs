@@ -24,30 +24,6 @@ impl Default for TransformOffset {
 }
 
 impl TransformOffset {
-	pub fn new() -> Self {
-		Self::default()
-	}
-
-	pub fn with_translation(mut self, translation: Vec3) -> Self {
-		self.translation = translation;
-		self
-	}
-
-	pub fn with_rotation(mut self, rotation: Vec3) -> Self {
-		self.rotation = rotation;
-		self
-	}
-
-	pub fn with_scale(mut self, scale: Vec2) -> Self {
-		self.scale = scale;
-		self
-	}
-
-	pub fn with_pixel_snap(mut self, pixel_snap: bool) -> Self {
-		self.pixel_snap = pixel_snap;
-		self
-	}
-
 	pub fn to_matrix(&self) -> Mat4 {
 		Mat4::from_translation(self.translation)
 			* Mat4::from_quat(Quat::from_euler(
