@@ -4,11 +4,13 @@ use glam::{vec2, vec3, Vec2};
 use indextree::Arena;
 use json::JsonValue;
 
+use crate::math::interp::InterpolateMode;
 use crate::math::matrix::{Matrix2d, Matrix2dFromSliceVecsError};
+use crate::math::transform::TransformOffset;
 use crate::mesh::{f32s_as_vec2s, Mesh};
 use crate::node::data::{
-	BlendMode, Composite, Drawable, InoxData, InterpolateMode, Mask, MaskMode, ParamMapMode, Part, PhysicsModel,
-	PhysicsProps, SimplePhysics, TransformOffset,
+	BlendMode, Composite, Drawable, InoxData, Mask, MaskMode, ParamMapMode, Part, PhysicsModel, PhysicsProps,
+	SimplePhysics,
 };
 use crate::node::tree::InoxNodeTree;
 use crate::node::{InoxNode, InoxNodeUuid};

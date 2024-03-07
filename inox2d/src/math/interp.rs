@@ -1,6 +1,13 @@
 use glam::Vec2;
 
-use crate::node::data::InterpolateMode;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InterpolateMode {
+	/// Round to nearest
+	Nearest,
+	/// Linear interpolation
+	Linear,
+	// there's more but I'm not adding them for now.
+}
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct InterpRange<T> {

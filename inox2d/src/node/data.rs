@@ -9,38 +9,6 @@ use crate::texture::TextureId;
 
 use super::InoxNodeUuid;
 
-#[derive(Debug, Clone, Copy)]
-pub struct TransformOffset {
-	/// X Y Z
-	pub translation: Vec3,
-	/// Euler angles
-	pub rotation: Vec3,
-	/// X Y zoom
-	pub scale: Vec2,
-	/// Whether the transform should snap to pixels
-	pub pixel_snap: bool,
-}
-
-impl Default for TransformOffset {
-	fn default() -> Self {
-		Self {
-			translation: Vec3::ZERO,
-			rotation: Vec3::ZERO,
-			scale: Vec2::ONE,
-			pixel_snap: false,
-		}
-	}
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InterpolateMode {
-	/// Round to nearest
-	Nearest,
-	/// Linear interpolation
-	Linear,
-	// there's more but I'm not adding them for now.
-}
-
 /// Blending mode.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BlendMode {

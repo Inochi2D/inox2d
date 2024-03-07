@@ -3,7 +3,9 @@ pub mod tree;
 
 use std::fmt::Debug;
 
-use data::{InoxData, TransformOffset};
+use crate::math::transform::TransformOffset;
+
+use data::InoxData;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]

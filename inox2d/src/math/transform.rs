@@ -1,6 +1,27 @@
-use glam::{EulerRot, Mat4, Quat, Vec3};
+use glam::{EulerRot, Mat4, Quat, Vec2, Vec3};
 
-use crate::node::data::TransformOffset;
+#[derive(Debug, Clone, Copy)]
+pub struct TransformOffset {
+	/// X Y Z
+	pub translation: Vec3,
+	/// Euler angles
+	pub rotation: Vec3,
+	/// X Y zoom
+	pub scale: Vec2,
+	/// Whether the transform should snap to pixels
+	pub pixel_snap: bool,
+}
+
+impl Default for TransformOffset {
+	fn default() -> Self {
+		Self {
+			translation: Vec3::ZERO,
+			rotation: Vec3::ZERO,
+			scale: Vec2::ONE,
+			pixel_snap: false,
+		}
+	}
+}
 
 impl TransformOffset {
 	pub fn to_matrix(&self) -> Mat4 {
