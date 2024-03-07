@@ -69,6 +69,13 @@ fn vals<T>(key: &str, res: InoxParseResult<T>) -> InoxParseResult<T> {
 	res.map_err(|e| e.nested(key))
 }
 
+fn as_nested_list(index: usize, val: &json::JsonValue) -> InoxParseResult<&[json::JsonValue]> {
+	match val {
+		json::JsonValue::Array(arr) => Ok(arr),
+		_ => Err(InoxParseError::JsonError(JsonError::ValueIsNotList(index.to_string()))),
+	}
+}
+
 fn default_deserialize_custom<T>(node_type: &str, _obj: &JsonObject) -> InoxParseResult<T> {
 	Err(InoxParseError::UnknownNodeType(node_type.to_owned()))
 }
@@ -390,13 +397,6 @@ fn deserialize_inner_binding_values(values: &[JsonValue]) -> Result<Matrix2d<f32
 		.collect::<Vec<Vec<_>>>();
 
 	Matrix2d::from_slice_vecs(&values, true)
-}
-
-fn as_nested_list(index: usize, val: &json::JsonValue) -> InoxParseResult<&[json::JsonValue]> {
-	match val {
-		json::JsonValue::Array(arr) => Ok(arr),
-		_ => Err(InoxParseError::JsonError(JsonError::ValueIsNotList(index.to_string()))),
-	}
 }
 
 fn deserialize_axis_points(vals: &[json::JsonValue]) -> InoxParseResult<AxisPoints> {
