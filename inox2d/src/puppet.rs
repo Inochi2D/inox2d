@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+pub mod world;
+
 use std::collections::HashMap;
 use std::fmt;
 
