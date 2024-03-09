@@ -2,7 +2,8 @@ use std::any::TypeId;
 use std::collections::HashMap;
 use std::mem::{size_of, transmute, ManuallyDrop, MaybeUninit};
 
-// TODO: complete readings on "provenance"
+// to keep the provenance of the pointer in Vec (or any data struct that contains pointers),
+// after transmutation they should be hosted in such a container for the compiler to properly reason
 type VecBytes = [MaybeUninit<u8>; size_of::<Vec<()>>()];
 
 /// type erased vec
@@ -28,7 +29,7 @@ impl AnyVec {
 		let vec = ManuallyDrop::new(Vec::<T>::new());
 		Self {
 			// SAFETY: ManuallyDrop guaranteed to have same bit layout as inner, and inner is a proper Vec
-			// note that "Vec::new() is allowed to return uninitialized bytes"
+			// provenance considerations present, see comment for VecBytes
 			vec_bytes: unsafe { transmute(vec) },
 			type_id: TypeId::of::<T>(),
 			// SAFETY: only to be called once at end of lifetime, and vec_bytes contain a valid Vec throughout self lifetime
