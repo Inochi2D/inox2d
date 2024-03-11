@@ -11,7 +11,7 @@ categories = ["graphics", "rendering"]
 
 [dependencies]
 glam = "0.25.0"
-image = { version = "0.24.7", default-features = false, features = [
+image = { version = "0.25.0", default-features = false, features = [
 	"png",
 	"jpeg",
 ] }
