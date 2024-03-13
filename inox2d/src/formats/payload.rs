@@ -1,27 +1,18 @@
 use std::collections::HashMap;
 
 use glam::{vec2, vec3, Vec2};
-use indextree::Arena;
 use json::JsonValue;
 
 use crate::math::interp::InterpolateMode;
 use crate::math::matrix::{Matrix2d, Matrix2dFromSliceVecsError};
 use crate::math::transform::TransformOffset;
-use crate::mesh::{f32s_as_vec2s, Mesh};
-use crate::node::data::{
-	BlendMode, Composite, Drawable, InoxData, Mask, MaskMode, ParamMapMode, Part, PhysicsModel, PhysicsProps,
-	SimplePhysics,
-};
-use crate::node::tree::InoxNodeTree;
+use crate::node::components::{drawable::*, simple_physics::*, textured_mesh::*, *};
 use crate::node::{InoxNode, InoxNodeUuid};
 use crate::params::{AxisPoints, Binding, BindingValues, Param, ParamUuid};
-use crate::physics::runge_kutta::PhysicsState;
-use crate::puppet::{
-	Puppet, PuppetAllowedModification, PuppetAllowedRedistribution, PuppetAllowedUsers, PuppetMeta, PuppetPhysics,
-	PuppetUsageRights,
-};
+use crate::puppet::{meta::*, Puppet, PuppetPhysics};
 use crate::texture::TextureId;
 
+use super::f32s_as_vec2s;
 use super::json::{JsonError, JsonObject, SerialExtend};
 
 pub type InoxParseResult<T> = Result<T, InoxParseError>;
@@ -56,6 +47,8 @@ pub enum InoxParseError {
 	Not2FloatsInList(usize),
 }
 
+// json structure helpers
+
 impl InoxParseError {
 	pub fn nested(self, key: &str) -> Self {
 		match self {
@@ -76,41 +69,42 @@ fn as_nested_list(index: usize, val: &json::JsonValue) -> InoxParseResult<&[json
 	}
 }
 
-fn default_deserialize_custom<T>(node_type: &str, _obj: &JsonObject) -> InoxParseResult<T> {
-	Err(InoxParseError::UnknownNodeType(node_type.to_owned()))
+fn as_object<'file>(msg: &str, val: &'file JsonValue) -> InoxParseResult<JsonObject<'file>> {
+	if let Some(obj) = val.as_object() {
+		Ok(JsonObject(obj))
+	} else {
+		Err(InoxParseError::JsonError(JsonError::ValueIsNotObject(msg.to_owned())))
+	}
 }
 
-fn deserialize_node<T>(
-	obj: &JsonObject,
-	deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
-) -> InoxParseResult<InoxNode<T>> {
-	let node_type = obj.get_str("type")?;
-	Ok(InoxNode {
-		uuid: InoxNodeUuid(obj.get_u32("uuid")?),
-		name: obj.get_str("name")?.to_owned(),
-		enabled: obj.get_bool("enabled")?,
-		zsort: obj.get_f32("zsort")?,
-		trans_offset: vals("transform", deserialize_transform(&obj.get_object("transform")?))?,
-		lock_to_root: obj.get_bool("lockToRoot")?,
-		data: vals("data", deserialize_node_data(node_type, obj, deserialize_node_custom))?,
+// node deserialization
+
+struct ParsedNode<'file> {
+	node: InoxNode,
+	ty: &'file str,
+	data: JsonObject<'file>,
+	children: &'file [JsonValue],
+}
+
+fn deserialize_node(obj: JsonObject) -> InoxParseResult<ParsedNode> {
+	Ok(ParsedNode {
+		node: InoxNode {
+			uuid: InoxNodeUuid(obj.get_u32("uuid")?),
+			name: obj.get_str("name")?.to_owned(),
+			enabled: obj.get_bool("enabled")?,
+			zsort: obj.get_f32("zsort")?,
+			trans_offset: vals("transform", deserialize_transform(obj.get_object("transform")?))?,
+			lock_to_root: obj.get_bool("lockToRoot")?,
+		},
+		ty: obj.get_str("type")?,
+		data: obj,
+		children: { obj.get_list("children").unwrap_or(&[]) },
 	})
 }
 
-fn deserialize_node_data<T>(
-	node_type: &str,
-	obj: &JsonObject,
-	deserialize_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
-) -> InoxParseResult<InoxData<T>> {
-	Ok(match node_type {
-		"Node" => InoxData::Node,
-		"Part" => InoxData::Part(deserialize_part(obj)?),
-		"Composite" => InoxData::Composite(deserialize_composite(obj)?),
-		"SimplePhysics" => InoxData::SimplePhysics(deserialize_simple_physics(obj)?),
-		node_type => InoxData::Custom((deserialize_custom)(node_type, obj)?),
-	})
-}
+// components deserialization
 
-fn deserialize_part(obj: &JsonObject) -> InoxParseResult<Part> {
+fn deserialize_textured_mesh(obj: JsonObject) -> InoxParseResult<TexturedMesh> {
 	let (tex_albedo, tex_emissive, tex_bumpmap) = {
 		let textures = obj.get_list("textures")?;
 
@@ -143,27 +137,21 @@ fn deserialize_part(obj: &JsonObject) -> InoxParseResult<Part> {
 		(tex_albedo, tex_emissive, tex_bumpmap)
 	};
 
-	Ok(Part {
-		draw_state: deserialize_drawable(obj)?,
-		mesh: vals("mesh", deserialize_mesh(&obj.get_object("mesh")?))?,
+	Ok(TexturedMesh {
+		mesh: vals("mesh", deserialize_mesh(obj.get_object("mesh")?))?,
 		tex_albedo,
 		tex_emissive,
 		tex_bumpmap,
 	})
 }
 
-fn deserialize_composite(obj: &JsonObject) -> InoxParseResult<Composite> {
-	let draw_state = deserialize_drawable(obj)?;
-	Ok(Composite { draw_state })
-}
-
-fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics> {
+fn deserialize_simple_physics(obj: JsonObject) -> InoxParseResult<SimplePhysics> {
 	Ok(SimplePhysics {
 		param: ParamUuid(obj.get_u32("param")?),
 
 		model_type: match obj.get_str("model_type")? {
-			"Pendulum" => PhysicsModel::RigidPendulum(PhysicsState::default()),
-			"SpringPendulum" => PhysicsModel::SpringPendulum(PhysicsState::default()),
+			"Pendulum" => PhysicsModel::RigidPendulum,
+			"SpringPendulum" => PhysicsModel::SpringPendulum,
 			a => todo!("{}", a),
 		},
 		map_mode: match obj.get_str("map_mode")? {
@@ -182,44 +170,50 @@ fn deserialize_simple_physics(obj: &JsonObject) -> InoxParseResult<SimplePhysics
 		},
 
 		local_only: obj.get_bool("local_only").unwrap_or_default(),
-
-		bob: Vec2::ZERO,
 	})
 }
 
-fn deserialize_drawable(obj: &JsonObject) -> InoxParseResult<Drawable> {
+fn deserialize_drawable(obj: JsonObject) -> InoxParseResult<Drawable> {
 	Ok(Drawable {
-		blend_mode: match obj.get_str("blend_mode")? {
-			"Normal" => BlendMode::Normal,
-			"Multiply" => BlendMode::Multiply,
-			"ColorDodge" => BlendMode::ColorDodge,
-			"LinearDodge" => BlendMode::LinearDodge,
-			"Screen" => BlendMode::Screen,
-			"ClipToLower" => BlendMode::ClipToLower,
-			"SliceFromLower" => BlendMode::SliceFromLower,
-			_ => BlendMode::default(),
+		blending: Blending {
+			mode: match obj.get_str("blend_mode")? {
+				"Normal" => BlendMode::Normal,
+				"Multiply" => BlendMode::Multiply,
+				"ColorDodge" => BlendMode::ColorDodge,
+				"LinearDodge" => BlendMode::LinearDodge,
+				"Screen" => BlendMode::Screen,
+				"ClipToLower" => BlendMode::ClipToLower,
+				"SliceFromLower" => BlendMode::SliceFromLower,
+				_ => BlendMode::default(),
+			},
+			tint: obj.get_vec3("tint").unwrap_or(vec3(1.0, 1.0, 1.0)),
+			screen_tint: obj.get_vec3("screenTint").unwrap_or(vec3(0.0, 0.0, 0.0)),
+			opacity: obj.get_f32("opacity").unwrap_or(1.0),
 		},
-		tint: obj.get_vec3("tint").unwrap_or(vec3(1.0, 1.0, 1.0)),
-		screen_tint: obj.get_vec3("screenTint").unwrap_or(vec3(0.0, 0.0, 0.0)),
-		mask_threshold: obj.get_f32("mask_threshold").unwrap_or(0.5),
 		masks: {
 			if let Ok(masks) = obj.get_list("masks") {
-				masks
-					.iter()
-					.filter_map(|mask| deserialize_mask(&JsonObject(mask.as_object()?)).ok())
-					.collect::<Vec<_>>()
+				Some(Masks {
+					threshold: obj.get_f32("mask_threshold").unwrap_or(0.5),
+					masks: {
+						let mut collection = Vec::<Mask>::new();
+						for mask_obj in masks {
+							let mask = deserialize_mask(as_object("mask", mask_obj)?)?;
+							collection.push(mask);
+						}
+						collection
+					},
+				})
 			} else {
-				Vec::new()
+				None
 			}
 		},
-		opacity: obj.get_f32("opacity").unwrap_or(1.0),
 	})
 }
 
-fn deserialize_mesh(obj: &JsonObject) -> InoxParseResult<Mesh> {
+fn deserialize_mesh(obj: JsonObject) -> InoxParseResult<Mesh> {
 	Ok(Mesh {
-		vertices: vals("verts", deserialize_vec2s_flat(obj.get_list("verts")?))?,
-		uvs: vals("uvs", deserialize_vec2s_flat(obj.get_list("uvs")?))?,
+		vertices: deserialize_vec2s_flat(obj.get_list("verts")?)?,
+		uvs: deserialize_vec2s_flat(obj.get_list("uvs")?)?,
 		indices: obj
 			.get_list("indices")?
 			.iter()
@@ -229,7 +223,7 @@ fn deserialize_mesh(obj: &JsonObject) -> InoxParseResult<Mesh> {
 	})
 }
 
-fn deserialize_mask(obj: &JsonObject) -> InoxParseResult<Mask> {
+fn deserialize_mask(obj: JsonObject) -> InoxParseResult<Mask> {
 	Ok(Mask {
 		source: InoxNodeUuid(obj.get_u32("source")?),
 		mode: match obj.get_str("mode")? {
@@ -240,7 +234,7 @@ fn deserialize_mask(obj: &JsonObject) -> InoxParseResult<Mask> {
 	})
 }
 
-fn deserialize_transform(obj: &JsonObject) -> InoxParseResult<TransformOffset> {
+fn deserialize_transform(obj: JsonObject) -> InoxParseResult<TransformOffset> {
 	Ok(TransformOffset {
 		translation: obj.get_vec3("trans")?,
 		rotation: obj.get_vec3("rot")?,
@@ -285,42 +279,112 @@ fn deserialize_vec2s(vals: &[json::JsonValue]) -> InoxParseResult<Vec<Vec2>> {
 
 // Puppet deserialization
 
-pub fn deserialize_puppet(val: &json::JsonValue) -> InoxParseResult<Puppet> {
-	deserialize_puppet_ext(val, &default_deserialize_custom)
+impl Puppet {
+	pub fn new_from_json(payload: &json::JsonValue) -> InoxParseResult<Self> {
+		Self::new_from_json_with_custom(payload, None::<&fn(&mut Self, &str, JsonObject) -> InoxParseResult<()>>)
+	}
+
+	pub fn new_from_json_with_custom(
+		payload: &json::JsonValue,
+		load_node_data_custom: Option<&impl Fn(&mut Self, &str, JsonObject) -> InoxParseResult<()>>,
+	) -> InoxParseResult<Self> {
+		let obj = as_object("(puppet)", payload)?;
+
+		let meta = vals("meta", deserialize_puppet_meta(obj.get_object("meta")?))?;
+		let physics = vals("physics", deserialize_puppet_physics(obj.get_object("physics")?))?;
+		let parameters = deserialize_params(obj.get_list("param")?)?;
+
+		let root = vals("nodes", deserialize_node(obj.get_object("nodes")?))?;
+		let ParsedNode {
+			node,
+			ty,
+			data,
+			children,
+		} = root;
+		let root_id = node.uuid;
+
+		let mut puppet = Self::new(meta, physics, node, parameters);
+
+		puppet.load_node_data(root_id, ty, data, load_node_data_custom)?;
+		puppet.load_children_rec(root_id, children, load_node_data_custom)?;
+
+		Ok(puppet)
+	}
+
+	fn load_node_data(
+		&mut self,
+		id: InoxNodeUuid,
+		ty: &str,
+		data: JsonObject,
+		load_node_data_custom: Option<&impl Fn(&mut Self, &str, JsonObject) -> InoxParseResult<()>>,
+	) -> InoxParseResult<()> {
+		match ty {
+			"Node" => (),
+			"Part" => {
+				self.node_comps.add(id, deserialize_drawable(data)?);
+				self.node_comps.add(id, deserialize_textured_mesh(data)?);
+			}
+			"Composite" => {
+				self.node_comps.add(id, deserialize_drawable(data)?);
+				self.node_comps.add(id, Composite {});
+			}
+			"SimplePhysics" => {
+				self.node_comps.add(id, deserialize_simple_physics(data)?);
+			}
+			custom => {
+				if let Some(func) = load_node_data_custom {
+					func(self, custom, data)?
+				}
+			}
+		}
+
+		Ok(())
+	}
+
+	fn load_children_rec(
+		&mut self,
+		id: InoxNodeUuid,
+		children: &[JsonValue],
+		load_node_data_custom: Option<&impl Fn(&mut Self, &str, JsonObject) -> InoxParseResult<()>>,
+	) -> InoxParseResult<()> {
+		for (i, child) in children.iter().enumerate() {
+			let msg = &format!("children[{}]", i);
+
+			let child = as_object("child", child).map_err(|e| e.nested(msg))?;
+			let child_node = deserialize_node(child).map_err(|e| e.nested(msg))?;
+			let ParsedNode {
+				node,
+				ty,
+				data,
+				children,
+			} = child_node;
+			let child_id = node.uuid;
+
+			self.nodes.add(id, child_id, node);
+			self.load_node_data(child_id, ty, data, load_node_data_custom)
+				.map_err(|e| e.nested(msg))?;
+			if !children.is_empty() {
+				self.load_children_rec(child_id, children, load_node_data_custom)
+					.map_err(|e| e.nested(msg))?;
+			}
+		}
+
+		Ok(())
+	}
 }
 
-pub fn deserialize_puppet_ext<T>(
-	val: &json::JsonValue,
-	deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
-) -> InoxParseResult<Puppet<T>> {
-	let Some(obj) = val.as_object() else {
-		return Err(InoxParseError::JsonError(JsonError::ValueIsNotObject(
-			"(puppet)".to_owned(),
-		)));
-	};
-	let obj = JsonObject(obj);
+fn deserialize_params(vals: &[json::JsonValue]) -> InoxParseResult<HashMap<String, Param>> {
+	let mut params = HashMap::new();
 
-	let nodes = vals(
-		"nodes",
-		deserialize_nodes(&obj.get_object("nodes")?, deserialize_node_custom),
-	)?;
+	for param in vals {
+		let pair = deserialize_param(as_object("param", param)?)?;
+		params.insert(pair.0, pair.1);
+	}
 
-	let meta = vals("meta", deserialize_puppet_meta(&obj.get_object("meta")?))?;
-
-	let physics = vals("physics", deserialize_puppet_physics(&obj.get_object("physics")?))?;
-
-	let parameters = deserialize_params(obj.get_list("param")?);
-
-	Ok(Puppet::new(meta, physics, nodes, parameters))
+	Ok(params)
 }
 
-fn deserialize_params(vals: &[json::JsonValue]) -> HashMap<String, Param> {
-	vals.iter()
-		.map_while(|param| deserialize_param(&JsonObject(param.as_object()?)).ok())
-		.collect()
-}
-
-fn deserialize_param(obj: &JsonObject) -> InoxParseResult<(String, Param)> {
+fn deserialize_param(obj: JsonObject) -> InoxParseResult<(String, Param)> {
 	let name = obj.get_str("name")?.to_owned();
 	Ok((
 		name.clone(),
@@ -331,19 +395,22 @@ fn deserialize_param(obj: &JsonObject) -> InoxParseResult<(String, Param)> {
 			min: obj.get_vec2("min")?,
 			max: obj.get_vec2("max")?,
 			defaults: obj.get_vec2("defaults")?,
-			axis_points: vals("axis_points", deserialize_axis_points(obj.get_list("axis_points")?))?,
-			bindings: deserialize_bindings(obj.get_list("bindings")?),
+			axis_points: deserialize_axis_points(obj.get_list("axis_points")?)?,
+			bindings: deserialize_bindings(obj.get_list("bindings")?)?,
 		},
 	))
 }
 
-fn deserialize_bindings(vals: &[json::JsonValue]) -> Vec<Binding> {
-	vals.iter()
-		.filter_map(|binding| deserialize_binding(&JsonObject(binding.as_object()?)).ok())
-		.collect()
+fn deserialize_bindings(vals: &[json::JsonValue]) -> InoxParseResult<Vec<Binding>> {
+	let mut bindings = Vec::new();
+	for val in vals {
+		bindings.push(deserialize_binding(as_object("binding", val)?)?);
+	}
+
+	Ok(bindings)
 }
 
-fn deserialize_binding(obj: &JsonObject) -> InoxParseResult<Binding> {
+fn deserialize_binding(obj: JsonObject) -> InoxParseResult<Binding> {
 	let is_set = obj
 		.get_list("isSet")?
 		.iter()
@@ -405,76 +472,21 @@ fn deserialize_axis_points(vals: &[json::JsonValue]) -> InoxParseResult<AxisPoin
 	Ok(AxisPoints { x, y })
 }
 
-fn deserialize_nodes<T>(
-	obj: &JsonObject,
-	deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
-) -> InoxParseResult<InoxNodeTree<T>> {
-	let mut arena = Arena::new();
-	let mut uuids = HashMap::new();
-
-	let root_node = deserialize_node(obj, deserialize_node_custom)?;
-	let root_uuid = root_node.uuid;
-	let root = arena.new_node(root_node);
-	uuids.insert(root_uuid, root);
-
-	let mut node_tree = InoxNodeTree { root, arena, uuids };
-
-	for (i, child) in obj.get_list("children").unwrap_or(&[]).iter().enumerate() {
-		let Some(child) = child.as_object() else {
-			return Err(InoxParseError::JsonError(JsonError::ValueIsNotObject(format!(
-				"children[{i}]"
-			))));
-		};
-
-		let child_id = deserialize_nodes_rec(&JsonObject(child), deserialize_node_custom, &mut node_tree)
-			.map_err(|e| e.nested(&format!("children[{i}]")))?;
-
-		root.append(child_id, &mut node_tree.arena);
-	}
-
-	Ok(node_tree)
-}
-
-fn deserialize_nodes_rec<T>(
-	obj: &JsonObject,
-	deserialize_node_custom: &impl Fn(&str, &JsonObject) -> InoxParseResult<T>,
-	node_tree: &mut InoxNodeTree<T>,
-) -> InoxParseResult<indextree::NodeId> {
-	let node = deserialize_node(obj, deserialize_node_custom)?;
-	let uuid = node.uuid;
-	let node_id = node_tree.arena.new_node(node);
-	node_tree.uuids.insert(uuid, node_id);
-
-	for (i, child) in obj.get_list("children").unwrap_or(&[]).iter().enumerate() {
-		let Some(child) = child.as_object() else {
-			return Err(InoxParseError::JsonError(JsonError::ValueIsNotObject(format!(
-				"children[{i}]"
-			))));
-		};
-		let child_id = deserialize_nodes_rec(&JsonObject(child), deserialize_node_custom, node_tree)
-			.map_err(|e| e.nested(&format!("children[{i}]")))?;
-
-		node_id.append(child_id, &mut node_tree.arena);
-	}
-
-	Ok(node_id)
-}
-
-fn deserialize_puppet_physics(obj: &JsonObject) -> InoxParseResult<PuppetPhysics> {
+fn deserialize_puppet_physics(obj: JsonObject) -> InoxParseResult<PuppetPhysics> {
 	Ok(PuppetPhysics {
 		pixels_per_meter: obj.get_f32("pixelsPerMeter")?,
 		gravity: obj.get_f32("gravity")?,
 	})
 }
 
-fn deserialize_puppet_meta(obj: &JsonObject) -> InoxParseResult<PuppetMeta> {
+fn deserialize_puppet_meta(obj: JsonObject) -> InoxParseResult<PuppetMeta> {
 	Ok(PuppetMeta {
 		name: obj.get_nullable_str("name")?.map(str::to_owned),
 		version: obj.get_str("version")?.to_owned(),
 		rigger: obj.get_nullable_str("rigger")?.map(str::to_owned),
 		artist: obj.get_nullable_str("artist")?.map(str::to_owned),
 		rights: match obj.get_object("rights").ok() {
-			Some(ref rights) => Some(deserialize_puppet_usage_rights(rights)?),
+			Some(rights) => Some(deserialize_puppet_usage_rights(rights)?),
 			None => None,
 		},
 		copyright: obj.get_nullable_str("copyright")?.map(str::to_owned),
@@ -486,7 +498,7 @@ fn deserialize_puppet_meta(obj: &JsonObject) -> InoxParseResult<PuppetMeta> {
 	})
 }
 
-fn deserialize_puppet_usage_rights(obj: &JsonObject) -> InoxParseResult<PuppetUsageRights> {
+fn deserialize_puppet_usage_rights(obj: JsonObject) -> InoxParseResult<PuppetUsageRights> {
 	Ok(PuppetUsageRights {
 		allowed_users: match obj.get_str("allowed_users")? {
 			"OnlyAuthor" => PuppetAllowedUsers::OnlyAuthor,

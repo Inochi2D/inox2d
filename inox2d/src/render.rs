@@ -6,7 +6,6 @@ use crate::math::transform::TransformOffset;
 use crate::mesh::Mesh;
 use crate::model::Model;
 use crate::node::data::{Composite, InoxData, MaskMode, Part};
-use crate::node::tree::InoxNodeTree;
 use crate::node::InoxNodeUuid;
 use crate::puppet::Puppet;
 

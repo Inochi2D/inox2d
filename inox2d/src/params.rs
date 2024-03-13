@@ -4,10 +4,9 @@ use crate::math::interp::{bi_interpolate_f32, bi_interpolate_vec2s_additive, Int
 use crate::math::matrix::Matrix2d;
 use crate::node::InoxNodeUuid;
 use crate::puppet::Puppet;
-use crate::render::{NodeRenderCtxs, PartRenderCtx, RenderCtxKind};
+// use crate::render::{NodeRenderCtxs, PartRenderCtx, RenderCtxKind};
 
 /// Parameter binding to a node. This allows to animate a node based on the value of the parameter that owns it.
-#[derive(Debug, Clone)]
 pub struct Binding {
 	pub node: InoxNodeUuid,
 	pub is_set: Matrix2d<bool>,
@@ -50,7 +49,6 @@ fn ranges_out(
 pub struct ParamUuid(pub u32);
 
 /// Parameter. A simple bounded value that is used to animate nodes through bindings.
-#[derive(Debug, Clone)]
 pub struct Param {
 	pub uuid: ParamUuid,
 	pub name: String,
@@ -62,6 +60,7 @@ pub struct Param {
 	pub bindings: Vec<Binding>,
 }
 
+/*
 impl Param {
 	pub fn apply(&self, val: Vec2, node_render_ctxs: &mut NodeRenderCtxs, deform_buf: &mut [Vec2]) {
 		let val = val.clamp(self.min, self.max);
@@ -243,3 +242,4 @@ impl Puppet {
 		Ok(())
 	}
 }
+*/

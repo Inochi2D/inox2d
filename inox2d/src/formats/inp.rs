@@ -6,9 +6,10 @@ use std::sync::Arc;
 use image::ImageFormat;
 
 use crate::model::{Model, ModelTexture, VendorData};
+use crate::puppet::Puppet;
 
 use super::json::JsonError;
-use super::payload::{deserialize_puppet, InoxParseError};
+use super::payload::InoxParseError;
 use super::{read_be_u32, read_n, read_u8, read_vec};
 
 #[derive(Debug, thiserror::Error)]
@@ -50,7 +51,7 @@ pub fn parse_inp<R: Read>(mut data: R) -> Result<Model, ParseInpError> {
 	let payload = read_vec(&mut data, length)?;
 	let payload = std::str::from_utf8(&payload)?;
 	let payload = json::parse(payload)?;
-	let puppet = deserialize_puppet(&payload)?;
+	let puppet = Puppet::new_from_json(&payload)?;
 
 	// check texture section header
 	let tex_sect = read_n::<_, 8>(&mut data).map_err(|_| ParseInpError::NoTexSect)?;
