@@ -2,7 +2,10 @@ pub mod inp;
 mod json;
 mod payload;
 
+use glam::Vec2;
+
 use std::io::{self, Read};
+use std::slice;
 
 pub use json::JsonError;
 
@@ -30,4 +33,10 @@ fn read_vec<R: Read>(data: &mut R, n: usize) -> io::Result<Vec<u8>> {
 	let mut buf = vec![0_u8; n];
 	data.read_exact(&mut buf)?;
 	Ok(buf)
+}
+
+#[inline]
+fn f32s_as_vec2s(vec: &[f32]) -> &'_ [Vec2] {
+	// SAFETY: the length of the slice never trespasses outside of the array
+	unsafe { slice::from_raw_parts(vec.as_ptr() as *const Vec2, vec.len() / 2) }
 }

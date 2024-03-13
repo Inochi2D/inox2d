@@ -23,10 +23,23 @@ fn main() {
 		data
 	};
 
-	let model = parse_inp(data.as_slice()).unwrap();
+	use std::time::Instant;
+	let now = Instant::now();
+
+	let model = match parse_inp(data.as_slice()) {
+		Ok(m) => m,
+		Err(e) => {
+			println!("{e}");
+			return;
+		}
+	};
+
+	let elapsed = now.elapsed();
+	println!("parse_inp() took: {:.2?}", elapsed);
 
 	println!("== Puppet Meta ==\n{}", &model.puppet.meta);
-	println!("== Nodes ==\n{}", &model.puppet.nodes);
+	// TODO: Implement full node print after ECS
+	// println!("== Nodes ==\n{}", &model.puppet.nodes);
 	if model.vendors.is_empty() {
 		println!("(No Vendor Data)\n");
 	} else {
