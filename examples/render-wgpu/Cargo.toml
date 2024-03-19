@@ -9,7 +9,7 @@ inox2d = { path = "../../inox2d" }
 inox2d-wgpu = { path = "../../inox2d-wgpu" }
 
 clap = { version = "4.1.8", features = ["derive"] }
-glam = { version = "0.25.0", features = ["bytemuck"] }
+glam = { version = "0.26.0", features = ["bytemuck"] }
 pollster = "0.3.0"
 raw-window-handle = "0.5.2"
 tracing = "0.1.37"

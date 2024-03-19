@@ -9,7 +9,7 @@ inox2d-opengl = { path = "../../inox2d-opengl" }
 common = { path = "../common" }
 
 console_error_panic_hook = "0.1.7"
-glam = "0.25.0"
+glam = "0.26.0"
 glow = "0.13.1"
 js-sys = "0.3.64"
 reqwest = "0.11.18"
