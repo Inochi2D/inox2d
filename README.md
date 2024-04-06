@@ -64,7 +64,7 @@ Support for mesh groups and animations is on the way!
 cargo run -p inox2d --features owo --example parse-inp path/to/puppet.inp
 ```
 
-![Parsed foxgirl](https://0x0.st/o7sM.png)
+![Parsed foxgirl](https://fs.speykious.dev/inox2d/inox2d-parsed-foxgirl.png)
 
 ### OpenGL renderer
 
@@ -72,13 +72,13 @@ cargo run -p inox2d --features owo --example parse-inp path/to/puppet.inp
 cargo run -p render-opengl path/to/puppet.inp
 ```
 
-![OpenGL-rendered Arch-chan](https://0x0.st/Hio6.png)
+![OpenGL-rendered Arch-chan](https://fs.speykious.dev/inox2d/inox2d-opengl-arch-chan.png)
 
 ### WebGL demo
 
 See the [`render_webgl`](/examples/render_webgl) example.
 
-![WebGL-rendered Aka](https://user-images.githubusercontent.com/13885008/253771145-f3921ffb-6d37-481a-ad26-4a814d070209.png)
+![WebGL-rendered Aka](https://fs.speykious.dev/inox2d/inox2d-webgl-foxgirl.png)
 
 ### WGPU renderer
 
@@ -86,7 +86,7 @@ See the [`render_webgl`](/examples/render_webgl) example.
 cargo run -p render-wgpu path/to/puppet.inp
 ```
 
-![WGPU-rendered Arch-chan](https://0x0.st/HzET.png)
+![WGPU-rendered Arch-chan](https://fs.speykious.dev/inox2d/inox2d-wgpu-arch-chan.png)
 
 &nbsp;
 
