@@ -40,6 +40,10 @@ pub struct GlCache {
 }
 
 impl GlCache {
+	pub fn clear(&mut self) {
+		*self = Self::default();
+	}
+
 	pub fn update_camera(&mut self, camera: &Camera) -> bool {
 		if let Some(prev_camera) = &mut self.camera {
 			let mut changed = false;
@@ -395,6 +399,8 @@ impl InoxRenderer for OpenglRenderer {
 	}
 
 	fn clear(&self) {
+		self.cache.borrow_mut().clear();
+
 		unsafe {
 			self.gl.clear(glow::COLOR_BUFFER_BIT);
 		}
