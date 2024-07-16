@@ -184,7 +184,7 @@ impl OpenglRenderer {
 			composite_mask_shader,
 
 			textures: Vec::new(),
-			deform_buffer: NativeBuffer(NonZeroU32::MIN),
+			deform_buffer: NativeBuffer(std::num::NonZeroU32::MIN),
 		};
 
 		// Set emission strength once (it doesn't change anywhere else)
