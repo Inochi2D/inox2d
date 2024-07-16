@@ -129,6 +129,7 @@ pub struct OpenglRenderer {
 	part_mask_shader: PartMaskShader,
 	composite_shader: CompositeShader,
 	composite_mask_shader: CompositeMaskShader,
+	deform_buffer: Option<glow::Buffer>,
 
 	textures: Vec<Texture>,
 }
@@ -183,6 +184,7 @@ impl OpenglRenderer {
 			composite_mask_shader,
 
 			textures: Vec::new(),
+			deform_buffer: None,
 		};
 
 		// Set emission strength once (it doesn't change anywhere else)
@@ -360,7 +362,7 @@ impl InoxRenderer for OpenglRenderer {
 	type Error = OpenglRendererError;
 
 	fn prepare(&mut self, model: &Model) -> Result<(), Self::Error> {
-		unsafe { model.puppet.render_ctx.setup_gl_buffers(&self.gl, self.vao)? };
+		self.deform_buffer = Some(unsafe { model.puppet.render_ctx.setup_gl_buffers(&self.gl, self.vao)? });
 
 		match self.upload_model_textures(&model.textures) {
 			Ok(_) => Ok(()),
@@ -420,7 +422,10 @@ impl InoxRenderer for OpenglRenderer {
 	fn render(&self, puppet: &Puppet) {
 		let gl = &self.gl;
 		unsafe {
-			puppet.render_ctx.upload_deforms_to_gl(gl);
+			if let Some(deform_buffer) = self.deform_buffer {
+				puppet.render_ctx.upload_deforms_to_gl(gl, deform_buffer);
+			}
+
 			gl.enable(glow::BLEND);
 			gl.disable(glow::DEPTH_TEST);
 		}
