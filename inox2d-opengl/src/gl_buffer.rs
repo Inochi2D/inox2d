@@ -23,7 +23,7 @@ pub trait RenderCtxOpenglExt {
 		&self,
 		gl: &glow::Context,
 		vao: glow::VertexArray,
-	) -> Result<(glow::VertexArray, NativeBuffer), OpenglRendererError>;
+	) -> Result<NativeBuffer, OpenglRendererError>;
 	unsafe fn upload_deforms_to_gl(&self, gl: &glow::Context, buffer: NativeBuffer);
 }
 
@@ -41,7 +41,7 @@ impl RenderCtxOpenglExt for RenderCtx {
 		&self,
 		gl: &glow::Context,
 		vao: glow::VertexArray,
-	) -> Result<(glow::VertexArray, NativeBuffer), OpenglRendererError> {
+	) -> Result<NativeBuffer, OpenglRendererError> {
 		gl.bind_vertex_array(Some(vao));
 
 		upload_array_to_gl(gl, &self.vertex_buffers.verts, glow::ARRAY_BUFFER, glow::STATIC_DRAW);
@@ -64,7 +64,7 @@ impl RenderCtxOpenglExt for RenderCtx {
 			glow::STATIC_DRAW,
 		);
 
-		Ok((vao, deform_buffer))
+		Ok(deform_buffer)
 	}
 
 	/// # Safety

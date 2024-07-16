@@ -362,8 +362,7 @@ impl InoxRenderer for OpenglRenderer {
 	type Error = OpenglRendererError;
 
 	fn prepare(&mut self, model: &Model) -> Result<(), Self::Error> {
-		let (_, deform_buffer) = unsafe { model.puppet.render_ctx.setup_gl_buffers(&self.gl, self.vao)? };
-		self.deform_buffer = deform_buffer;
+		self.deform_buffer = unsafe { model.puppet.render_ctx.setup_gl_buffers(&self.gl, self.vao)? };
 
 		match self.upload_model_textures(&model.textures) {
 			Ok(_) => Ok(()),
