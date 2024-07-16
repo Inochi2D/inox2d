@@ -71,8 +71,11 @@ impl Param {
 		let (x_mindex, x_maxdex) = {
 			let x_temp = self.axis_points.x.binary_search_by(|a| a.total_cmp(&val_normed.x));
 
+			let last_idx = self.axis_points.x.len() - 1;
+
 			match x_temp {
-				Ok(ind) if ind == self.axis_points.x.len() - 1 => (ind - 1, ind),
+				Ok(_) | Err(_) if last_idx == 0 => (last_idx, last_idx),
+				Ok(ind) if ind >= last_idx => (last_idx - 1, last_idx),
 				Ok(ind) => (ind, ind + 1),
 				Err(ind) => (ind - 1, ind),
 			}
@@ -81,8 +84,11 @@ impl Param {
 		let (y_mindex, y_maxdex) = {
 			let y_temp = self.axis_points.y.binary_search_by(|a| a.total_cmp(&val_normed.y));
 
+			let last_idx = self.axis_points.y.len() - 1;
+
 			match y_temp {
-				Ok(ind) if ind == self.axis_points.y.len() - 1 => (ind - 1, ind),
+				Ok(_) | Err(_) if last_idx == 0 => (last_idx, last_idx),
+				Ok(ind) if ind >= last_idx => (last_idx - 1, last_idx),
 				Ok(ind) => (ind, ind + 1),
 				Err(ind) => (ind - 1, ind),
 			}
@@ -96,6 +102,8 @@ impl Param {
 				vec2(self.axis_points.x[x_mindex], self.axis_points.y[y_mindex]),
 				vec2(self.axis_points.x[x_maxdex], self.axis_points.y[y_maxdex]),
 			);
+
+			let val_normed = val_normed.clamp(range_in.beg, range_in.end);
 
 			match binding.values {
 				BindingValues::ZSort(_) => {
