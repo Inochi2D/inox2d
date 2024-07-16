@@ -1,10 +1,10 @@
-use glow::{HasContext, NativeBuffer};
+use glow::HasContext;
 
 use inox2d::render::RenderCtx;
 
 use super::OpenglRendererError;
 
-unsafe fn upload_array_to_gl<T>(gl: &glow::Context, array: &[T], target: u32, usage: u32) -> NativeBuffer {
+unsafe fn upload_array_to_gl<T>(gl: &glow::Context, array: &[T], target: u32, usage: u32) -> glow::Buffer {
 	let bytes: &[u8] = core::slice::from_raw_parts(array.as_ptr() as *const u8, std::mem::size_of_val(array));
 	let buffer = gl.create_buffer().unwrap();
 	gl.bind_buffer(target, Some(buffer));
@@ -23,8 +23,8 @@ pub trait RenderCtxOpenglExt {
 		&self,
 		gl: &glow::Context,
 		vao: glow::VertexArray,
-	) -> Result<NativeBuffer, OpenglRendererError>;
-	unsafe fn upload_deforms_to_gl(&self, gl: &glow::Context, buffer: NativeBuffer);
+	) -> Result<glow::Buffer, OpenglRendererError>;
+	unsafe fn upload_deforms_to_gl(&self, gl: &glow::Context, buffer: glow::Buffer);
 }
 
 impl RenderCtxOpenglExt for RenderCtx {
@@ -41,7 +41,7 @@ impl RenderCtxOpenglExt for RenderCtx {
 		&self,
 		gl: &glow::Context,
 		vao: glow::VertexArray,
-	) -> Result<NativeBuffer, OpenglRendererError> {
+	) -> Result<glow::Buffer, OpenglRendererError> {
 		gl.bind_vertex_array(Some(vao));
 
 		upload_array_to_gl(gl, &self.vertex_buffers.verts, glow::ARRAY_BUFFER, glow::STATIC_DRAW);
@@ -71,7 +71,7 @@ impl RenderCtxOpenglExt for RenderCtx {
 	///
 	/// unsafe as initiating GL calls. can be safely called for multiple times,
 	/// but only needed once after deform update and before rendering.
-	unsafe fn upload_deforms_to_gl(&self, gl: &glow::Context, buffer: NativeBuffer) {
+	unsafe fn upload_deforms_to_gl(&self, gl: &glow::Context, buffer: glow::Buffer) {
 		gl.bind_buffer(glow::ARRAY_BUFFER, Some(buffer));
 
 		reupload_array_to_gl(
