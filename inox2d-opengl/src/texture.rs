@@ -28,7 +28,11 @@ impl Texture {
 			gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::LINEAR as i32);
 			gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_BORDER as i32);
 			gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_BORDER as i32);
+
+			// Texture parameters for f32 slices are not supported on WASM yet.
+			#[cfg(not(target_arch = "wasm32"))]
 			gl.tex_parameter_f32_slice(glow::TEXTURE_2D, glow::TEXTURE_BORDER_COLOR, &[0.0; 4]);
+
 			gl.tex_image_2d(
 				glow::TEXTURE_2D,
 				0,
