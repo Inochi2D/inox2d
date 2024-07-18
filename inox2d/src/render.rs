@@ -1,7 +1,7 @@
 mod vertex_buffers;
 
-use std::collections::HashMap;
 
+use crate::math::transform::Transform;
 use crate::node::{
 	components::{Composite, Drawable, TexturedMesh},
 	InoxNodeUuid,
@@ -10,6 +10,54 @@ use crate::puppet::{InoxNodeTree, World};
 
 use vertex_buffers::VertexBuffers;
 
+/// Possible component combinations of a renderable node.
+///
+/// Future extensions go here.
+enum DrawableKind<'comps> {
+	TexturedMesh {
+		transform: &'comps Transform,
+		drawable: &'comps Drawable,
+		data: &'comps TexturedMesh,
+	},
+	Composite {
+		transform: &'comps Transform,
+		drawable: &'comps Drawable,
+		data: &'comps Composite,
+	},
+}
+
+impl<'comps> DrawableKind<'comps> {
+	/// Tries to construct a renderable node data pack from the World of components:
+	/// - `None` if node not renderable.
+	/// - Panicks if component combinations invalid.
+	fn new(id: InoxNodeUuid, comps: &'comps World) -> Option<Self> {
+		let drawable = match comps.get::<Drawable>(id) {
+			Some(drawable) => drawable,
+			None => return None,
+		};
+		let transform = comps
+			.get::<Transform>(id)
+			.expect("A drawble must have associated Transform.");
+		let textured_mesh = comps.get::<TexturedMesh>(id);
+		let composite = comps.get::<Composite>(id);
+
+		match (textured_mesh.is_some(), composite.is_some()) {
+			(true, true) => panic!("The drawable has both TexturedMesh and Composite."),
+			(false, false) => panic!("The drawable has neither TexturedMesh nor Composite."),
+			(true, false) => Some(DrawableKind::TexturedMesh {
+				transform,
+				drawable,
+				data: textured_mesh.unwrap(),
+			}),
+			(false, true) => Some(DrawableKind::Composite {
+				transform,
+				drawable,
+				data: composite.unwrap(),
+			}),
+		}
+	}
+}
+
 struct TexturedMeshRenderCtx {
 	pub index_offset: u16,
 	pub vert_offset: u16,
@@ -17,9 +65,8 @@ struct TexturedMeshRenderCtx {
 	pub vert_len: usize,
 }
 
-enum NodeRenderCtx {
-	TexturedMesh(TexturedMeshRenderCtx),
-	Composite(Vec<InoxNodeUuid>),
+struct CompositeRenderCtx {
+	pub zsorted_children_list: Vec<InoxNodeUuid>,
 }
 
 pub struct RenderCtx {
@@ -28,40 +75,38 @@ pub struct RenderCtx {
 	/// - including standalone parts and composite parents,
 	/// - excluding plain mesh masks and composite children.
 	root_drawables_zsorted: Vec<InoxNodeUuid>,
-	node_render_ctxs: HashMap<InoxNodeUuid, NodeRenderCtx>,
 }
 
 impl RenderCtx {
-	fn new(nodes: &InoxNodeTree, comps: &World) -> Self {
+	/// MODIFIES puppet. In addition to initializing self, installs render contexts in the World of components
+	fn new(puppet: &mut Puppet) -> Self {
+		let nodes = &puppet.nodes;
+		let comps = &mut puppet.node_comps;
+
 		let mut vertex_buffers = VertexBuffers::default();
-		let mut node_render_ctxs = HashMap::new();
 		let mut drawable_uuid_zsort_vec = Vec::<(InoxNodeUuid, f32)>::new();
 
 		for node in nodes.iter() {
-			let is_drawable = comps.get::<Drawable>(node.uuid).is_some();
-			if is_drawable {
+			let drawable_kind = DrawableKind::new(node.uuid, comps);
+			if let Some(drawable_kind) = drawable_kind {
 				drawable_uuid_zsort_vec.push((node.uuid, node.zsort));
 
-				let textured_mesh = comps.get::<TexturedMesh>(node.uuid);
-				let composite = comps.get::<Composite>(node.uuid);
-				match (textured_mesh.is_some(), composite.is_some()) {
-					(true, true) => panic!("A node is both textured mesh and composite."),
-					(false, false) => panic!("A drawble node is neither textured mesh nor composite."),
-					(true, false) => {
-						let textured_mesh = textured_mesh.unwrap();
-						let (index_offset, vert_offset) = vertex_buffers.push(&textured_mesh.mesh);
-						node_render_ctxs.insert(
+				match drawable_kind {
+					DrawableKind::TexturedMesh { data, .. } => {
+						let (index_offset, vert_offset) = vertex_buffers.push(&data.mesh);
+
+						comps.add(
 							node.uuid,
-							NodeRenderCtx::TexturedMesh(TexturedMeshRenderCtx {
+							TexturedMeshRenderCtx {
 								index_offset,
 								vert_offset,
-								index_len: textured_mesh.mesh.indices.len(),
-								vert_len: textured_mesh.mesh.vertices.len(),
-							}),
+								index_len: data.mesh.indices.len(),
+								vert_len: data.mesh.vertices.len(),
+							},
 						);
 					}
-					(false, true) => {
-						// if any of the children is not a drawable or is a composite, we have a problem, but it will error later
+					DrawableKind::Composite { .. } => {
+						// if any of the children is not a drawable, we have a problem, but it will error later
 						let mut zsorted_children_list: Vec<InoxNodeUuid> =
 							nodes.get_children(node.uuid).map(|n| n.uuid).collect();
 						zsorted_children_list.sort_by(|a, b| {
@@ -70,7 +115,7 @@ impl RenderCtx {
 							zsort_a.total_cmp(&zsort_b).reverse()
 						});
 
-						node_render_ctxs.insert(node.uuid, NodeRenderCtx::Composite(zsorted_children_list));
+						comps.add(node.uuid, CompositeRenderCtx { zsorted_children_list });
 					}
 				};
 			}
@@ -81,7 +126,6 @@ impl RenderCtx {
 		Self {
 			vertex_buffers,
 			root_drawables_zsorted: drawable_uuid_zsort_vec.into_iter().map(|p| p.0).collect(),
-			node_render_ctxs,
 		}
 	}
 
