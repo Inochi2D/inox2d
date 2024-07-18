@@ -1,6 +1,5 @@
 pub mod meta;
-pub mod tree;
-pub mod world;
+mod transforms;
 
 use std::collections::HashMap;
 
