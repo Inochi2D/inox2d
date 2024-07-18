@@ -1,192 +1,110 @@
+mod vertex_buffers;
+
 use std::collections::HashMap;
 
-use glam::{vec2, Mat4, Vec2};
+use crate::node::{
+	components::{Composite, Drawable, TexturedMesh},
+	InoxNodeUuid,
+};
+use crate::puppet::{InoxNodeTree, World};
 
-use crate::math::transform::TransformOffset;
-use crate::mesh::Mesh;
-use crate::model::Model;
-use crate::node::data::{Composite, InoxData, MaskMode, Part};
-use crate::node::InoxNodeUuid;
-use crate::puppet::Puppet;
+use vertex_buffers::VertexBuffers;
 
-#[derive(Clone, Debug)]
-pub struct VertexBuffers {
-	pub verts: Vec<Vec2>,
-	pub uvs: Vec<Vec2>,
-	pub indices: Vec<u16>,
-	pub deforms: Vec<Vec2>,
-}
-
-impl Default for VertexBuffers {
-	fn default() -> Self {
-		// init with a quad covering the whole viewport
-
-		#[rustfmt::skip]
-        let verts = vec![
-            vec2(-1.0, -1.0),
-            vec2(-1.0,  1.0),
-            vec2( 1.0, -1.0),
-            vec2( 1.0,  1.0),
-        ];
-
-		#[rustfmt::skip]
-        let uvs = vec![
-            vec2(0.0, 0.0),
-            vec2(0.0, 1.0),
-            vec2(1.0, 0.0),
-            vec2(1.0, 1.0),
-        ];
-
-		#[rustfmt::skip]
-        let indices = vec![
-            0, 1, 2,
-            2, 1, 3,
-        ];
-
-		let deforms = vec![Vec2::ZERO; 4];
-
-		Self {
-			verts,
-			uvs,
-			indices,
-			deforms,
-		}
-	}
-}
-
-impl VertexBuffers {
-	/// Adds the mesh's vertices and UVs to the buffers and returns its index and vertex offset.
-	pub fn push(&mut self, mesh: &Mesh) -> (u16, u16) {
-		let index_offset = self.indices.len() as u16;
-		let vert_offset = self.verts.len() as u16;
-
-		self.verts.extend_from_slice(&mesh.vertices);
-		self.uvs.extend_from_slice(&mesh.uvs);
-		self.indices
-			.extend(mesh.indices.iter().map(|index| index + vert_offset));
-		self.deforms
-			.resize(self.deforms.len() + mesh.vertices.len(), Vec2::ZERO);
-
-		(index_offset, vert_offset)
-	}
-}
-
-#[derive(Debug, Clone)]
-pub struct PartRenderCtx {
+struct TexturedMeshRenderCtx {
 	pub index_offset: u16,
 	pub vert_offset: u16,
 	pub index_len: usize,
 	pub vert_len: usize,
 }
 
-#[derive(Debug, Clone)]
-pub enum RenderCtxKind {
-	Node,
-	Part(PartRenderCtx),
+enum NodeRenderCtx {
+	TexturedMesh(TexturedMeshRenderCtx),
 	Composite(Vec<InoxNodeUuid>),
 }
 
-#[derive(Clone, Debug)]
-pub struct NodeRenderCtx {
-	pub trans: Mat4,
-	pub trans_offset: TransformOffset,
-	pub kind: RenderCtxKind,
-}
-
-pub type NodeRenderCtxs = HashMap<InoxNodeUuid, NodeRenderCtx>;
-
-#[derive(Clone, Debug)]
 pub struct RenderCtx {
-	pub vertex_buffers: VertexBuffers,
+	vertex_buffers: VertexBuffers,
 	/// All nodes that need respective draw method calls:
 	/// - including standalone parts and composite parents,
 	/// - excluding plain mesh masks and composite children.
-	pub root_drawables_zsorted: Vec<InoxNodeUuid>,
-	pub node_render_ctxs: NodeRenderCtxs,
+	root_drawables_zsorted: Vec<InoxNodeUuid>,
+	node_render_ctxs: HashMap<InoxNodeUuid, NodeRenderCtx>,
 }
 
 impl RenderCtx {
-	pub fn new<T>(nodes: &InoxNodeTree<T>) -> Self {
+	fn new(nodes: &InoxNodeTree, comps: &World) -> Self {
 		let mut vertex_buffers = VertexBuffers::default();
-		let mut root_drawables_zsorted: Vec<InoxNodeUuid> = Vec::new();
 		let mut node_render_ctxs = HashMap::new();
+		let mut drawable_uuid_zsort_vec = Vec::<(InoxNodeUuid, f32)>::new();
 
-		for uuid in nodes.all_node_ids() {
-			let node = nodes.get_node(uuid).unwrap();
+		for node in nodes.iter() {
+			let is_drawable = comps.get::<Drawable>(node.uuid).is_some();
+			if is_drawable {
+				drawable_uuid_zsort_vec.push((node.uuid, node.zsort));
 
-			node_render_ctxs.insert(
-				uuid,
-				NodeRenderCtx {
-					trans: Mat4::default(),
-					trans_offset: node.trans_offset,
-					kind: match node.data {
-						InoxData::Part(ref part) => {
-							let (index_offset, vert_offset) = vertex_buffers.push(&part.mesh);
-							RenderCtxKind::Part(PartRenderCtx {
+				let textured_mesh = comps.get::<TexturedMesh>(node.uuid);
+				let composite = comps.get::<Composite>(node.uuid);
+				match (textured_mesh.is_some(), composite.is_some()) {
+					(true, true) => panic!("A node is both textured mesh and composite."),
+					(false, false) => panic!("A drawble node is neither textured mesh nor composite."),
+					(true, false) => {
+						let textured_mesh = textured_mesh.unwrap();
+						let (index_offset, vert_offset) = vertex_buffers.push(&textured_mesh.mesh);
+						node_render_ctxs.insert(
+							node.uuid,
+							NodeRenderCtx::TexturedMesh(TexturedMeshRenderCtx {
 								index_offset,
 								vert_offset,
-								index_len: part.mesh.indices.len(),
-								vert_len: part.mesh.vertices.len(),
-							})
-						}
+								index_len: textured_mesh.mesh.indices.len(),
+								vert_len: textured_mesh.mesh.vertices.len(),
+							}),
+						);
+					}
+					(false, true) => {
+						// if any of the children is not a drawable or is a composite, we have a problem, but it will error later
+						let mut zsorted_children_list: Vec<InoxNodeUuid> =
+							nodes.get_children(node.uuid).map(|n| n.uuid).collect();
+						zsorted_children_list.sort_by(|a, b| {
+							let zsort_a = nodes.get_node(*a).unwrap().zsort;
+							let zsort_b = nodes.get_node(*b).unwrap().zsort;
+							zsort_a.total_cmp(&zsort_b).reverse()
+						});
 
-						InoxData::Composite(_) => RenderCtxKind::Composite(nodes.zsorted_children(uuid)),
-
-						_ => RenderCtxKind::Node,
-					},
-				},
-			);
-		}
-
-		for uuid in nodes.zsorted_root() {
-			let node = nodes.get_node(uuid).unwrap();
-
-			match node.data {
-				InoxData::Part(_) | InoxData::Composite(_) => {
-					root_drawables_zsorted.push(uuid);
-				}
-
-				_ => (),
+						node_render_ctxs.insert(node.uuid, NodeRenderCtx::Composite(zsorted_children_list));
+					}
+				};
 			}
 		}
+
+		drawable_uuid_zsort_vec.sort_by(|a, b| a.1.total_cmp(&b.1).reverse());
 
 		Self {
 			vertex_buffers,
-			root_drawables_zsorted,
+			root_drawables_zsorted: drawable_uuid_zsort_vec.into_iter().map(|p| p.0).collect(),
 			node_render_ctxs,
 		}
 	}
-}
 
-impl Puppet {
-	/// Update the puppet's nodes' absolute transforms, by combining transforms
-	/// from each node's ancestors in a pre-order traversal manner.
-	pub fn update_trans(&mut self) {
-		let root_node = self.nodes.arena[self.nodes.root].get();
-		let node_rctxs = &mut self.render_ctx.node_render_ctxs;
-
-		// The root's absolute transform is its relative transform.
-		let root_trans = node_rctxs.get(&root_node.uuid).unwrap().trans_offset.to_matrix();
-
-		// Pre-order traversal, just the order to ensure that parents are accessed earlier than children
-		// Skip the root
-		for id in self.nodes.root.descendants(&self.nodes.arena).skip(1) {
-			let node_index = &self.nodes.arena[id];
-			let node = node_index.get();
-
-			if node.lock_to_root {
-				let node_render_ctx = node_rctxs.get_mut(&node.uuid).unwrap();
-				node_render_ctx.trans = root_trans * node_render_ctx.trans_offset.to_matrix();
-			} else {
-				let parent = &self.nodes.arena[node_index.parent().unwrap()].get();
-				let parent_trans = node_rctxs.get(&parent.uuid).unwrap().trans;
-
-				let node_render_ctx = node_rctxs.get_mut(&node.uuid).unwrap();
-				node_render_ctx.trans = parent_trans * node_render_ctx.trans_offset.to_matrix();
-			}
-		}
+	fn get_raw_verts(&self) -> &[f32] {
+		VertexBuffers::vec_vec2_as_vec_f32(&self.vertex_buffers.verts)
+	}
+	fn get_raw_uvs(&self) -> &[f32] {
+		VertexBuffers::vec_vec2_as_vec_f32(&self.vertex_buffers.uvs)
+	}
+	fn get_raw_indices(&self) -> &[u16] {
+		self.vertex_buffers.indices.as_slice()
+	}
+	fn get_raw_deforms(&self) -> &[f32] {
+		VertexBuffers::vec_vec2_as_vec_f32(&self.vertex_buffers.deforms)
 	}
 }
+
+/*
+use crate::mesh::Mesh;
+use crate::model::Model;
+use crate::node::data::{Composite, InoxData, MaskMode, Part};
+use crate::puppet::Puppet;
+
 
 pub trait InoxRenderer
 where
@@ -375,3 +293,4 @@ impl<T: InoxRenderer> InoxRendererCommon for T {
 		}
 	}
 }
+*/

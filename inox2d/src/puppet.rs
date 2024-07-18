@@ -1,14 +1,17 @@
 pub mod meta;
 mod transforms;
+mod tree;
+mod world;
 
 use std::collections::HashMap;
 
 use crate::node::{InoxNode, InoxNodeUuid};
 use crate::params::{Param, ParamUuid};
+use crate::render::RenderCtx;
 
 use meta::PuppetMeta;
-use tree::InoxNodeTree;
-use world::World;
+pub use tree::InoxNodeTree;
+pub use world::World;
 
 /// Inochi2D puppet.
 pub struct Puppet {
@@ -18,6 +21,7 @@ pub struct Puppet {
 	physics_ctx: Option<Box<Vec<InoxNodeUuid>>>,
 	pub nodes: InoxNodeTree,
 	pub node_comps: World,
+	render_ctx: Option<RenderCtx>,
 	pub(crate) params: HashMap<ParamUuid, Param>,
 	pub(crate) param_names: HashMap<String, ParamUuid>,
 }
@@ -37,6 +41,7 @@ impl Puppet {
 			physics_ctx: None,
 			nodes: InoxNodeTree::new_with_root(root),
 			node_comps: World::new(),
+			render_ctx: None,
 			params,
 			param_names,
 		}
