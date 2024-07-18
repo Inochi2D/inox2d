@@ -1,12 +1,17 @@
 mod vertex_buffers;
 
+use glam::Mat4;
 
 use crate::math::transform::Transform;
+use crate::model::Model;
 use crate::node::{
-	components::{Composite, Drawable, TexturedMesh},
+	components::{
+		drawable::{Mask, Masks},
+		Composite, Drawable, TexturedMesh,
+	},
 	InoxNodeUuid,
 };
-use crate::puppet::{InoxNodeTree, World};
+use crate::puppet::{Puppet, World};
 
 use vertex_buffers::VertexBuffers;
 
@@ -58,14 +63,14 @@ impl<'comps> DrawableKind<'comps> {
 	}
 }
 
-struct TexturedMeshRenderCtx {
+pub struct TexturedMeshRenderCtx {
 	pub index_offset: u16,
 	pub vert_offset: u16,
 	pub index_len: usize,
 	pub vert_len: usize,
 }
 
-struct CompositeRenderCtx {
+pub struct CompositeRenderCtx {
 	pub zsorted_children_list: Vec<InoxNodeUuid>,
 }
 
@@ -106,9 +111,17 @@ impl RenderCtx {
 						);
 					}
 					DrawableKind::Composite { .. } => {
-						// if any of the children is not a drawable, we have a problem, but it will error later
-						let mut zsorted_children_list: Vec<InoxNodeUuid> =
-							nodes.get_children(node.uuid).map(|n| n.uuid).collect();
+						// exclude non-drawable children
+						let mut zsorted_children_list: Vec<InoxNodeUuid> = nodes
+							.get_children(node.uuid)
+							.filter_map(|n| {
+								if DrawableKind::new(n.uuid, comps).is_some() {
+									Some(n.uuid)
+								} else {
+									None
+								}
+							})
+							.collect();
 						zsorted_children_list.sort_by(|a, b| {
 							let zsort_a = nodes.get_node(*a).unwrap().zsort;
 							let zsort_b = nodes.get_node(*b).unwrap().zsort;
@@ -143,12 +156,16 @@ impl RenderCtx {
 	}
 }
 
-/*
-use crate::mesh::Mesh;
-use crate::model::Model;
-use crate::node::data::{Composite, InoxData, MaskMode, Part};
-use crate::puppet::Puppet;
+impl Puppet {
+	pub fn init_render_ctx(&mut self) {
+		if self.render_ctx.is_some() {
+			panic!("RenderCtx already initialized.");
+		}
 
+		let render_ctx = RenderCtx::new(self);
+		self.render_ctx = Some(render_ctx);
+	}
+}
 
 pub trait InoxRenderer
 where
@@ -169,10 +186,6 @@ where
 
 	/// Initiate one render pass.
 	fn on_begin_scene(&self);
-	/// The render pass.
-	///
-	/// Logical error if this puppet is not from the latest prepared model.
-	fn render(&self, puppet: &Puppet);
 	/// Finish one render pass.
 	fn on_end_scene(&self);
 	/// Actually make results visible, e.g. on a screen/texture.
@@ -181,55 +194,70 @@ where
 	/// Begin masking.
 	///
 	/// Clear and start writing to the stencil buffer, lock the color buffer.
-	fn on_begin_mask(&self, has_mask: bool);
-	/// The following draw calls consist of a mask or dodge mask.
-	fn set_mask_mode(&self, dodge: bool);
+	fn on_begin_masks(&self, masks: &Masks);
+	/// Get prepared for rendering a singular Mask.
+	fn on_begin_mask(&self, mask: &Mask);
+	/// Get prepared for rendering masked content.
+	///
 	/// Read only from the stencil buffer, unlock the color buffer.
 	fn on_begin_masked_content(&self);
+	/// End masking.
+	///
 	/// Disable the stencil buffer.
 	fn on_end_mask(&self);
 
-	/// Draw contents of a mesh-defined plain region.
-	// TODO: plain mesh (usually for mesh masks) not implemented
-	fn draw_mesh_self(&self, as_mask: bool, camera: &Mat4);
-
-	/// Draw contents of a part.
-	// TODO: Merging of Part and PartRenderCtx?
-	// TODO: Inclusion of NodeRenderCtx into Part?
-	fn draw_part_self(
+	/// Draw TexturedMesh content.
+	///
+	/// TODO: TexturedMesh without any texture (usually for mesh masks) not implemented
+	fn draw_textured_mesh_content(
 		&self,
 		as_mask: bool,
 		camera: &Mat4,
-		node_render_ctx: &NodeRenderCtx,
-		part: &Part,
-		part_render_ctx: &PartRenderCtx,
+		trans: &Transform,
+		drawable: &Drawable,
+		textured_mesh: &TexturedMesh,
+		render_ctx: &TexturedMeshRenderCtx,
 	);
 
 	/// When something needs to happen before drawing to the composite buffers.
-	fn begin_composite_content(&self);
+	fn begin_composite_content(
+		&self,
+		as_mask: bool,
+		drawable: &Drawable,
+		composite: &Composite,
+		render_ctx: &CompositeRenderCtx,
+	);
 	/// Transfer content from composite buffers to normal buffers.
-	fn finish_composite_content(&self, as_mask: bool, composite: &Composite);
+	fn finish_composite_content(
+		&self,
+		as_mask: bool,
+		drawable: &Drawable,
+		composite: &Composite,
+		render_ctx: &CompositeRenderCtx,
+	);
 }
 
-pub trait InoxRendererCommon {
-	/// Draw one part, with its content properly masked.
-	fn draw_part(
-		&self,
-		camera: &Mat4,
-		node_render_ctx: &NodeRenderCtx,
-		part: &Part,
-		part_render_ctx: &PartRenderCtx,
-		puppet: &Puppet,
-	);
-
-	/// Draw one composite.
-	fn draw_composite(
+trait InoxRendererCommon {
+	/// Draw a Drawable, which is potentially masked.
+	fn draw_drawable<'comps>(
 		&self,
 		as_mask: bool,
 		camera: &Mat4,
-		composite: &Composite,
-		puppet: &Puppet,
-		children: &[InoxNodeUuid],
+		drawable_kind: &'comps DrawableKind,
+		comps: &'comps World,
+		id: InoxNodeUuid,
+	);
+
+	/// Draw one composite.
+	fn draw_composite<'comps>(
+		&self,
+		as_mask: bool,
+		camera: &Mat4,
+		trans: &'comps Transform,
+		drawable: &'comps Drawable,
+		composite: &'comps Composite,
+		render_ctx: &'comps CompositeRenderCtx,
+		comps: &'comps World,
 	);
 
 	/// Iterate over top-level drawables (excluding masks) in zsort order,
@@ -240,101 +268,110 @@ pub trait InoxRendererCommon {
 }
 
 impl<T: InoxRenderer> InoxRendererCommon for T {
-	fn draw_part(
-		&self,
-		camera: &Mat4,
-		node_render_ctx: &NodeRenderCtx,
-		part: &Part,
-		part_render_ctx: &PartRenderCtx,
-		puppet: &Puppet,
-	) {
-		let masks = &part.draw_state.masks;
-		if !masks.is_empty() {
-			self.on_begin_mask(part.draw_state.has_masks());
-			for mask in &part.draw_state.masks {
-				self.set_mask_mode(mask.mode == MaskMode::Dodge);
-
-				let mask_node = puppet.nodes.get_node(mask.source).unwrap();
-				let mask_node_render_ctx = &puppet.render_ctx.node_render_ctxs[&mask.source];
-
-				match (&mask_node.data, &mask_node_render_ctx.kind) {
-					(InoxData::Part(ref mask_part), RenderCtxKind::Part(ref mask_part_render_ctx)) => {
-						self.draw_part_self(true, camera, mask_node_render_ctx, mask_part, mask_part_render_ctx);
-					}
-
-					(InoxData::Composite(ref mask_composite), RenderCtxKind::Composite(ref mask_children)) => {
-						self.draw_composite(true, camera, mask_composite, puppet, mask_children);
-					}
-
-					_ => {
-						// This match block clearly is sign that the data structure needs rework
-						todo!();
-					}
-				}
-			}
-			self.on_begin_masked_content();
-			self.draw_part_self(false, camera, node_render_ctx, part, part_render_ctx);
-			self.on_end_mask();
-		} else {
-			self.draw_part_self(false, camera, node_render_ctx, part, part_render_ctx);
-		}
-	}
-
-	fn draw_composite(
+	fn draw_drawable<'comps>(
 		&self,
 		as_mask: bool,
 		camera: &Mat4,
-		comp: &Composite,
-		puppet: &Puppet,
-		children: &[InoxNodeUuid],
+		drawable_kind: &'comps DrawableKind,
+		comps: &'comps World,
+		id: InoxNodeUuid,
 	) {
-		if children.is_empty() {
+		let masks = match drawable_kind {
+			DrawableKind::TexturedMesh { drawable, .. } => &drawable.masks,
+			DrawableKind::Composite { drawable, .. } => &drawable.masks,
+		};
+
+		let mut has_masks = false;
+		if let Some(ref masks) = masks {
+			has_masks = true;
+			self.on_begin_masks(masks);
+			for mask in &masks.masks {
+				self.on_begin_mask(mask);
+
+				let mask_id = mask.source;
+				let mask_drawable_kind = DrawableKind::new(mask_id, comps).expect("A Mask source must be a Drawable.");
+
+				self.draw_drawable(true, camera, &mask_drawable_kind, comps, mask_id);
+			}
+			self.on_begin_masked_content();
+		}
+
+		match drawable_kind {
+			DrawableKind::TexturedMesh {
+				transform,
+				drawable,
+				data,
+			} => self.draw_textured_mesh_content(as_mask, camera, transform, drawable, data, comps.get(id).unwrap()),
+			DrawableKind::Composite {
+				transform,
+				drawable,
+				data,
+			} => self.draw_composite(
+				as_mask,
+				camera,
+				transform,
+				drawable,
+				data,
+				comps.get(id).unwrap(),
+				comps,
+			),
+		}
+
+		if has_masks {
+			self.on_end_mask();
+		}
+	}
+
+	fn draw_composite<'comps>(
+		&self,
+		as_mask: bool,
+		camera: &Mat4,
+		_trans: &'comps Transform,
+		drawable: &'comps Drawable,
+		composite: &'comps Composite,
+		render_ctx: &'comps CompositeRenderCtx,
+		comps: &'comps World,
+	) {
+		if render_ctx.zsorted_children_list.is_empty() {
 			// Optimization: Nothing to be drawn, skip context switching
 			return;
 		}
 
-		self.begin_composite_content();
+		self.begin_composite_content(as_mask, drawable, composite, render_ctx);
 
-		for &uuid in children {
-			let node = puppet.nodes.get_node(uuid).unwrap();
-			let node_render_ctx = &puppet.render_ctx.node_render_ctxs[&uuid];
-
-			if let (InoxData::Part(ref part), RenderCtxKind::Part(ref part_render_ctx)) =
-				(&node.data, &node_render_ctx.kind)
-			{
-				if as_mask {
-					self.draw_part_self(true, camera, node_render_ctx, part, part_render_ctx);
-				} else {
-					self.draw_part(camera, node_render_ctx, part, part_render_ctx, puppet);
-				}
-			} else {
-				// composite inside composite simply cannot happen
+		for uuid in &render_ctx.zsorted_children_list {
+			let drawable_kind =
+				DrawableKind::new(*uuid, comps).expect("All children in zsorted_children_list should be a Drawable.");
+			match drawable_kind {
+				DrawableKind::TexturedMesh {
+					transform,
+					drawable,
+					data,
+				} => self.draw_textured_mesh_content(
+					as_mask,
+					camera,
+					transform, // Note: this is already the absolute transform, no need to multiply again
+					drawable,
+					data,
+					comps.get(*uuid).unwrap(),
+				),
+				DrawableKind::Composite { .. } => panic!("Composite inside Composite not allowed."),
 			}
 		}
 
-		self.finish_composite_content(as_mask, comp);
+		self.finish_composite_content(as_mask, drawable, composite, render_ctx);
 	}
 
 	fn draw(&self, camera: &Mat4, puppet: &Puppet) {
-		for &uuid in &puppet.render_ctx.root_drawables_zsorted {
-			let node = puppet.nodes.get_node(uuid).unwrap();
-			let node_render_ctx = &puppet.render_ctx.node_render_ctxs[&uuid];
-
-			match (&node.data, &node_render_ctx.kind) {
-				(InoxData::Part(ref part), RenderCtxKind::Part(ref part_render_ctx)) => {
-					self.draw_part(camera, node_render_ctx, part, part_render_ctx, puppet);
-				}
-
-				(InoxData::Composite(ref composite), RenderCtxKind::Composite(ref children)) => {
-					self.draw_composite(false, camera, composite, puppet, children);
-				}
-
-				_ => {
-					// This clearly is sign that the data structure needs rework
-					todo!();
-				}
-			}
+		for uuid in &puppet
+			.render_ctx
+			.as_ref()
+			.expect("RenderCtx of puppet must be initialized before calling draw().")
+			.root_drawables_zsorted
+		{
+			let drawable_kind = DrawableKind::new(*uuid, &puppet.node_comps)
+				.expect("Every node in root_drawables_zsorted must be a Drawable.");
+			self.draw_drawable(false, camera, &drawable_kind, &puppet.node_comps, *uuid);
 		}
 	}
 }
-*/

@@ -21,7 +21,7 @@ pub struct Puppet {
 	physics_ctx: Option<Box<Vec<InoxNodeUuid>>>,
 	pub nodes: InoxNodeTree,
 	pub node_comps: World,
-	render_ctx: Option<RenderCtx>,
+	pub(crate) render_ctx: Option<RenderCtx>,
 	pub(crate) params: HashMap<ParamUuid, Param>,
 	pub(crate) param_names: HashMap<String, ParamUuid>,
 }
