@@ -221,12 +221,19 @@ where
 		as_mask: bool,
 		components: &TexturedMeshComponents,
 		render_ctx: &TexturedMeshRenderCtx,
+		id: InoxNodeUuid,
 	);
 
 	/// Begin compositing. Get prepared for rendering children of a Composite.
 	///
 	/// Ref impl: Prepare composite buffers.
-	fn begin_composite_content(&self, as_mask: bool, components: &CompositeComponents, render_ctx: &CompositeRenderCtx);
+	fn begin_composite_content(
+		&self,
+		as_mask: bool,
+		components: &CompositeComponents,
+		render_ctx: &CompositeRenderCtx,
+		id: InoxNodeUuid,
+	);
 	/// End compositing.
 	///
 	/// Ref impl: Transfer content from composite buffers to normal buffers.
@@ -235,6 +242,7 @@ where
 		as_mask: bool,
 		components: &CompositeComponents,
 		render_ctx: &CompositeRenderCtx,
+		id: InoxNodeUuid,
 	);
 }
 
@@ -243,13 +251,7 @@ trait InoxRendererCommon {
 	fn draw_drawable(&self, as_mask: bool, comps: &World, id: InoxNodeUuid);
 
 	/// Draw one composite. `components` must be referencing `comps`.
-	fn draw_composite(
-		&self,
-		as_mask: bool,
-		comps: &World,
-		components: &CompositeComponents,
-		render_ctx: &CompositeRenderCtx,
-	);
+	fn draw_composite(&self, as_mask: bool, comps: &World, components: &CompositeComponents, id: InoxNodeUuid);
 
 	/// Iterate over top-level drawables (excluding masks) in zsort order,
 	/// and make draw calls correspondingly.
@@ -280,11 +282,9 @@ impl<T: InoxRenderer> InoxRendererCommon for T {
 
 		match drawable_kind {
 			DrawableKind::TexturedMesh(ref components) => {
-				self.draw_textured_mesh_content(as_mask, components, comps.get(id).unwrap())
+				self.draw_textured_mesh_content(as_mask, components, comps.get(id).unwrap(), id)
 			}
-			DrawableKind::Composite(ref components) => {
-				self.draw_composite(as_mask, comps, components, comps.get(id).unwrap())
-			}
+			DrawableKind::Composite(ref components) => self.draw_composite(as_mask, comps, components, id),
 		}
 
 		if has_masks {
@@ -292,32 +292,27 @@ impl<T: InoxRenderer> InoxRendererCommon for T {
 		}
 	}
 
-	fn draw_composite(
-		&self,
-		as_mask: bool,
-		comps: &World,
-		components: &CompositeComponents,
-		render_ctx: &CompositeRenderCtx,
-	) {
+	fn draw_composite(&self, as_mask: bool, comps: &World, components: &CompositeComponents, id: InoxNodeUuid) {
+		let render_ctx = comps.get::<CompositeRenderCtx>(id).unwrap();
 		if render_ctx.zsorted_children_list.is_empty() {
 			// Optimization: Nothing to be drawn, skip context switching
 			return;
 		}
 
-		self.begin_composite_content(as_mask, components, render_ctx);
+		self.begin_composite_content(as_mask, components, render_ctx, id);
 
 		for uuid in &render_ctx.zsorted_children_list {
 			let drawable_kind =
 				DrawableKind::new(*uuid, comps).expect("All children in zsorted_children_list should be a Drawable.");
 			match drawable_kind {
 				DrawableKind::TexturedMesh(components) => {
-					self.draw_textured_mesh_content(as_mask, &components, comps.get(*uuid).unwrap())
+					self.draw_textured_mesh_content(as_mask, &components, comps.get(*uuid).unwrap(), *uuid)
 				}
 				DrawableKind::Composite { .. } => panic!("Composite inside Composite not allowed."),
 			}
 		}
 
-		self.finish_composite_content(as_mask, components, render_ctx);
+		self.finish_composite_content(as_mask, components, render_ctx, id);
 	}
 
 	fn draw(&self, puppet: &Puppet) {
