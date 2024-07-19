@@ -18,16 +18,21 @@ pub struct Puppet {
 	pub meta: PuppetMeta,
 	physics: PuppetPhysics,
 	// TODO: define the actual ctx
-	physics_ctx: Option<Box<Vec<InoxNodeUuid>>>,
-	pub nodes: InoxNodeTree,
-	pub node_comps: World,
-	pub(crate) render_ctx: Option<RenderCtx>,
+	pub(crate) nodes: InoxNodeTree,
+	pub(crate) node_comps: World,
+	/// Context for rendering this puppet. See `.init_render_ctx()`.
+	pub render_ctx: Option<RenderCtx>,
 	pub(crate) params: HashMap<ParamUuid, Param>,
 	pub(crate) param_names: HashMap<String, ParamUuid>,
 }
 
 impl Puppet {
-	pub fn new(meta: PuppetMeta, physics: PuppetPhysics, root: InoxNode, named_params: HashMap<String, Param>) -> Self {
+	pub(crate) fn new(
+		meta: PuppetMeta,
+		physics: PuppetPhysics,
+		root: InoxNode,
+		named_params: HashMap<String, Param>,
+	) -> Self {
 		let mut params = HashMap::new();
 		let mut param_names = HashMap::new();
 		for (name, param) in named_params {
@@ -45,6 +50,16 @@ impl Puppet {
 			params,
 			param_names,
 		}
+	}
+
+	/// Call this on a freshly loaded puppet if rendering is needed. Panicks on second call.
+	pub fn init_render_ctx(&mut self) {
+		if self.render_ctx.is_some() {
+			panic!("RenderCtx already initialized.");
+		}
+
+		let render_ctx = RenderCtx::new(self);
+		self.render_ctx = Some(render_ctx);
 	}
 }
 
