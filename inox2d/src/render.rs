@@ -2,72 +2,18 @@ mod vertex_buffers;
 
 use glam::Mat4;
 
-use crate::math::transform::Transform;
 use crate::model::Model;
 use crate::node::{
 	components::{
 		drawable::{Mask, Masks},
-		Composite, Drawable, TexturedMesh,
+		DeformStack,
 	},
+	drawables::{CompositeComponents, DrawableKind, TexturedMeshComponents},
 	InoxNodeUuid,
 };
-use crate::puppet::{Puppet, World};
+use crate::puppet::{InoxNodeTree, Puppet, World};
 
 use vertex_buffers::VertexBuffers;
-
-/// Possible component combinations of a renderable node.
-///
-/// Future extensions go here.
-enum DrawableKind<'comps> {
-	TexturedMesh(TexturedMeshComponents<'comps>),
-	Composite(CompositeComponents<'comps>),
-}
-
-/// Pack of components for a TexturedMesh. "Part" in Inochi2D terms.
-pub struct TexturedMeshComponents<'comps> {
-	pub transform: &'comps Transform,
-	pub drawable: &'comps Drawable,
-	pub data: &'comps TexturedMesh,
-}
-
-/// Pack of components for a Composite node.
-pub struct CompositeComponents<'comps> {
-	pub transform: &'comps Transform,
-	pub drawable: &'comps Drawable,
-	pub data: &'comps Composite,
-}
-
-impl<'comps> DrawableKind<'comps> {
-	/// Tries to construct a renderable node data pack from the World of components:
-	/// - `None` if node not renderable.
-	/// - Panicks if component combinations invalid.
-	fn new(id: InoxNodeUuid, comps: &'comps World) -> Option<Self> {
-		let drawable = match comps.get::<Drawable>(id) {
-			Some(drawable) => drawable,
-			None => return None,
-		};
-		let transform = comps
-			.get::<Transform>(id)
-			.expect("A drawble must have associated Transform.");
-		let textured_mesh = comps.get::<TexturedMesh>(id);
-		let composite = comps.get::<Composite>(id);
-
-		match (textured_mesh.is_some(), composite.is_some()) {
-			(true, true) => panic!("The drawable has both TexturedMesh and Composite."),
-			(false, false) => panic!("The drawable has neither TexturedMesh nor Composite."),
-			(true, false) => Some(DrawableKind::TexturedMesh(TexturedMeshComponents {
-				transform,
-				drawable,
-				data: textured_mesh.unwrap(),
-			})),
-			(false, true) => Some(DrawableKind::Composite(CompositeComponents {
-				transform,
-				drawable,
-				data: composite.unwrap(),
-			})),
-		}
-	}
-}
 
 /// Additional info per node for rendering a TexturedMesh:
 /// - offset and length of array for mesh point coordinates
@@ -113,16 +59,19 @@ impl RenderCtx {
 				match drawable_kind {
 					DrawableKind::TexturedMesh(components) => {
 						let (index_offset, vert_offset) = vertex_buffers.push(&components.data.mesh);
+						let (index_len, vert_len) =
+							(components.data.mesh.indices.len(), components.data.mesh.vertices.len());
 
 						comps.add(
 							node.uuid,
 							TexturedMeshRenderCtx {
 								index_offset,
 								vert_offset,
-								index_len: components.data.mesh.indices.len(),
-								vert_len: components.data.mesh.vertices.len(),
+								index_len,
+								vert_len,
 							},
 						);
+						comps.add(node.uuid, DeformStack::new(vert_len));
 					}
 					DrawableKind::Composite { .. } => {
 						// exclude non-drawable children
@@ -154,6 +103,16 @@ impl RenderCtx {
 			vertex_buffers,
 			root_drawables_zsorted: drawable_uuid_zsort_vec.into_iter().map(|p| p.0).collect(),
 		}
+	}
+
+	/// Update zsort-ordered info inside self according to updated puppet.
+	pub(crate) fn update_zsort(&mut self, nodes: &InoxNodeTree, comps: &World) {
+		todo!()
+	}
+
+	/// Update deform buffer content according to updated puppet.
+	pub(crate) fn update_deform(&mut self, nodes: &InoxNodeTree, comps: &World) {
+		todo!()
 	}
 
 	/// Memory layout: `[[x, y], [x, y], ...]`

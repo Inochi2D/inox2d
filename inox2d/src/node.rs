@@ -1,4 +1,5 @@
 pub mod components;
+pub mod drawables;
 
 use crate::math::transform::TransformOffset;
 

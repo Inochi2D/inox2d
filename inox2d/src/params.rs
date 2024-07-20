@@ -1,8 +1,14 @@
 use glam::{vec2, Vec2};
 
-use crate::math::interp::{bi_interpolate_f32, bi_interpolate_vec2s_additive, InterpRange, InterpolateMode};
-use crate::math::matrix::Matrix2d;
-use crate::node::InoxNodeUuid;
+use crate::math::{
+	deform::Deform,
+	interp::{bi_interpolate_f32, bi_interpolate_vec2s_additive, InterpRange, InterpolateMode},
+	matrix::Matrix2d,
+};
+use crate::node::{
+	components::{deform_stack::DeformSrc, DeformStack, TexturedMesh},
+	InoxNodeUuid,
+};
 use crate::puppet::Puppet;
 // use crate::render::{NodeRenderCtxs, PartRenderCtx, RenderCtxKind};
 
@@ -60,9 +66,13 @@ pub struct Param {
 	pub bindings: Vec<Binding>,
 }
 
-/*
 impl Param {
-	pub fn apply(&self, val: Vec2, node_render_ctxs: &mut NodeRenderCtxs, deform_buf: &mut [Vec2]) {
+	/// Internal function that modifies puppet data according to one param set.
+	/// Must be only called ONCE per frame to ensure correct behavior.
+	///
+	/// End users may repeatedly apply a same parameter for multiple times in between frames,
+	/// but other facilities should be present to make sure this `apply()` is only called once per parameter.
+	pub(crate) fn apply(&self, val: Vec2, puppet: &mut Puppet) {
 		let val = val.clamp(self.min, self.max);
 		let val_normed = (val - self.min) / (self.max - self.min);
 
@@ -89,7 +99,7 @@ impl Param {
 
 		// Apply offset on each binding
 		for binding in &self.bindings {
-			let node_offsets = node_render_ctxs.get_mut(&binding.node).unwrap();
+			let node_offsets = puppet.nodes.get_node_mut(binding.node).unwrap();
 
 			let range_in = InterpRange::new(
 				vec2(self.axis_points.x[x_mindex], self.axis_points.y[y_mindex]),
@@ -97,9 +107,11 @@ impl Param {
 			);
 
 			match binding.values {
-				BindingValues::ZSort(_) => {
-					// Seems complicated to do currently...
-					// Do nothing for now
+				BindingValues::ZSort(ref matrix) => {
+					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
+
+					node_offsets.zsort +=
+						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformTX(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
@@ -153,28 +165,41 @@ impl Param {
 						matrix[(x_maxdex, y_maxdex)].as_slice(),
 					);
 
-					if let RenderCtxKind::Part(PartRenderCtx {
-						vert_offset, vert_len, ..
-					}) = node_offsets.kind
-					{
-						let def_beg = vert_offset as usize;
-						let def_end = def_beg + vert_len;
+					// deform specified by a parameter must be direct, i.e., in the form of displacements of all vertices
+					let direct_deform = {
+						let textured_mesh = puppet.node_comps.get::<TexturedMesh>(binding.node);
+						if let Some(textured_mesh) = textured_mesh {
+							let vert_len = textured_mesh.mesh.vertices.len();
+							let mut direct_deform: Vec<Vec2> = Vec::with_capacity(vert_len);
+							direct_deform.resize(vert_len, Vec2::ZERO);
 
-						bi_interpolate_vec2s_additive(
-							val_normed,
-							range_in,
-							out_top,
-							out_bottom,
-							binding.interpolate_mode,
-							&mut deform_buf[def_beg..def_end],
-						);
-					}
+							bi_interpolate_vec2s_additive(
+								val_normed,
+								range_in,
+								out_top,
+								out_bottom,
+								binding.interpolate_mode,
+								&mut direct_deform,
+							);
+
+							direct_deform
+						} else {
+							todo!("Deform on node types other than Part.")
+						}
+					};
+
+					puppet
+						.node_comps
+						.get_mut::<DeformStack>(binding.node)
+						.expect("Nodes being deformed must have a DeformStack component.")
+						.push(DeformSrc::Param(self.uuid), Deform::Direct(direct_deform));
 				}
 			}
 		}
 	}
 }
 
+/*
 impl Puppet {
 	pub fn get_param(&self, uuid: ParamUuid) -> Option<&Param> {
 		self.params.get(&uuid)
