@@ -6,7 +6,7 @@ use crate::math::{
 	matrix::Matrix2d,
 };
 use crate::node::{
-	components::{deform_stack::DeformSrc, DeformStack, TexturedMesh},
+	components::{deform_stack::DeformSrc, DeformStack, TexturedMesh, TransformStore, ZSort},
 	InoxNodeUuid,
 };
 use crate::puppet::Puppet;
@@ -99,8 +99,6 @@ impl Param {
 
 		// Apply offset on each binding
 		for binding in &self.bindings {
-			let node_offsets = puppet.nodes.get_node_mut(binding.node).unwrap();
-
 			let range_in = InterpRange::new(
 				vec2(self.axis_points.x[x_mindex], self.axis_points.y[y_mindex]),
 				vec2(self.axis_points.x[x_maxdex], self.axis_points.y[y_maxdex]),
@@ -110,50 +108,85 @@ impl Param {
 				BindingValues::ZSort(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					node_offsets.zsort +=
+					puppet.node_comps.get_mut::<ZSort>(binding.node).unwrap().0 +=
 						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformTX(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					node_offsets.trans_offset.translation.x +=
-						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					puppet
+						.node_comps
+						.get_mut::<TransformStore>(binding.node)
+						.unwrap()
+						.relative
+						.translation
+						.x += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformTY(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					node_offsets.trans_offset.translation.y +=
-						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					puppet
+						.node_comps
+						.get_mut::<TransformStore>(binding.node)
+						.unwrap()
+						.relative
+						.translation
+						.y += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformSX(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					node_offsets.trans_offset.scale.x *=
-						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					puppet
+						.node_comps
+						.get_mut::<TransformStore>(binding.node)
+						.unwrap()
+						.relative
+						.scale
+						.x *= bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformSY(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					node_offsets.trans_offset.scale.y *=
-						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					puppet
+						.node_comps
+						.get_mut::<TransformStore>(binding.node)
+						.unwrap()
+						.relative
+						.scale
+						.y *= bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformRX(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					node_offsets.trans_offset.rotation.x +=
-						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					puppet
+						.node_comps
+						.get_mut::<TransformStore>(binding.node)
+						.unwrap()
+						.relative
+						.rotation
+						.x += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformRY(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					node_offsets.trans_offset.rotation.y +=
-						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					puppet
+						.node_comps
+						.get_mut::<TransformStore>(binding.node)
+						.unwrap()
+						.relative
+						.rotation
+						.y += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformRZ(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					node_offsets.trans_offset.rotation.z +=
-						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					puppet
+						.node_comps
+						.get_mut::<TransformStore>(binding.node)
+						.unwrap()
+						.relative
+						.rotation
+						.z += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::Deform(ref matrix) => {
 					let out_top = InterpRange::new(

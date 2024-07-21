@@ -53,10 +53,12 @@ impl Puppet {
 	}
 
 	/// Call this on a freshly loaded puppet if rendering is needed. Panicks on second call.
-	pub fn init_render_ctx(&mut self) {
+	pub fn init_rendering(&mut self) {
 		if self.render_ctx.is_some() {
-			panic!("RenderCtx already initialized.");
+			panic!("Puppet already initialized for rendering.");
 		}
+
+		self.init_node_transforms();
 
 		let render_ctx = RenderCtx::new(self);
 		self.render_ctx = Some(render_ctx);

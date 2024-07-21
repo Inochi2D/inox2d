@@ -1,11 +1,5 @@
 use glam::{EulerRot, Mat4, Quat, Vec2, Vec3};
 
-#[derive(Default)]
-/// absolute transform
-pub struct Transform {
-	pub mat: Mat4,
-}
-
 /// relative transform
 #[derive(Debug, Clone, Copy)]
 pub struct TransformOffset {

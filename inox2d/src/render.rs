@@ -1,12 +1,14 @@
 mod vertex_buffers;
 
+use std::mem::swap;
+
 use glam::Mat4;
 
 use crate::model::Model;
 use crate::node::{
 	components::{
 		drawable::{Mask, Masks},
-		DeformStack,
+		DeformStack, ZSort,
 	},
 	drawables::{CompositeComponents, DrawableKind, TexturedMeshComponents},
 	InoxNodeUuid,
@@ -49,12 +51,12 @@ impl RenderCtx {
 		let comps = &mut puppet.node_comps;
 
 		let mut vertex_buffers = VertexBuffers::default();
-		let mut drawable_uuid_zsort_vec = Vec::<(InoxNodeUuid, f32)>::new();
 
+		let mut drawables_count: usize = 0;
 		for node in nodes.iter() {
 			let drawable_kind = DrawableKind::new(node.uuid, comps);
 			if let Some(drawable_kind) = drawable_kind {
-				drawable_uuid_zsort_vec.push((node.uuid, node.zsort));
+				drawables_count += 1;
 
 				match drawable_kind {
 					DrawableKind::TexturedMesh(components) => {
@@ -75,7 +77,7 @@ impl RenderCtx {
 					}
 					DrawableKind::Composite { .. } => {
 						// exclude non-drawable children
-						let mut zsorted_children_list: Vec<InoxNodeUuid> = nodes
+						let children_list: Vec<InoxNodeUuid> = nodes
 							.get_children(node.uuid)
 							.filter_map(|n| {
 								if DrawableKind::new(n.uuid, comps).is_some() {
@@ -85,23 +87,29 @@ impl RenderCtx {
 								}
 							})
 							.collect();
-						zsorted_children_list.sort_by(|a, b| {
-							let zsort_a = nodes.get_node(*a).unwrap().zsort;
-							let zsort_b = nodes.get_node(*b).unwrap().zsort;
-							zsort_a.total_cmp(&zsort_b).reverse()
-						});
 
-						comps.add(node.uuid, CompositeRenderCtx { zsorted_children_list });
+						comps.add(
+							node.uuid,
+							CompositeRenderCtx {
+								// sort later, before render
+								zsorted_children_list: children_list,
+							},
+						);
 					}
 				};
+
+				// although it is tempting to put actual zsort in, a correct implementation would later set zsort values before rendering anyways.
+				comps.add(node.uuid, ZSort::default());
 			}
 		}
 
-		drawable_uuid_zsort_vec.sort_by(|a, b| a.1.total_cmp(&b.1).reverse());
+		let mut root_drawables_zsorted = Vec::new();
+		// similarly, populate later, before render
+		root_drawables_zsorted.resize(drawables_count, InoxNodeUuid(0));
 
 		Self {
 			vertex_buffers,
-			root_drawables_zsorted: drawable_uuid_zsort_vec.into_iter().map(|p| p.0).collect(),
+			root_drawables_zsorted,
 		}
 	}
 

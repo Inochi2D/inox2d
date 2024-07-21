@@ -1,6 +1,7 @@
-use crate::math::transform::Transform;
+use glam::Mat4;
+
 use crate::node::{
-	components::{Composite, Drawable, TexturedMesh},
+	components::{Composite, Drawable, TexturedMesh, TransformStore},
 	InoxNodeUuid,
 };
 use crate::puppet::World;
@@ -17,14 +18,16 @@ pub(crate) enum DrawableKind<'comps> {
 
 /// Pack of components for a TexturedMesh. "Part" in Inochi2D terms.
 pub struct TexturedMeshComponents<'comps> {
-	pub transform: &'comps Transform,
+	// Only the absolute part of `TransformStore` that the renderer backend may need.
+	pub transform: &'comps Mat4,
 	pub drawable: &'comps Drawable,
 	pub data: &'comps TexturedMesh,
 }
 
 /// Pack of components for a Composite node.
 pub struct CompositeComponents<'comps> {
-	pub transform: &'comps Transform,
+	// Only the absolute part of `TransformStore` that the renderer backend may need.
+	pub transform: &'comps Mat4,
 	pub drawable: &'comps Drawable,
 	pub data: &'comps Composite,
 }
@@ -38,9 +41,10 @@ impl<'comps> DrawableKind<'comps> {
 			Some(drawable) => drawable,
 			None => return None,
 		};
-		let transform = comps
-			.get::<Transform>(id)
-			.expect("A drawble must have associated Transform.");
+		let transform = &comps
+			.get::<TransformStore>(id)
+			.expect("A drawble must have an associated transform.")
+			.absolute;
 		let textured_mesh = comps.get::<TexturedMesh>(id);
 		let composite = comps.get::<Composite>(id);
 

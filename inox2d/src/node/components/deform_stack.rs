@@ -1,5 +1,5 @@
-use core::mem::swap;
 use std::collections::HashMap;
+use std::mem::swap;
 
 use glam::Vec2;
 
