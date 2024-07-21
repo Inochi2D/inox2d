@@ -113,14 +113,71 @@ impl RenderCtx {
 		}
 	}
 
-	/// Update zsort-ordered info inside self according to updated puppet.
-	pub(crate) fn update_zsort(&mut self, nodes: &InoxNodeTree, comps: &World) {
-		todo!()
-	}
+	/// Update
+	/// - zsort-ordered info
+	/// - deform buffer content
+	/// inside self, according to updated puppet.
+	pub(crate) fn update(&mut self, nodes: &InoxNodeTree, comps: &mut World) {
+		let mut drawable_uuid_zsort_vec = Vec::<(InoxNodeUuid, f32)>::new();
 
-	/// Update deform buffer content according to updated puppet.
-	pub(crate) fn update_deform(&mut self, nodes: &InoxNodeTree, comps: &World) {
-		todo!()
+		for node in nodes.iter() {
+			if let Some(drawable_kind) = DrawableKind::new(node.uuid, comps) {
+				let node_zsort = comps.get::<ZSort>(node.uuid).unwrap();
+				drawable_uuid_zsort_vec.push((node.uuid, node_zsort.0));
+
+				match drawable_kind {
+					// for Composite, update zsorted children list
+					DrawableKind::Composite { .. } => {
+						// `swap()` usage is a trick that both:
+						// - returns mut borrowed comps early
+						// - does not involve any heap allocations
+						let mut zsorted_children_list = Vec::new();
+						swap(
+							&mut zsorted_children_list,
+							&mut comps
+								.get_mut::<CompositeRenderCtx>(node.uuid)
+								.unwrap()
+								.zsorted_children_list,
+						);
+
+						zsorted_children_list.sort_by(|a, b| {
+							let zsort_a = comps.get::<ZSort>(*a).unwrap();
+							let zsort_b = comps.get::<ZSort>(*b).unwrap();
+							zsort_a.total_cmp(zsort_b).reverse()
+						});
+
+						swap(
+							&mut zsorted_children_list,
+							&mut comps
+								.get_mut::<CompositeRenderCtx>(node.uuid)
+								.unwrap()
+								.zsorted_children_list,
+						);
+					}
+					// for TexturedMesh, obtain and write deforms into vertex_buffer
+					DrawableKind::TexturedMesh(..) => {
+						let render_ctx = comps.get::<TexturedMeshRenderCtx>(node.uuid).unwrap();
+						let vert_offset = render_ctx.vert_offset as usize;
+						let vert_len = render_ctx.vert_len;
+						let deform_stack = comps
+							.get::<DeformStack>(node.uuid)
+							.expect("A TexturedMesh must have an associated DeformStack.");
+
+						deform_stack.combine(
+							nodes,
+							comps,
+							&mut self.vertex_buffers.deforms[vert_offset..(vert_offset + vert_len)],
+						);
+					}
+				}
+			}
+		}
+
+		drawable_uuid_zsort_vec.sort_by(|a, b| a.1.total_cmp(&b.1).reverse());
+		self.root_drawables_zsorted
+			.iter_mut()
+			.zip(drawable_uuid_zsort_vec.iter())
+			.for_each(|(old, new)| *old = new.0);
 	}
 
 	/// Memory layout: `[[x, y], [x, y], ...]`
