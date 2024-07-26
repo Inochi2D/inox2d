@@ -6,7 +6,7 @@ mod world;
 use std::collections::HashMap;
 
 use crate::node::{InoxNode, InoxNodeUuid};
-use crate::params::{Param, ParamUuid};
+use crate::params::{Param, ParamCtx};
 use crate::render::RenderCtx;
 
 use meta::PuppetMeta;
@@ -22,8 +22,8 @@ pub struct Puppet {
 	pub(crate) node_comps: World,
 	/// Context for rendering this puppet. See `.init_render_ctx()`.
 	pub render_ctx: Option<RenderCtx>,
-	pub(crate) params: HashMap<ParamUuid, Param>,
-	pub(crate) param_names: HashMap<String, ParamUuid>,
+	pub(crate) params: HashMap<String, Param>,
+	pub(crate) param_ctx: Option<ParamCtx>,
 }
 
 impl Puppet {
@@ -31,24 +31,16 @@ impl Puppet {
 		meta: PuppetMeta,
 		physics: PuppetPhysics,
 		root: InoxNode,
-		named_params: HashMap<String, Param>,
+		params: HashMap<String, Param>,
 	) -> Self {
-		let mut params = HashMap::new();
-		let mut param_names = HashMap::new();
-		for (name, param) in named_params {
-			param_names.insert(name, param.uuid);
-			params.insert(param.uuid, param);
-		}
-
 		Self {
 			meta,
 			physics,
-			physics_ctx: None,
 			nodes: InoxNodeTree::new_with_root(root),
 			node_comps: World::new(),
 			render_ctx: None,
 			params,
-			param_names,
+			param_ctx: None,
 		}
 	}
 
@@ -62,6 +54,16 @@ impl Puppet {
 
 		let render_ctx = RenderCtx::new(self);
 		self.render_ctx = Some(render_ctx);
+	}
+
+	/// Call this on a puppet if params are going to be used. Panicks on second call.
+	pub fn init_params(&mut self) {
+		if self.param_ctx.is_some() {
+			panic!("Puppet already initialized for params.");
+		}
+
+		let param_ctx = ParamCtx::new(self);
+		self.param_ctx = Some(param_ctx);
 	}
 }
 
