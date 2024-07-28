@@ -97,9 +97,6 @@ impl RenderCtx {
 						);
 					}
 				};
-
-				// although it is tempting to put actual zsort in, a correct implementation would later set zsort values before rendering anyways.
-				comps.add(node.uuid, ZSort::default());
 			}
 		}
 
@@ -110,6 +107,18 @@ impl RenderCtx {
 		Self {
 			vertex_buffers,
 			root_drawables_zsorted,
+		}
+	}
+
+	/// Reset all `DeformStack`.
+	pub(crate) fn reset(&mut self, nodes: &InoxNodeTree, comps: &mut World) {
+		for node in nodes.iter() {
+			if let Some(DrawableKind::TexturedMesh(..)) = DrawableKind::new(node.uuid, comps) {
+				let deform_stack = comps
+					.get_mut::<DeformStack>(node.uuid)
+					.expect("A TexturedMesh must have an associated DeformStack.");
+				deform_stack.reset();
+			}
 		}
 	}
 

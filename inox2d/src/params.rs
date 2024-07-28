@@ -217,41 +217,28 @@ impl Param {
 	}
 }
 
-pub(crate) struct ParamCtx {
+/// Additional struct attached to a puppet for animating through params.
+pub struct ParamCtx {
 	values: HashMap<String, Vec2>,
 }
 
 impl ParamCtx {
-	pub fn new(puppet: &Puppet) -> Self {
+	pub(crate) fn new(puppet: &Puppet) -> Self {
 		Self {
 			values: puppet.params.iter().map(|p| (p.0.to_owned(), p.1.defaults)).collect(),
 		}
 	}
-}
 
-impl Puppet {
 	/// Reset all params to default value.
-	pub fn reset_params(&mut self) {
-		for (name, value) in self
-			.param_ctx
-			.as_mut()
-			.expect("Params can be written after .init_params().")
-			.values
-			.iter_mut()
-		{
-			*value = self.params.get(name).unwrap().defaults;
+	pub(crate) fn reset(&mut self, params: &HashMap<String, Param>) {
+		for (name, value) in self.values.iter_mut() {
+			*value = params.get(name).unwrap().defaults;
 		}
 	}
 
 	/// Set param with name to value `val`.
-	pub fn set_param(&mut self, param_name: &str, val: Vec2) -> Result<(), SetParamError> {
-		if let Some(value) = self
-			.param_ctx
-			.as_mut()
-			.expect("Params can be written after .init_params().")
-			.values
-			.get_mut(param_name)
-		{
+	pub fn set(&mut self, param_name: &str, val: Vec2) -> Result<(), SetParamError> {
+		if let Some(value) = self.values.get_mut(param_name) {
 			*value = val;
 			Ok(())
 		} else {
@@ -260,20 +247,15 @@ impl Puppet {
 	}
 
 	/// Modify components as specified by all params. Must be called ONCE per frame.
-	pub(crate) fn apply_params(&mut self) {
+	pub(crate) fn apply(&self, params: &HashMap<String, Param>, comps: &mut World) {
 		// a correct implementation should not care about the order of `.apply()`
-		for (param_name, val) in self
-			.param_ctx
-			.as_mut()
-			.expect("Params can be applied after .init_params().")
-			.values
-			.iter()
-		{
-			self.params.get(param_name).unwrap().apply(*val, &mut self.node_comps);
+		for (param_name, val) in self.values.iter() {
+			params.get(param_name).unwrap().apply(*val, comps);
 		}
 	}
 }
 
+/// Possible errors setting a param.
 #[derive(Debug, thiserror::Error)]
 pub enum SetParamError {
 	#[error("No parameter named {0}")]
