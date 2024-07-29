@@ -50,10 +50,9 @@ pub unsafe fn setup_gl_buffers(
 ///
 /// # Safety
 ///
-/// The vertex array object created in `setup_gl_buffers()` must be bound.
+/// The vertex array object created in `setup_gl_buffers()` must be bound and no new ARRAY_BUFFER is enabled.
 pub unsafe fn upload_deforms_to_gl(gl: &glow::Context, deforms: &[f32]) {
-	gl.enable_vertex_attrib_array(2);
-
+	// if the above preconditions are met, deform is then the currently bound ARRAY_BUFFER.
 	let bytes: &[u8] = core::slice::from_raw_parts(deforms.as_ptr() as *const u8, core::mem::size_of_val(deforms));
 	gl.buffer_sub_data_u8_slice(glow::ARRAY_BUFFER, 0, bytes);
 }
