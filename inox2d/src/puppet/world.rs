@@ -31,7 +31,7 @@ impl AnyVec {
 		Self {
 			// SAFETY: ManuallyDrop guaranteed to have same bit layout as inner, and inner is a proper Vec
 			// provenance considerations present, see comment for VecBytes
-			vec_bytes: unsafe { transmute(vec) },
+			vec_bytes: unsafe { transmute::<ManuallyDrop<std::vec::Vec<T>>, VecBytes>(vec) },
 			// SAFETY: only to be called once at end of lifetime, and vec_bytes contain a valid Vec throughout self lifetime
 			drop: |vec_bytes| unsafe {
 				let vec: Vec<T> = transmute(*vec_bytes);
