@@ -1,7 +1,5 @@
 use glow::HasContext;
 
-use inox2d::render::RenderCtx;
-
 use super::OpenglRendererError;
 
 unsafe fn upload_array_to_gl<T>(gl: &glow::Context, array: &[T], target: u32, usage: u32) {
@@ -11,71 +9,51 @@ unsafe fn upload_array_to_gl<T>(gl: &glow::Context, array: &[T], target: u32, us
 	gl.buffer_data_u8_slice(target, bytes, usage);
 }
 
-unsafe fn reupload_array_to_gl<T>(gl: &glow::Context, array: &[T], target: u32, start_idx: usize, end_idx: usize) {
-	let slice = &array[start_idx..end_idx];
-	let bytes: &[u8] = core::slice::from_raw_parts(slice.as_ptr() as *const u8, core::mem::size_of_val(slice));
-	gl.buffer_sub_data_u8_slice(target, start_idx as i32, bytes);
+/// Create a vertex array. Initialize vertex, uv, deform and index buffers, upload content and attach them to the vertex array. Return the array.
+///
+/// # Errors
+///
+/// This function will return an error if it couldn't create a vertex array.
+///
+/// # Safety
+///
+/// No prerequisites.
+pub unsafe fn setup_gl_buffers(
+	gl: &glow::Context,
+	verts: &[f32],
+	uvs: &[f32],
+	deforms: &[f32],
+	indices: &[u16],
+) -> Result<glow::VertexArray, OpenglRendererError> {
+	let vao = gl.create_vertex_array().map_err(OpenglRendererError::Opengl)?;
+	gl.bind_vertex_array(Some(vao));
+
+	upload_array_to_gl(gl, verts, glow::ARRAY_BUFFER, glow::STATIC_DRAW);
+	gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, 0, 0);
+	gl.enable_vertex_attrib_array(0);
+
+	upload_array_to_gl(gl, uvs, glow::ARRAY_BUFFER, glow::STATIC_DRAW);
+	gl.vertex_attrib_pointer_f32(1, 2, glow::FLOAT, false, 0, 0);
+	gl.enable_vertex_attrib_array(1);
+
+	upload_array_to_gl(gl, deforms, glow::ARRAY_BUFFER, glow::DYNAMIC_DRAW);
+	gl.vertex_attrib_pointer_f32(2, 2, glow::FLOAT, false, 0, 0);
+	gl.enable_vertex_attrib_array(2);
+
+	upload_array_to_gl(gl, indices, glow::ELEMENT_ARRAY_BUFFER, glow::STATIC_DRAW);
+
+	gl.bind_vertex_array(None);
+	Ok(vao)
 }
 
-pub trait RenderCtxOpenglExt {
-	unsafe fn setup_gl_buffers(
-		&self,
-		gl: &glow::Context,
-		vao: glow::VertexArray,
-	) -> Result<glow::VertexArray, OpenglRendererError>;
-	unsafe fn upload_deforms_to_gl(&self, gl: &glow::Context);
-}
+/// Upload full deform buffer content.
+///
+/// # Safety
+///
+/// The vertex array object created in `setup_gl_buffers()` must be bound.
+pub unsafe fn upload_deforms_to_gl(gl: &glow::Context, deforms: &[f32]) {
+	gl.enable_vertex_attrib_array(2);
 
-impl RenderCtxOpenglExt for RenderCtx {
-	/// Uploads the vertex and index buffers to OpenGL.
-	///
-	/// # Errors
-	///
-	/// This function will return an error if it couldn't create a vertex array.
-	///
-	/// # Safety
-	///
-	/// Only call this function once when loading a new puppet.
-	unsafe fn setup_gl_buffers(
-		&self,
-		gl: &glow::Context,
-		vao: glow::VertexArray,
-	) -> Result<glow::VertexArray, OpenglRendererError> {
-		gl.bind_vertex_array(Some(vao));
-
-		upload_array_to_gl(gl, &self.vertex_buffers.verts, glow::ARRAY_BUFFER, glow::STATIC_DRAW);
-		gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, 0, 0);
-		gl.enable_vertex_attrib_array(0);
-
-		upload_array_to_gl(gl, &self.vertex_buffers.uvs, glow::ARRAY_BUFFER, glow::STATIC_DRAW);
-		gl.vertex_attrib_pointer_f32(1, 2, glow::FLOAT, false, 0, 0);
-		gl.enable_vertex_attrib_array(1);
-
-		upload_array_to_gl(gl, &self.vertex_buffers.deforms, glow::ARRAY_BUFFER, glow::DYNAMIC_DRAW);
-		gl.vertex_attrib_pointer_f32(2, 2, glow::FLOAT, false, 0, 0);
-		gl.enable_vertex_attrib_array(2);
-
-		upload_array_to_gl(
-			gl,
-			&self.vertex_buffers.indices,
-			glow::ELEMENT_ARRAY_BUFFER,
-			glow::STATIC_DRAW,
-		);
-
-		Ok(vao)
-	}
-
-	/// # Safety
-	///
-	/// unsafe as initiating GL calls. can be safely called for multiple times,
-	/// but only needed once after deform update and before rendering.
-	unsafe fn upload_deforms_to_gl(&self, gl: &glow::Context) {
-		reupload_array_to_gl(
-			gl,
-			&self.vertex_buffers.deforms,
-			glow::ARRAY_BUFFER,
-			0,
-			self.vertex_buffers.deforms.len(),
-		);
-	}
+	let bytes: &[u8] = core::slice::from_raw_parts(deforms.as_ptr() as *const u8, core::mem::size_of_val(deforms));
+	gl.buffer_sub_data_u8_slice(glow::ARRAY_BUFFER, 0, bytes);
 }

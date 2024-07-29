@@ -16,7 +16,7 @@ pub struct Blending {
 	pub opacity: f32,
 }
 
-#[derive(Default)]
+#[derive(Default, PartialEq, Clone, Copy)]
 pub enum BlendMode {
 	/// Normal blending mode.
 	#[default]

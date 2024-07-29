@@ -41,11 +41,16 @@ fn main() -> Result<(), Box<dyn Error>> {
 	tracing::info!("Parsing puppet");
 
 	let data = fs::read(cli.inp_path)?;
-	let model = parse_inp(data.as_slice())?;
+	let mut model = parse_inp(data.as_slice())?;
 	tracing::info!(
 		"Successfully parsed puppet: {}",
 		(model.puppet.meta.name.as_deref()).unwrap_or("<no puppet name specified in file>")
 	);
+
+	tracing::info!("Setting up puppet for transforms, params and rendering.");
+	model.puppet.init_transforms();
+	model.puppet.init_rendering();
+	model.puppet.init_params();
 
 	tracing::info!("Setting up windowing and OpenGL");
 	let app_frame = AppFrame::init(
@@ -81,10 +86,9 @@ impl Inox2dOpenglExampleApp {
 
 impl App for Inox2dOpenglExampleApp {
 	fn resume_window(&mut self, gl: glow::Context) {
-		match OpenglRenderer::new(gl) {
+		match OpenglRenderer::new(gl, &self.model) {
 			Ok(mut renderer) => {
 				tracing::info!("Initializing Inox2D renderer");
-				renderer.prepare(&self.model).unwrap();
 				renderer.resize(self.width, self.height);
 				renderer.camera.scale = Vec2::splat(0.15);
 				tracing::info!("Inox2D renderer initialized");
@@ -119,12 +123,16 @@ impl App for Inox2dOpenglExampleApp {
 		renderer.clear();
 
 		let puppet = &mut self.model.puppet;
-		puppet.begin_set_params();
+		puppet.begin_frame();
 		let t = scene_ctrl.current_elapsed();
-		let _ = puppet.set_named_param("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
-		puppet.end_set_params(scene_ctrl.dt());
+		let _ = puppet
+			.param_ctx
+			.as_mut()
+			.unwrap()
+			.set("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
+		puppet.end_frame(scene_ctrl.dt());
 
-		renderer.render(puppet);
+		inox2d::render::draw(renderer, puppet);
 	}
 
 	fn handle_window_event(&mut self, event: WindowEvent, elwt: &EventLoopWindowTarget<()>) {

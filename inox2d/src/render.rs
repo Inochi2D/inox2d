@@ -2,8 +2,6 @@ mod vertex_buffers;
 
 use std::mem::swap;
 
-use glam::Mat4;
-
 use crate::model::Model;
 use crate::node::{
 	components::{
@@ -15,7 +13,7 @@ use crate::node::{
 };
 use crate::puppet::{InoxNodeTree, Puppet, World};
 
-use vertex_buffers::VertexBuffers;
+pub use vertex_buffers::VertexBuffers;
 
 /// Additional info per node for rendering a TexturedMesh:
 /// - offset and length of array for mesh point coordinates
@@ -220,17 +218,13 @@ pub trait InoxRenderer
 where
 	Self: Sized,
 {
+	type NewParams;
 	type Error;
 
 	/// Create a renderer for one model.
 	///
 	/// Ref impl: Upload textures.
-	fn new(model: &Model) -> Result<Self, Self::Error>;
-
-	/// Sets a quaternion that can translate, rotate and scale the whole puppet.
-	fn set_camera(&mut self, camera: &Mat4);
-	/// Returns the quaternion set by `.set_camera()`.
-	fn camera(&self) -> &Mat4;
+	fn new(params: Self::NewParams, model: &Model) -> Result<Self, Self::Error>;
 
 	/// Begin masking.
 	///
@@ -277,6 +271,13 @@ where
 		render_ctx: &CompositeRenderCtx,
 		id: InoxNodeUuid,
 	);
+
+	/// Things to do before one pass of drawing a puppet.
+	///
+	/// Ref impl: Upload deform buffer content.
+	fn on_begin_draw(&self, puppet: &Puppet);
+	/// Things to do after one pass of drawing a puppet.
+	fn on_end_draw(&self, puppet: &Puppet);
 }
 
 trait InoxRendererCommon {
@@ -370,5 +371,7 @@ impl<T: InoxRenderer> InoxRendererCommon for T {
 /// - The provided `InoxRender` implementation is wrong.
 /// - `puppet` here does not belong to the `model` this `renderer` is initialized with. This will likely result in panics for non-existent node uuids.
 pub fn draw<T: InoxRenderer>(renderer: &T, puppet: &Puppet) {
+	renderer.on_begin_draw(puppet);
 	renderer.draw(puppet);
+	renderer.on_end_draw(puppet);
 }
