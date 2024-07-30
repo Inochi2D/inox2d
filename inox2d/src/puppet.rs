@@ -109,7 +109,7 @@ impl Puppet {
 	/// Provide elapsed time for physics, if initialized, to run. Provide `0` for the first call.
 	pub fn end_frame(&mut self, _dt: f32) {
 		if let Some(param_ctx) = self.param_ctx.as_mut() {
-			// param_ctx.apply(&self.params, &mut self.node_comps);
+			param_ctx.apply(&self.params, &mut self.node_comps);
 		}
 
 		if let Some(transform_ctx) = self.transform_ctx.as_mut() {

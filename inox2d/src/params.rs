@@ -250,7 +250,10 @@ impl ParamCtx {
 	pub(crate) fn apply(&self, params: &HashMap<String, Param>, comps: &mut World) {
 		// a correct implementation should not care about the order of `.apply()`
 		for (param_name, val) in self.values.iter() {
-			params.get(param_name).unwrap().apply(*val, comps);
+			// TODO: a correct implementation should not fail on param value (0, 0)
+			if *val != Vec2::ZERO {
+				params.get(param_name).unwrap().apply(*val, comps);
+			}
 		}
 	}
 }
