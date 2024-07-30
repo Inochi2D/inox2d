@@ -30,19 +30,27 @@ impl TransformCtx {
 		let root_trans = root_trans_store.relative.to_matrix();
 		root_trans_store.absolute = root_trans;
 
+		let root_zsort = comps.get_mut::<ZSort>(nodes.root_node_id).unwrap().0;
+
 		// Pre-order traversal, just the order to ensure that parents are accessed earlier than children
 		// Skip the root
 		for node in nodes.pre_order_iter().skip(1) {
-			let base_trans = if node.lock_to_root {
-				root_trans
+			let base = if node.lock_to_root {
+				(root_trans, root_zsort)
 			} else {
 				let parent = nodes.get_parent(node.uuid);
-				comps.get_mut::<TransformStore>(parent.uuid).unwrap().absolute
+				(
+					comps.get_mut::<TransformStore>(parent.uuid).unwrap().absolute,
+					comps.get_mut::<ZSort>(parent.uuid).unwrap().0,
+				)
 			};
 
 			let node_trans_store = comps.get_mut::<TransformStore>(node.uuid).unwrap();
 			let node_trans = node_trans_store.relative.to_matrix();
-			node_trans_store.absolute = base_trans * node_trans;
+			node_trans_store.absolute = base.0 * node_trans;
+
+			let node_zsort = comps.get_mut::<ZSort>(node.uuid).unwrap();
+			node_zsort.0 += base.1;
 		}
 	}
 }

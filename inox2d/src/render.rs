@@ -50,11 +50,11 @@ impl RenderCtx {
 
 		let mut vertex_buffers = VertexBuffers::default();
 
-		let mut drawables_count: usize = 0;
+		let mut root_drawables_count: usize = 0;
 		for node in nodes.iter() {
 			let drawable_kind = DrawableKind::new(node.uuid, comps);
 			if let Some(drawable_kind) = drawable_kind {
-				drawables_count += 1;
+				root_drawables_count += 1;
 
 				match drawable_kind {
 					DrawableKind::TexturedMesh(components) => {
@@ -86,6 +86,9 @@ impl RenderCtx {
 							})
 							.collect();
 
+						// composite children are excluded from root_drawables_zsorted
+						root_drawables_count -= children_list.len();
+
 						comps.add(
 							node.uuid,
 							CompositeRenderCtx {
@@ -100,7 +103,7 @@ impl RenderCtx {
 
 		let mut root_drawables_zsorted = Vec::new();
 		// similarly, populate later, before render
-		root_drawables_zsorted.resize(drawables_count, InoxNodeUuid(0));
+		root_drawables_zsorted.resize(root_drawables_count, InoxNodeUuid(0));
 
 		Self {
 			vertex_buffers,
@@ -125,12 +128,18 @@ impl RenderCtx {
 	/// - deform buffer content
 	/// inside self, according to updated puppet.
 	pub(crate) fn update(&mut self, nodes: &InoxNodeTree, comps: &mut World) {
-		let mut drawable_uuid_zsort_vec = Vec::<(InoxNodeUuid, f32)>::new();
+		let mut root_drawable_uuid_zsort_vec = Vec::<(InoxNodeUuid, f32)>::new();
 
-		for node in nodes.iter() {
+		// root is definitely not a drawable.
+		for node in nodes.iter().skip(1) {
 			if let Some(drawable_kind) = DrawableKind::new(node.uuid, comps) {
-				let node_zsort = comps.get::<ZSort>(node.uuid).unwrap();
-				drawable_uuid_zsort_vec.push((node.uuid, node_zsort.0));
+				let parent = nodes.get_parent(node.uuid);
+				let node_zsort = comps.get::<ZSort>(node.uuid).unwrap().0;
+
+				if !matches!(DrawableKind::new(parent.uuid, comps), Some(DrawableKind::Composite(_))) {
+					// exclude composite children
+					root_drawable_uuid_zsort_vec.push((node.uuid, node_zsort));
+				}
 
 				match drawable_kind {
 					// for Composite, update zsorted children list
@@ -180,10 +189,10 @@ impl RenderCtx {
 			}
 		}
 
-		drawable_uuid_zsort_vec.sort_by(|a, b| a.1.total_cmp(&b.1).reverse());
+		root_drawable_uuid_zsort_vec.sort_by(|a, b| a.1.total_cmp(&b.1).reverse());
 		self.root_drawables_zsorted
 			.iter_mut()
-			.zip(drawable_uuid_zsort_vec.iter())
+			.zip(root_drawable_uuid_zsort_vec.iter())
 			.for_each(|(old, new)| *old = new.0);
 	}
 
