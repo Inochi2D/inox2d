@@ -9,7 +9,8 @@ use crate::math::transform::TransformOffset;
 use crate::node::components::{drawable::*, simple_physics::*, textured_mesh::*, *};
 use crate::node::{InoxNode, InoxNodeUuid};
 use crate::params::{AxisPoints, Binding, BindingValues, Param, ParamUuid};
-use crate::puppet::{meta::*, Puppet, PuppetPhysics};
+use crate::physics::PuppetPhysics;
+use crate::puppet::{meta::*, Puppet};
 use crate::texture::TextureId;
 
 use super::f32s_as_vec2s;

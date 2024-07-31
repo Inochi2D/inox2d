@@ -1,6 +1,10 @@
 use glam::Vec2;
 
 use crate::params::ParamUuid;
+use crate::physics::{
+	pendulum::{rigid::RigidPendulum, spring::SpringPendulum},
+	runge_kutta::PhysicsState,
+};
 
 /// If has this as a component, the node is capable of doing Inochi2D SimplePhysics simulations
 pub struct SimplePhysics {
@@ -47,4 +51,15 @@ impl Default for PhysicsProps {
 			output_scale: Vec2::ONE,
 		}
 	}
+}
+
+/// Physical states for simulating a rigid pendulum.
+pub(crate) struct RigidPendulumCtx {
+	pub bob: Vec2,
+	pub state: PhysicsState<2, RigidPendulum>,
+}
+
+/// Physical states for simulating a spring pendulum.
+pub(crate) struct SpringPendulumCtx {
+	pub state: PhysicsState<4, SpringPendulum>,
 }

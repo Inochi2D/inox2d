@@ -3,6 +3,7 @@ pub mod math;
 pub mod model;
 pub mod node;
 pub mod params;
+pub mod physics;
 pub mod puppet;
 pub mod render;
 pub mod texture;

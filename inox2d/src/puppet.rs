@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 use crate::node::{InoxNode, InoxNodeUuid};
 use crate::params::{Param, ParamCtx};
+use crate::physics::PuppetPhysics;
 use crate::render::RenderCtx;
 
 use meta::PuppetMeta;
@@ -120,10 +121,4 @@ impl Puppet {
 			render_ctx.update(&self.nodes, &mut self.node_comps);
 		}
 	}
-}
-
-/// Global physics parameters for the puppet.
-pub struct PuppetPhysics {
-	pub pixels_per_meter: f32,
-	pub gravity: f32,
 }

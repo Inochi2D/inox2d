@@ -1,32 +1,18 @@
-use crate::node::data::PhysicsProps;
-use crate::physics::runge_kutta::{self, IsPhysicsVars, PhysicsState};
-use crate::puppet::PuppetPhysics;
-use glam::{vec2, Vec2};
 use std::f32::consts::PI;
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default)]
-pub struct SpringPendulum {
+use glam::{vec2, Vec2};
+
+use crate::node::components::simple_physics::{PhysicsProps, SpringPendulumCtx};
+use crate::physics::{
+	pendulum::Pendulum,
+	runge_kutta::{IsPhysicsVars, PhysicsState},
+	PuppetPhysics, SimplePhysicsProps,
+};
+
+/// Variables for Runge-Kutta method.
+pub(crate) struct SpringPendulum {
 	pub bob_pos: Vec2,
 	pub bob_vel: Vec2,
-}
-
-impl PhysicsState<SpringPendulum> {
-	pub(crate) fn tick(
-		&mut self,
-		puppet_physics: PuppetPhysics,
-		props: &PhysicsProps,
-		bob: Vec2,
-		anchor: Vec2,
-		dt: f32,
-	) -> Vec2 {
-		self.vars.bob_pos = bob;
-
-		// Run the spring pendulum simulation
-		runge_kutta::tick(&eval, self, (puppet_physics, props), anchor, dt);
-
-		self.vars.bob_pos
-	}
 }
 
 impl IsPhysicsVars<4> for SpringPendulum {
@@ -39,10 +25,30 @@ impl IsPhysicsVars<4> for SpringPendulum {
 	}
 }
 
+impl Pendulum for SpringPendulumCtx {
+	fn get_bob(&self) -> Vec2 {
+		self.state.vars.bob_pos
+	}
+
+	fn set_bob(&mut self, bob: Vec2) {
+		self.state.vars.bob_pos = bob;
+	}
+
+	fn tick(&mut self, props: &SimplePhysicsProps, anchor: Vec2, t: f32, dt: f32) -> Vec2 {
+		// Run the spring pendulum simulation
+		self.state.tick(&eval, (props.0, &props.1.props), &anchor, t, dt);
+
+		self.state.vars.bob_pos
+	}
+}
+
+/// Acceleration of bob caused by both
+/// - gravity.
+/// - damped oscillation of the spring-bob system in the radial direction.
 fn eval(
-	state: &mut PhysicsState<SpringPendulum>,
-	&(puppet_physics, props): &(PuppetPhysics, &PhysicsProps),
-	anchor: Vec2,
+	state: &mut PhysicsState<4, SpringPendulum>,
+	&(puppet_physics, props): &(&PuppetPhysics, &PhysicsProps),
+	anchor: &Vec2,
 	_t: f32,
 ) {
 	state.derivatives.bob_pos = state.vars.bob_vel;
@@ -54,7 +60,7 @@ fn eval(
 	let g = props.gravity * puppet_physics.pixels_per_meter * puppet_physics.gravity;
 	let rest_length = props.length - g / spring_k;
 
-	let off_pos = state.vars.bob_pos - anchor;
+	let off_pos = state.vars.bob_pos - *anchor;
 	let off_pos_norm = off_pos.normalize();
 
 	let length_ratio = g / props.length;
