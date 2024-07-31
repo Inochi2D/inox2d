@@ -17,7 +17,7 @@ impl TransformCtx {
 	/// Reset all transform/zsort values to default.
 	pub fn reset(&mut self, nodes: &InoxNodeTree, comps: &mut World) {
 		for node in nodes.iter() {
-			comps.get_mut::<TransformStore>(node.uuid).unwrap().relative = node.trans_offset;
+			comps.get_mut::<TransformStore>(node.uuid).unwrap().relative = node.trans_offset.clone();
 			comps.get_mut::<ZSort>(node.uuid).unwrap().0 = node.zsort;
 		}
 	}

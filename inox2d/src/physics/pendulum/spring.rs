@@ -10,6 +10,7 @@ use crate::physics::{
 };
 
 /// Variables for Runge-Kutta method.
+#[derive(Default)]
 pub(crate) struct SpringPendulum {
 	pub bob_pos: Vec2,
 	pub bob_vel: Vec2,

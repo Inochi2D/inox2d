@@ -8,6 +8,7 @@ use crate::physics::{
 };
 
 /// Variables for Runge-Kutta method.
+#[derive(Default)]
 pub(crate) struct RigidPendulum {
 	pub θ: f32,
 	pub ω: f32,

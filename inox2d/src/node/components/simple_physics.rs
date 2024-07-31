@@ -7,6 +7,7 @@ use crate::physics::{
 };
 
 /// If has this as a component, the node is capable of doing Inochi2D SimplePhysics simulations
+#[derive(Clone)]
 pub struct SimplePhysics {
 	pub param: ParamUuid,
 	pub model_type: PhysicsModel,
@@ -16,16 +17,19 @@ pub struct SimplePhysics {
 	pub local_only: bool,
 }
 
+#[derive(Clone)]
 pub enum PhysicsModel {
 	RigidPendulum,
 	SpringPendulum,
 }
 
+#[derive(Clone)]
 pub enum ParamMapMode {
 	AngleLength,
 	XY,
 }
 
+#[derive(Clone)]
 pub struct PhysicsProps {
 	/// Gravity scale (1.0 = puppet gravity)
 	pub gravity: f32,
@@ -54,12 +58,14 @@ impl Default for PhysicsProps {
 }
 
 /// Physical states for simulating a rigid pendulum.
+#[derive(Default)]
 pub(crate) struct RigidPendulumCtx {
 	pub bob: Vec2,
 	pub state: PhysicsState<2, RigidPendulum>,
 }
 
 /// Physical states for simulating a spring pendulum.
+#[derive(Default)]
 pub(crate) struct SpringPendulumCtx {
 	pub state: PhysicsState<4, SpringPendulum>,
 }

@@ -1,7 +1,7 @@
 use glam::{EulerRot, Mat4, Quat, Vec2, Vec3};
 
 /// relative transform
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct TransformOffset {
 	/// X Y Z
 	pub translation: Vec3,

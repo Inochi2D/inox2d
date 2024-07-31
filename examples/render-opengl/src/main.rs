@@ -51,6 +51,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 	model.puppet.init_transforms();
 	model.puppet.init_rendering();
 	model.puppet.init_params();
+	model.puppet.init_physics();
 
 	tracing::info!("Setting up windowing and OpenGL");
 	let app_frame = AppFrame::init(
@@ -130,6 +131,8 @@ impl App for Inox2dOpenglExampleApp {
 			.as_mut()
 			.unwrap()
 			.set("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
+		// Actually, not providing 0 for the first frame will not create too big a problem.
+		// Just that physics simulation will run for the provided time, which may be big and causes a startup delay.
 		puppet.end_frame(scene_ctrl.dt());
 
 		inox2d::render::draw(renderer, puppet);

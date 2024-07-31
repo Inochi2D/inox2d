@@ -3,12 +3,13 @@ pub(crate) trait IsPhysicsVars<const N: usize> {
 	fn set_f32s(&mut self, f32s: [f32; N]);
 }
 
-pub(crate) struct PhysicsState<const N: usize, T: IsPhysicsVars<N>> {
+#[derive(Default)]
+pub(crate) struct PhysicsState<const N: usize, T: Default + IsPhysicsVars<N>> {
 	pub vars: T,
 	pub derivatives: T,
 }
 
-impl<const N: usize, T: IsPhysicsVars<N>> PhysicsState<N, T> {
+impl<const N: usize, T: Default + IsPhysicsVars<N>> PhysicsState<N, T> {
 	pub fn tick<P, A>(
 		&mut self,
 		eval: &impl Fn(&mut PhysicsState<N, T>, &P, &A, f32),
