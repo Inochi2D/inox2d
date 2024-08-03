@@ -1,13 +1,11 @@
+mod deform_stack;
 mod vertex_buffers;
 
 use std::mem::swap;
 
 use crate::model::Model;
 use crate::node::{
-	components::{
-		drawable::{Mask, Masks},
-		DeformStack, ZSort,
-	},
+	components::{DeformStack, Mask, Masks, ZSort},
 	drawables::{CompositeComponents, DrawableKind, TexturedMeshComponents},
 	InoxNodeUuid,
 };

@@ -6,7 +6,7 @@ use json::JsonValue;
 use crate::math::interp::InterpolateMode;
 use crate::math::matrix::{Matrix2d, Matrix2dFromSliceVecsError};
 use crate::math::transform::TransformOffset;
-use crate::node::components::{drawable::*, simple_physics::*, textured_mesh::*, *};
+use crate::node::components::*;
 use crate::node::{InoxNode, InoxNodeUuid};
 use crate::params::{AxisPoints, Binding, BindingValues, Param, ParamUuid};
 use crate::physics::PuppetPhysics;
@@ -156,8 +156,8 @@ fn deserialize_simple_physics(obj: JsonObject) -> InoxParseResult<SimplePhysics>
 			a => todo!("{}", a),
 		},
 		map_mode: match obj.get_str("map_mode")? {
-			"AngleLength" => ParamMapMode::AngleLength,
-			"XY" => ParamMapMode::XY,
+			"AngleLength" => PhysicsParamMapMode::AngleLength,
+			"XY" => PhysicsParamMapMode::XY,
 			unknown => return Err(InoxParseError::UnknownParamMapMode(unknown.to_owned())),
 		},
 

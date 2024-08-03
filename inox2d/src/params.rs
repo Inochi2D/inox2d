@@ -8,7 +8,7 @@ use crate::math::{
 	matrix::Matrix2d,
 };
 use crate::node::{
-	components::{deform_stack::DeformSource, DeformStack, TexturedMesh, TransformStore, ZSort},
+	components::{DeformSource, DeformStack, TexturedMesh, TransformStore, ZSort},
 	InoxNodeUuid,
 };
 use crate::puppet::{Puppet, World};

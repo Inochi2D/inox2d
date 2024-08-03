@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 
 use glam::{Vec2, Vec4};
 
-use crate::node::components::{simple_physics::ParamMapMode, TransformStore};
+use crate::node::components::{PhysicsParamMapMode, TransformStore};
 
 use super::{SimplePhysicsCtx, SimplePhysicsProps};
 
@@ -56,13 +56,13 @@ impl<T: Pendulum> SimplePhysicsCtx for T {
 		let relative_length = bob.distance(anchor) / props.1.props.length;
 
 		let param_value = match props.1.map_mode {
-			ParamMapMode::XY => {
+			PhysicsParamMapMode::XY => {
 				let local_pos_norm = local_angle * relative_length;
 				let mut result = local_pos_norm - Vec2::Y;
 				result.y = -result.y; // Y goes up for params
 				result
 			}
-			ParamMapMode::AngleLength => {
+			PhysicsParamMapMode::AngleLength => {
 				let a = f32::atan2(-local_angle.x, local_angle.y) / PI;
 				Vec2::new(a, relative_length)
 			}

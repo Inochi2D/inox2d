@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use glam::{vec2, Vec2};
 
-use crate::node::components::simple_physics::{PhysicsProps, SpringPendulumCtx};
+use crate::node::components::{PhysicsProps, SpringPendulumCtx};
 use crate::physics::{
 	pendulum::Pendulum,
 	runge_kutta::{IsPhysicsVars, PhysicsState},

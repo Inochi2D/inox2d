@@ -5,10 +5,7 @@ use std::collections::HashMap;
 
 use glam::Vec2;
 
-use crate::node::components::{
-	simple_physics::{PhysicsModel, RigidPendulumCtx, SpringPendulumCtx},
-	SimplePhysics, TransformStore,
-};
+use crate::node::components::{PhysicsModel, RigidPendulumCtx, SimplePhysics, SpringPendulumCtx, TransformStore};
 use crate::params::ParamUuid;
 use crate::puppet::{InoxNodeTree, Puppet, World};
 

@@ -4,29 +4,8 @@ use std::mem::swap;
 use glam::Vec2;
 
 use crate::math::deform::{linear_combine, Deform};
-use crate::node::InoxNodeUuid;
-use crate::params::ParamUuid;
+use crate::node::components::{DeformSource, DeformStack};
 use crate::puppet::{InoxNodeTree, World};
-
-/// Source of a deform.
-#[derive(Hash, PartialEq, Eq, Copy, Clone)]
-#[allow(unused)]
-pub(crate) enum DeformSource {
-	Param(ParamUuid),
-	Node(InoxNodeUuid),
-}
-
-/// Storing deforms specified by multiple sources to apply on one node for one frame.
-///
-/// Despite the name (this is respecting the ref impl), this is not in any way a stack.
-/// The order of deforms being applied, or more generally speaking, the way multiple deforms adds up to be a single one, needs to be defined according to the spec.
-pub(crate) struct DeformStack {
-	/// this is a component so cannot use generics for the length.
-	deform_len: usize,
-	/// map of (src, (enabled, Deform)).
-	/// On reset, only set enabled to false instead of clearing the map, as deforms from same sources tend to come in every frame.
-	stack: HashMap<DeformSource, (bool, Deform)>,
-}
 
 impl DeformStack {
 	pub(crate) fn new(deform_len: usize) -> Self {

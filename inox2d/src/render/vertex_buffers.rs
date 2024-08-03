@@ -3,7 +3,7 @@ use std::slice::from_raw_parts;
 
 use glam::{vec2, Vec2};
 
-use crate::node::components::textured_mesh::Mesh;
+use crate::node::components::Mesh;
 
 pub struct VertexBuffers {
 	pub verts: Vec<Vec2>,

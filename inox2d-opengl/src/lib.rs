@@ -13,10 +13,7 @@ use glow::HasContext;
 use inox2d::math::camera::Camera;
 use inox2d::model::Model;
 use inox2d::node::{
-	components::{
-		drawable::{BlendMode, Mask, MaskMode, Masks},
-		TexturedMesh,
-	},
+	components::{BlendMode, Mask, MaskMode, Masks, TexturedMesh},
 	drawables::{CompositeComponents, TexturedMeshComponents},
 	InoxNodeUuid,
 };
