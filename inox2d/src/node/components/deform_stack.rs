@@ -10,7 +10,8 @@ use crate::puppet::{InoxNodeTree, World};
 
 /// Source of a deform.
 #[derive(Hash, PartialEq, Eq, Copy, Clone)]
-pub(crate) enum DeformSrc {
+#[allow(unused)]
+pub(crate) enum DeformSource {
 	Param(ParamUuid),
 	Node(InoxNodeUuid),
 }
@@ -24,7 +25,7 @@ pub(crate) struct DeformStack {
 	deform_len: usize,
 	/// map of (src, (enabled, Deform)).
 	/// On reset, only set enabled to false instead of clearing the map, as deforms from same sources tend to come in every frame.
-	stack: HashMap<DeformSrc, (bool, Deform)>,
+	stack: HashMap<DeformSource, (bool, Deform)>,
 }
 
 impl DeformStack {
@@ -60,7 +61,7 @@ impl DeformStack {
 	}
 
 	/// Submit a deform from a source for a node.
-	pub(crate) fn push(&mut self, src: DeformSrc, mut deform: Deform) {
+	pub(crate) fn push(&mut self, src: DeformSource, mut deform: Deform) {
 		let Deform::Direct(ref direct_deform) = deform;
 		if direct_deform.len() != self.deform_len {
 			panic!("A direct deform with non-matching dimensions is submitted to a node.");

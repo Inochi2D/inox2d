@@ -8,7 +8,7 @@ use crate::math::{
 	matrix::Matrix2d,
 };
 use crate::node::{
-	components::{deform_stack::DeformSrc, DeformStack, TexturedMesh, TransformStore, ZSort},
+	components::{deform_stack::DeformSource, DeformStack, TexturedMesh, TransformStore, ZSort},
 	InoxNodeUuid,
 };
 use crate::puppet::{Puppet, World};
@@ -210,7 +210,7 @@ impl Param {
 					comps
 						.get_mut::<DeformStack>(binding.node)
 						.expect("Nodes being deformed must have a DeformStack component.")
-						.push(DeformSrc::Param(self.uuid), Deform::Direct(direct_deform));
+						.push(DeformSource::Param(self.uuid), Deform::Direct(direct_deform));
 				}
 			}
 		}
