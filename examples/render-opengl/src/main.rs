@@ -3,7 +3,6 @@ use std::{error::Error, fs};
 
 use inox2d::formats::inp::parse_inp;
 use inox2d::model::Model;
-use inox2d::render::InoxRenderer;
 use inox2d_opengl::OpenglRenderer;
 
 use clap::Parser;

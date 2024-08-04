@@ -3,7 +3,6 @@ mod vertex_buffers;
 
 use std::mem::swap;
 
-use crate::model::Model;
 use crate::node::{
 	components::{DeformStack, Mask, Masks, ZSort},
 	drawables::{CompositeComponents, DrawableKind, TexturedMeshComponents},
@@ -204,18 +203,7 @@ impl RenderCtx {
 /// - The renderer may be a debug/just-for-fun renderer intercepting draw calls for other purposes.
 ///
 /// Either way, the point is Inox2D will implement a `draw()` method for any `impl InoxRenderer`, dispatching calls based on puppet structure according to Inochi2D standard.
-pub trait InoxRenderer
-where
-	Self: Sized,
-{
-	type NewParams;
-	type Error;
-
-	/// Create a renderer for one model.
-	///
-	/// Ref impl: Upload textures.
-	fn new(params: Self::NewParams, model: &Model) -> Result<Self, Self::Error>;
-
+pub trait InoxRenderer {
 	/// Begin masking.
 	///
 	/// Ref impl: Clear and start writing to the stencil buffer, lock the color buffer.

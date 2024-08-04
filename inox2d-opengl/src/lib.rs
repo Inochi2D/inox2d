@@ -318,13 +318,12 @@ impl OpenglRenderer {
 			self.gl.clear(glow::COLOR_BUFFER_BIT);
 		}
 	}
-}
 
-impl InoxRenderer for OpenglRenderer {
-	type NewParams = glow::Context;
-	type Error = OpenglRendererError;
-
-	fn new(gl: Self::NewParams, model: &Model) -> Result<Self, Self::Error> {
+	/// Given a Model, create an OpenglRenderer:
+	/// - Setup buffers and shaders.
+	/// - Decode textures.
+	/// - Upload static buffer data and textures.
+	pub fn new(gl: glow::Context, model: &Model) -> Result<Self, OpenglRendererError> {
 		// Initialize framebuffers
 		let composite_framebuffer;
 		let cf_albedo;
@@ -401,7 +400,9 @@ impl InoxRenderer for OpenglRenderer {
 
 		Ok(renderer)
 	}
+}
 
+impl InoxRenderer for OpenglRenderer {
 	fn on_begin_masks(&self, masks: &Masks) {
 		let gl = &self.gl;
 
