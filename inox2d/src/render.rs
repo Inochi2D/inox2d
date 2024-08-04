@@ -249,16 +249,9 @@ pub trait InoxRenderer {
 		render_ctx: &CompositeRenderCtx,
 		id: InoxNodeUuid,
 	);
-
-	/// Things to do before one pass of drawing a puppet.
-	///
-	/// Ref impl: Upload deform buffer content.
-	fn on_begin_draw(&self, puppet: &Puppet);
-	/// Things to do after one pass of drawing a puppet.
-	fn on_end_draw(&self, puppet: &Puppet);
 }
 
-trait InoxRendererCommon {
+pub trait InoxRendererExt {
 	/// Draw a Drawable, which is potentially masked.
 	fn draw_drawable(&self, as_mask: bool, comps: &World, id: InoxNodeUuid);
 
@@ -272,7 +265,7 @@ trait InoxRendererCommon {
 	fn draw(&self, puppet: &Puppet);
 }
 
-impl<T: InoxRenderer> InoxRendererCommon for T {
+impl<T: InoxRenderer> InoxRendererExt for T {
 	fn draw_drawable(&self, as_mask: bool, comps: &World, id: InoxNodeUuid) {
 		let drawable_kind = DrawableKind::new(id, comps).expect("Node must be a Drawable.");
 		let masks = match drawable_kind {
@@ -327,6 +320,15 @@ impl<T: InoxRenderer> InoxRendererCommon for T {
 		self.finish_composite_content(as_mask, components, render_ctx, id);
 	}
 
+	/// Dispatches draw calls for all nodes of `puppet`
+	/// - with provided renderer implementation,
+	/// - in Inochi2D standard defined order.
+	///
+	/// This does not guarantee the display of a puppet on screen due to these possible reasons:
+	/// - Only provided `InoxRenderer` method implementations are called.
+	/// For example, maybe the caller still need to transfer content from a texture buffer to the screen surface buffer.
+	/// - The provided `InoxRender` implementation is wrong.
+	/// - `puppet` here does not belong to the `model` this `renderer` is initialized with. This will likely result in panics for non-existent node uuids.
 	fn draw(&self, puppet: &Puppet) {
 		for uuid in &puppet
 			.render_ctx
@@ -337,19 +339,4 @@ impl<T: InoxRenderer> InoxRendererCommon for T {
 			self.draw_drawable(false, &puppet.node_comps, *uuid);
 		}
 	}
-}
-
-/// Dispatches draw calls for all nodes of `puppet`
-/// - with provided renderer implementation,
-/// - in Inochi2D standard defined order.
-///
-/// This does not guarantee the display of a puppet on screen due to these possible reasons:
-/// - Only provided `InoxRenderer` method implementations are called.
-/// For example, maybe the caller still need to transfer content from a texture buffer to the screen surface buffer.
-/// - The provided `InoxRender` implementation is wrong.
-/// - `puppet` here does not belong to the `model` this `renderer` is initialized with. This will likely result in panics for non-existent node uuids.
-pub fn draw<T: InoxRenderer>(renderer: &T, puppet: &Puppet) {
-	renderer.on_begin_draw(puppet);
-	renderer.draw(puppet);
-	renderer.on_end_draw(puppet);
 }

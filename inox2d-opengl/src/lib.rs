@@ -588,8 +588,11 @@ impl InoxRenderer for OpenglRenderer {
 			gl.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
 		}
 	}
+}
 
-	fn on_begin_draw(&self, puppet: &Puppet) {
+impl OpenglRenderer {
+	/// Update the renderer with latest puppet data.
+	pub fn on_begin_draw(&self, puppet: &Puppet) {
 		let gl = &self.gl;
 
 		// TODO: calculate this matrix only once per draw pass.
@@ -612,7 +615,8 @@ impl InoxRenderer for OpenglRenderer {
 		}
 	}
 
-	fn on_end_draw(&self, _puppet: &Puppet) {
+	/// Renderer cleaning up after one frame.
+	pub fn on_end_draw(&self, _puppet: &Puppet) {
 		let gl = &self.gl;
 
 		unsafe {

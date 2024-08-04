@@ -3,6 +3,7 @@ use std::{error::Error, fs};
 
 use inox2d::formats::inp::parse_inp;
 use inox2d::model::Model;
+use inox2d::render::InoxRendererExt;
 use inox2d_opengl::OpenglRenderer;
 
 use clap::Parser;
@@ -134,7 +135,9 @@ impl App for Inox2dOpenglExampleApp {
 		// Just that physics simulation will run for the provided time, which may be big and causes a startup delay.
 		puppet.end_frame(scene_ctrl.dt());
 
-		inox2d::render::draw(renderer, puppet);
+		renderer.on_begin_draw(puppet);
+		renderer.draw(puppet);
+		renderer.on_end_draw(puppet);
 	}
 
 	fn handle_window_event(&mut self, event: WindowEvent, elwt: &EventLoopWindowTarget<()>) {
