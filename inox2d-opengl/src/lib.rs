@@ -356,10 +356,10 @@ impl InoxRenderer for OpenglRenderer {
 		let vao = unsafe {
 			setup_gl_buffers(
 				&gl,
-				inox_buffers.get_raw_verts(),
-				inox_buffers.get_raw_uvs(),
-				inox_buffers.get_raw_deforms(),
-				inox_buffers.get_raw_indices(),
+				inox_buffers.vertex_buffers.verts.as_slice(),
+				inox_buffers.vertex_buffers.uvs.as_slice(),
+				inox_buffers.vertex_buffers.deforms.as_slice(),
+				inox_buffers.vertex_buffers.indices.as_slice(),
 			)
 		}?;
 
@@ -604,7 +604,9 @@ impl InoxRenderer for OpenglRenderer {
 					.render_ctx
 					.as_ref()
 					.expect("Rendering for a puppet must be initialized by now.")
-					.get_raw_deforms(),
+					.vertex_buffers
+					.deforms
+					.as_slice(),
 			);
 			gl.enable(glow::BLEND);
 			gl.disable(glow::DEPTH_TEST);

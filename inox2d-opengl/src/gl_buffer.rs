@@ -1,3 +1,4 @@
+use glam::Vec2;
 use glow::HasContext;
 
 use super::OpenglRendererError;
@@ -14,15 +15,11 @@ unsafe fn upload_array_to_gl<T>(gl: &glow::Context, array: &[T], target: u32, us
 /// # Errors
 ///
 /// This function will return an error if it couldn't create a vertex array.
-///
-/// # Safety
-///
-/// No prerequisites.
 pub unsafe fn setup_gl_buffers(
 	gl: &glow::Context,
-	verts: &[f32],
-	uvs: &[f32],
-	deforms: &[f32],
+	verts: &[Vec2],
+	uvs: &[Vec2],
+	deforms: &[Vec2],
 	indices: &[u16],
 ) -> Result<glow::VertexArray, OpenglRendererError> {
 	let vao = gl.create_vertex_array().map_err(OpenglRendererError::Opengl)?;
@@ -51,8 +48,8 @@ pub unsafe fn setup_gl_buffers(
 /// # Safety
 ///
 /// The vertex array object created in `setup_gl_buffers()` must be bound and no new ARRAY_BUFFER is enabled.
-pub unsafe fn upload_deforms_to_gl(gl: &glow::Context, deforms: &[f32]) {
+pub unsafe fn upload_deforms_to_gl(gl: &glow::Context, deforms: &[Vec2]) {
 	// if the above preconditions are met, deform is then the currently bound ARRAY_BUFFER.
-	let bytes: &[u8] = core::slice::from_raw_parts(deforms.as_ptr() as *const u8, core::mem::size_of_val(deforms));
+	let bytes: &[u8] = core::slice::from_raw_parts(deforms.as_ptr() as *const u8, std::mem::size_of_val(deforms));
 	gl.buffer_sub_data_u8_slice(glow::ARRAY_BUFFER, 0, bytes);
 }

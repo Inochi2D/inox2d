@@ -1,6 +1,3 @@
-use std::mem::transmute;
-use std::slice::from_raw_parts;
-
 use glam::{vec2, Vec2};
 
 use crate::node::components::Mesh;
@@ -63,11 +60,5 @@ impl VertexBuffers {
 			.resize(self.deforms.len() + mesh.vertices.len(), Vec2::ZERO);
 
 		(index_offset, vert_offset)
-	}
-
-	pub fn vec_vec2_as_vec_f32(vector: &[Vec2]) -> &[f32] {
-		let data_ptr = vector.as_ptr();
-		// Safety: data of Vec<Vec2> is aligned to 64 and densely packed with f32
-		unsafe { from_raw_parts(transmute::<*const Vec2, *const f32>(data_ptr), vector.len() * 2) }
 	}
 }

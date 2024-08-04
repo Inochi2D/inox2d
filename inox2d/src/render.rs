@@ -33,7 +33,7 @@ pub struct CompositeRenderCtx {
 /// Additional struct attached to a puppet for rendering.
 pub struct RenderCtx {
 	/// General compact data buffers for interfacing with the GPU.
-	vertex_buffers: VertexBuffers,
+	pub vertex_buffers: VertexBuffers,
 	/// All nodes that need respective draw method calls:
 	/// - including standalone parts and composite parents,
 	/// - excluding (TODO: plain mesh masks) and composite children.
@@ -192,23 +192,6 @@ impl RenderCtx {
 			.iter_mut()
 			.zip(root_drawable_uuid_zsort_vec.iter())
 			.for_each(|(old, new)| *old = new.0);
-	}
-
-	/// Memory layout: `[[x, y], [x, y], ...]`
-	pub fn get_raw_verts(&self) -> &[f32] {
-		VertexBuffers::vec_vec2_as_vec_f32(&self.vertex_buffers.verts)
-	}
-	/// Memory layout: `[[x, y], [x, y], ...]`
-	pub fn get_raw_uvs(&self) -> &[f32] {
-		VertexBuffers::vec_vec2_as_vec_f32(&self.vertex_buffers.uvs)
-	}
-	/// Memory layout: `[[i0, i1, i2], [i0, i1, i2], ...]`
-	pub fn get_raw_indices(&self) -> &[u16] {
-		self.vertex_buffers.indices.as_slice()
-	}
-	/// Memory layout: `[[dx, dy], [dx, dy], ...]`
-	pub fn get_raw_deforms(&self) -> &[f32] {
-		VertexBuffers::vec_vec2_as_vec_f32(&self.vertex_buffers.deforms)
 	}
 }
 
