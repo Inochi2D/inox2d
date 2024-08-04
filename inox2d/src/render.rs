@@ -1,6 +1,7 @@
 mod deform_stack;
 mod vertex_buffers;
 
+use std::collections::HashSet;
 use std::mem::swap;
 
 use crate::node::{
@@ -8,6 +9,7 @@ use crate::node::{
 	drawables::{CompositeComponents, DrawableKind, TexturedMeshComponents},
 	InoxNodeUuid,
 };
+use crate::params::BindingValues;
 use crate::puppet::{InoxNodeTree, Puppet, World};
 
 pub use vertex_buffers::VertexBuffers;
@@ -45,6 +47,16 @@ impl RenderCtx {
 		let nodes = &puppet.nodes;
 		let comps = &mut puppet.node_comps;
 
+		let mut nodes_to_deform = HashSet::new();
+		for param in &puppet.params {
+			param.1.bindings.iter().for_each(|b| {
+				if matches!(b.values, BindingValues::Deform(_)) {
+					nodes_to_deform.insert(b.node);
+				}
+			});
+		}
+		// TODO: Further fill the set when Meshgroup is implemented.
+
 		let mut vertex_buffers = VertexBuffers::default();
 
 		let mut root_drawables_count: usize = 0;
@@ -68,7 +80,11 @@ impl RenderCtx {
 								vert_len,
 							},
 						);
-						comps.add(node.uuid, DeformStack::new(vert_len));
+
+						// TexturedMesh not deformed by any source does not need a DeformStack
+						if nodes_to_deform.contains(&node.uuid) {
+							comps.add(node.uuid, DeformStack::new(vert_len));
+						}
 					}
 					DrawableKind::Composite { .. } => {
 						// exclude non-drawable children
@@ -111,10 +127,7 @@ impl RenderCtx {
 	/// Reset all `DeformStack`.
 	pub(crate) fn reset(&mut self, nodes: &InoxNodeTree, comps: &mut World) {
 		for node in nodes.iter() {
-			if let Some(DrawableKind::TexturedMesh(..)) = DrawableKind::new(node.uuid, comps, false) {
-				let deform_stack = comps
-					.get_mut::<DeformStack>(node.uuid)
-					.expect("A TexturedMesh must have an associated DeformStack.");
+			if let Some(deform_stack) = comps.get_mut::<DeformStack>(node.uuid) {
 				deform_stack.reset();
 			}
 		}
@@ -172,18 +185,17 @@ impl RenderCtx {
 					}
 					// for TexturedMesh, obtain and write deforms into vertex_buffer
 					DrawableKind::TexturedMesh(..) => {
-						let render_ctx = comps.get::<TexturedMeshRenderCtx>(node.uuid).unwrap();
-						let vert_offset = render_ctx.vert_offset as usize;
-						let vert_len = render_ctx.vert_len;
-						let deform_stack = comps
-							.get::<DeformStack>(node.uuid)
-							.expect("A TexturedMesh must have an associated DeformStack.");
-
-						deform_stack.combine(
-							nodes,
-							comps,
-							&mut self.vertex_buffers.deforms[vert_offset..(vert_offset + vert_len)],
-						);
+						// A TexturedMesh not having an associated DeformStack means it will not be deformed at all, skip.
+						if let Some(deform_stack) = comps.get::<DeformStack>(node.uuid) {
+							let render_ctx = comps.get::<TexturedMeshRenderCtx>(node.uuid).unwrap();
+							let vert_offset = render_ctx.vert_offset as usize;
+							let vert_len = render_ctx.vert_len;
+							deform_stack.combine(
+								nodes,
+								comps,
+								&mut self.vertex_buffers.deforms[vert_offset..(vert_offset + vert_len)],
+							);
+						}
 					}
 				}
 			}
