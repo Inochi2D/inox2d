@@ -353,15 +353,13 @@ impl InoxRenderer for OpenglRenderer {
 			.render_ctx
 			.as_ref()
 			.expect("Rendering for a puppet must be initialized before creating a renderer.");
-		let vao = unsafe {
-			setup_gl_buffers(
-				&gl,
-				inox_buffers.vertex_buffers.verts.as_slice(),
-				inox_buffers.vertex_buffers.uvs.as_slice(),
-				inox_buffers.vertex_buffers.deforms.as_slice(),
-				inox_buffers.vertex_buffers.indices.as_slice(),
-			)
-		}?;
+		let vao = setup_gl_buffers(
+			&gl,
+			inox_buffers.vertex_buffers.verts.as_slice(),
+			inox_buffers.vertex_buffers.uvs.as_slice(),
+			inox_buffers.vertex_buffers.deforms.as_slice(),
+			inox_buffers.vertex_buffers.indices.as_slice(),
+		)?;
 
 		// decode textures in parallel
 		let shalltexs = decode_model_textures(model.textures.iter());
