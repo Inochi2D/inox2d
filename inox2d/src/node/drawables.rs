@@ -33,10 +33,11 @@ pub struct CompositeComponents<'comps> {
 }
 
 impl<'comps> DrawableKind<'comps> {
-	/// Tries to construct a renderable node data pack from the World of components:
-	/// - `None` if node not renderable.
-	/// - Panicks if component combinations invalid.
-	pub(crate) fn new(id: InoxNodeUuid, comps: &'comps World) -> Option<Self> {
+	/// Tries to construct a renderable node data pack from the World of components.
+	/// `None` if node not renderable.
+	///
+	/// If `check`, will send a warning to `tracing` if component combination non-standard for a supposed-to-be Drawable node.
+	pub(crate) fn new(id: InoxNodeUuid, comps: &'comps World, check: bool) -> Option<Self> {
 		let drawable = match comps.get::<Drawable>(id) {
 			Some(drawable) => drawable,
 			None => return None,
@@ -49,8 +50,28 @@ impl<'comps> DrawableKind<'comps> {
 		let composite = comps.get::<Composite>(id);
 
 		match (textured_mesh.is_some(), composite.is_some()) {
-			(true, true) => panic!("The drawable has both TexturedMesh and Composite."),
-			(false, false) => panic!("The drawable has neither TexturedMesh nor Composite."),
+			(true, true) => {
+				if check {
+					tracing::warn!(
+						"Node {} as a Drawable has both TexturedMesh and Composite, treat as TexturedMesh.",
+						id.0
+					);
+				}
+				Some(DrawableKind::TexturedMesh(TexturedMeshComponents {
+					transform,
+					drawable,
+					data: textured_mesh.unwrap(),
+				}))
+			}
+			(false, false) => {
+				if check {
+					tracing::warn!(
+						"Node {} as a Drawable has neither TexturedMesh nor Composite, skipping.",
+						id.0
+					);
+				}
+				None
+			}
 			(true, false) => Some(DrawableKind::TexturedMesh(TexturedMeshComponents {
 				transform,
 				drawable,

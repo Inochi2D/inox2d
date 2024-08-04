@@ -49,7 +49,7 @@ impl RenderCtx {
 
 		let mut root_drawables_count: usize = 0;
 		for node in nodes.iter() {
-			let drawable_kind = DrawableKind::new(node.uuid, comps);
+			let drawable_kind = DrawableKind::new(node.uuid, comps, true);
 			if let Some(drawable_kind) = drawable_kind {
 				root_drawables_count += 1;
 
@@ -75,7 +75,7 @@ impl RenderCtx {
 						let children_list: Vec<InoxNodeUuid> = nodes
 							.get_children(node.uuid)
 							.filter_map(|n| {
-								if DrawableKind::new(n.uuid, comps).is_some() {
+								if DrawableKind::new(n.uuid, comps, false).is_some() {
 									Some(n.uuid)
 								} else {
 									None
@@ -111,7 +111,7 @@ impl RenderCtx {
 	/// Reset all `DeformStack`.
 	pub(crate) fn reset(&mut self, nodes: &InoxNodeTree, comps: &mut World) {
 		for node in nodes.iter() {
-			if let Some(DrawableKind::TexturedMesh(..)) = DrawableKind::new(node.uuid, comps) {
+			if let Some(DrawableKind::TexturedMesh(..)) = DrawableKind::new(node.uuid, comps, false) {
 				let deform_stack = comps
 					.get_mut::<DeformStack>(node.uuid)
 					.expect("A TexturedMesh must have an associated DeformStack.");
@@ -129,11 +129,14 @@ impl RenderCtx {
 
 		// root is definitely not a drawable.
 		for node in nodes.iter().skip(1) {
-			if let Some(drawable_kind) = DrawableKind::new(node.uuid, comps) {
+			if let Some(drawable_kind) = DrawableKind::new(node.uuid, comps, false) {
 				let parent = nodes.get_parent(node.uuid);
 				let node_zsort = comps.get::<ZSort>(node.uuid).unwrap().0;
 
-				if !matches!(DrawableKind::new(parent.uuid, comps), Some(DrawableKind::Composite(_))) {
+				if !matches!(
+					DrawableKind::new(parent.uuid, comps, false),
+					Some(DrawableKind::Composite(_))
+				) {
 					// exclude composite children
 					root_drawable_uuid_zsort_vec.push((node.uuid, node_zsort));
 				}
@@ -267,7 +270,7 @@ pub trait InoxRendererExt {
 
 impl<T: InoxRenderer> InoxRendererExt for T {
 	fn draw_drawable(&self, as_mask: bool, comps: &World, id: InoxNodeUuid) {
-		let drawable_kind = DrawableKind::new(id, comps).expect("Node must be a Drawable.");
+		let drawable_kind = DrawableKind::new(id, comps, false).expect("Node must be a Drawable.");
 		let masks = match drawable_kind {
 			DrawableKind::TexturedMesh(ref components) => &components.drawable.masks,
 			DrawableKind::Composite(ref components) => &components.drawable.masks,
@@ -307,8 +310,8 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 		self.begin_composite_content(as_mask, components, render_ctx, id);
 
 		for uuid in &render_ctx.zsorted_children_list {
-			let drawable_kind =
-				DrawableKind::new(*uuid, comps).expect("All children in zsorted_children_list should be a Drawable.");
+			let drawable_kind = DrawableKind::new(*uuid, comps, false)
+				.expect("All children in zsorted_children_list should be a Drawable.");
 			match drawable_kind {
 				DrawableKind::TexturedMesh(components) => {
 					self.draw_textured_mesh_content(as_mask, &components, comps.get(*uuid).unwrap(), *uuid)
