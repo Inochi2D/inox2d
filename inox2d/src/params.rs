@@ -8,7 +8,7 @@ use crate::math::{
 	matrix::Matrix2d,
 };
 use crate::node::{
-	components::{DeformSource, DeformStack, TexturedMesh, TransformStore, ZSort},
+	components::{DeformSource, DeformStack, Mesh, TransformStore, ZSort},
 	InoxNodeUuid,
 };
 use crate::puppet::{Puppet, World};
@@ -186,9 +186,11 @@ impl Param {
 
 					// deform specified by a parameter must be direct, i.e., in the form of displacements of all vertices
 					let direct_deform = {
-						let textured_mesh = comps.get::<TexturedMesh>(binding.node);
-						if let Some(textured_mesh) = textured_mesh {
-							let vert_len = textured_mesh.mesh.vertices.len();
+						let mesh = comps
+							.get::<Mesh>(binding.node)
+							.expect("Deform param target must have an associated Mesh.");
+
+						let vert_len = mesh.vertices.len();
 							let mut direct_deform: Vec<Vec2> = Vec::with_capacity(vert_len);
 							direct_deform.resize(vert_len, Vec2::ZERO);
 
@@ -202,9 +204,6 @@ impl Param {
 							);
 
 							direct_deform
-						} else {
-							todo!("Deform on node types other than Part.")
-						}
 					};
 
 					comps

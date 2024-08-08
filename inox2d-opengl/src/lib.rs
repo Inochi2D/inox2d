@@ -474,7 +474,7 @@ impl InoxRenderer for OpenglRenderer {
 		glDisableVertexAttribArray(0);
 		*/
 
-		self.bind_part_textures(components.data);
+		self.bind_part_textures(components.texture);
 		self.set_blend_mode(components.drawable.blending.mode);
 
 		let mvp = self.camera.matrix(self.viewport.as_vec2()) * *components.transform;

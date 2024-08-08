@@ -67,9 +67,8 @@ impl RenderCtx {
 
 				match drawable_kind {
 					DrawableKind::TexturedMesh(components) => {
-						let (index_offset, vert_offset) = vertex_buffers.push(&components.data.mesh);
-						let (index_len, vert_len) =
-							(components.data.mesh.indices.len(), components.data.mesh.vertices.len());
+						let (index_offset, vert_offset) = vertex_buffers.push(components.mesh);
+						let (index_len, vert_len) = (components.mesh.indices.len(), components.mesh.vertices.len());
 
 						comps.add(
 							node.uuid,

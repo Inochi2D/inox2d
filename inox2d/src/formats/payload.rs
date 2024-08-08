@@ -139,7 +139,6 @@ fn deserialize_textured_mesh(obj: JsonObject) -> InoxParseResult<TexturedMesh> {
 	};
 
 	Ok(TexturedMesh {
-		mesh: vals("mesh", deserialize_mesh(obj.get_object("mesh")?))?,
 		tex_albedo,
 		tex_emissive,
 		tex_bumpmap,
@@ -324,6 +323,8 @@ impl Puppet {
 			"Part" => {
 				self.node_comps.add(id, deserialize_drawable(data)?);
 				self.node_comps.add(id, deserialize_textured_mesh(data)?);
+				self.node_comps
+					.add(id, vals("mesh", deserialize_mesh(data.get_object("mesh")?))?)
 			}
 			"Composite" => {
 				self.node_comps.add(id, deserialize_drawable(data)?);

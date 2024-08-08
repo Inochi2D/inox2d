@@ -1,7 +1,7 @@
 /*!
 Inochi2D node types to Inox2D components:
 - Node -> (Nothing)
-- Part -> Drawable + TexturedMesh
+- Part -> Drawable + TexturedMesh + Mesh
 - Composite -> Drawable + Composite
 - SimplePhysics -> SimplePhysics
 - Custom nodes by inheritance -> Custom nodes by composition
@@ -177,12 +177,14 @@ pub(crate) struct SpringPendulumCtx {
 
 /// If has this as a component, the node should render a deformed texture
 pub struct TexturedMesh {
-	pub mesh: Mesh,
 	pub tex_albedo: TextureId,
 	pub tex_emissive: TextureId,
 	pub tex_bumpmap: TextureId,
 }
 
+/* --- MESH --- */
+
+/// A deformable mesh, deforming either textures (TexturedMesh nodes), or children (MeshGroup nodes)
 pub struct Mesh {
 	/// Vertices in the mesh.
 	pub vertices: Vec<Vec2>,

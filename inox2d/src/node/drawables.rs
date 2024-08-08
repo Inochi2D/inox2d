@@ -1,7 +1,7 @@
 use glam::Mat4;
 
 use crate::node::{
-	components::{Composite, Drawable, TexturedMesh, TransformStore},
+	components::{Composite, Drawable, Mesh, TexturedMesh, TransformStore},
 	InoxNodeUuid,
 };
 use crate::puppet::World;
@@ -21,7 +21,8 @@ pub struct TexturedMeshComponents<'comps> {
 	// Only the absolute part of `TransformStore` that the renderer backend may need.
 	pub transform: &'comps Mat4,
 	pub drawable: &'comps Drawable,
-	pub data: &'comps TexturedMesh,
+	pub texture: &'comps TexturedMesh,
+	pub mesh: &'comps Mesh,
 }
 
 /// Pack of components for a Composite node.
@@ -60,7 +61,10 @@ impl<'comps> DrawableKind<'comps> {
 				Some(DrawableKind::TexturedMesh(TexturedMeshComponents {
 					transform,
 					drawable,
-					data: textured_mesh.unwrap(),
+					texture: textured_mesh.unwrap(),
+					mesh: comps
+						.get::<Mesh>(id)
+						.expect("A TexturedMesh must have an associated Mesh."),
 				}))
 			}
 			(false, false) => {
@@ -75,7 +79,10 @@ impl<'comps> DrawableKind<'comps> {
 			(true, false) => Some(DrawableKind::TexturedMesh(TexturedMeshComponents {
 				transform,
 				drawable,
-				data: textured_mesh.unwrap(),
+				texture: textured_mesh.unwrap(),
+				mesh: comps
+					.get::<Mesh>(id)
+					.expect("A TexturedMesh must have an associated Mesh."),
 			})),
 			(false, true) => Some(DrawableKind::Composite(CompositeComponents {
 				transform,
