@@ -134,6 +134,88 @@ pub struct OpenglRenderer {
 }
 
 impl OpenglRenderer {
+	/// Given a Model, create an OpenglRenderer:
+	/// - Setup buffers and shaders.
+	/// - Decode textures.
+	/// - Upload static buffer data and textures.
+	pub fn new(gl: glow::Context, model: &Model) -> Result<Self, OpenglRendererError> {
+		// Initialize framebuffers
+		let composite_framebuffer;
+		let cf_albedo;
+		let cf_emissive;
+		let cf_bump;
+		let cf_stencil;
+		unsafe {
+			cf_albedo = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
+			cf_emissive = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
+			cf_bump = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
+			cf_stencil = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
+
+			composite_framebuffer = gl.create_framebuffer().map_err(OpenglRendererError::Opengl)?;
+		}
+
+		// Shaders
+		let part_shader = PartShader::new(&gl)?;
+		let part_mask_shader = PartMaskShader::new(&gl)?;
+		let composite_shader = CompositeShader::new(&gl)?;
+		let composite_mask_shader = CompositeMaskShader::new(&gl)?;
+
+		let support_debug_extension = gl.supported_extensions().contains("GL_KHR_debug");
+
+		let inox_buffers = model
+			.puppet
+			.render_ctx
+			.as_ref()
+			.expect("Rendering for a puppet must be initialized before creating a renderer.");
+		let vao = setup_gl_buffers(
+			&gl,
+			inox_buffers.vertex_buffers.verts.as_slice(),
+			inox_buffers.vertex_buffers.uvs.as_slice(),
+			inox_buffers.vertex_buffers.deforms.as_slice(),
+			inox_buffers.vertex_buffers.indices.as_slice(),
+		)?;
+
+		// decode textures in parallel
+		let shalltexs = decode_model_textures(model.textures.iter());
+		let textures = shalltexs
+			.iter()
+			.enumerate()
+			.map(|e| {
+				tracing::debug!("Uploading shallow texture {:?}", e.0);
+				texture::Texture::from_shallow_texture(&gl, e.1).map_err(|e| OpenglRendererError::Opengl(e.to_string()))
+			})
+			.collect::<Result<Vec<_>, _>>()?;
+
+		let renderer = Self {
+			gl,
+			support_debug_extension,
+			camera: Camera::default(),
+			viewport: UVec2::default(),
+			cache: RefCell::new(GlCache::default()),
+
+			vao,
+
+			composite_framebuffer,
+			cf_albedo,
+			cf_emissive,
+			cf_bump,
+			cf_stencil,
+
+			part_shader,
+			part_mask_shader,
+			composite_shader,
+			composite_mask_shader,
+
+			textures,
+		};
+
+		// Set emission strength once (it doesn't change anywhere else)
+		renderer.bind_shader(&renderer.part_shader);
+		renderer.part_shader.set_emission_strength(&renderer.gl, 1.);
+
+		Ok(renderer)
+	}
+
 	/// Pushes an OpenGL debug group.
 	/// This is very useful to debug OpenGL calls per node with `apitrace`, as it will nest calls inside of labels,
 	/// making it trivial to know which calls correspond to which nodes.
@@ -317,88 +399,6 @@ impl OpenglRenderer {
 		unsafe {
 			self.gl.clear(glow::COLOR_BUFFER_BIT);
 		}
-	}
-
-	/// Given a Model, create an OpenglRenderer:
-	/// - Setup buffers and shaders.
-	/// - Decode textures.
-	/// - Upload static buffer data and textures.
-	pub fn new(gl: glow::Context, model: &Model) -> Result<Self, OpenglRendererError> {
-		// Initialize framebuffers
-		let composite_framebuffer;
-		let cf_albedo;
-		let cf_emissive;
-		let cf_bump;
-		let cf_stencil;
-		unsafe {
-			cf_albedo = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
-			cf_emissive = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
-			cf_bump = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
-			cf_stencil = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
-
-			composite_framebuffer = gl.create_framebuffer().map_err(OpenglRendererError::Opengl)?;
-		}
-
-		// Shaders
-		let part_shader = PartShader::new(&gl)?;
-		let part_mask_shader = PartMaskShader::new(&gl)?;
-		let composite_shader = CompositeShader::new(&gl)?;
-		let composite_mask_shader = CompositeMaskShader::new(&gl)?;
-
-		let support_debug_extension = gl.supported_extensions().contains("GL_KHR_debug");
-
-		let inox_buffers = model
-			.puppet
-			.render_ctx
-			.as_ref()
-			.expect("Rendering for a puppet must be initialized before creating a renderer.");
-		let vao = setup_gl_buffers(
-			&gl,
-			inox_buffers.vertex_buffers.verts.as_slice(),
-			inox_buffers.vertex_buffers.uvs.as_slice(),
-			inox_buffers.vertex_buffers.deforms.as_slice(),
-			inox_buffers.vertex_buffers.indices.as_slice(),
-		)?;
-
-		// decode textures in parallel
-		let shalltexs = decode_model_textures(model.textures.iter());
-		let textures = shalltexs
-			.iter()
-			.enumerate()
-			.map(|e| {
-				tracing::debug!("Uploading shallow texture {:?}", e.0);
-				texture::Texture::from_shallow_texture(&gl, e.1).map_err(|e| OpenglRendererError::Opengl(e.to_string()))
-			})
-			.collect::<Result<Vec<_>, _>>()?;
-
-		let renderer = Self {
-			gl,
-			support_debug_extension,
-			camera: Camera::default(),
-			viewport: UVec2::default(),
-			cache: RefCell::new(GlCache::default()),
-
-			vao,
-
-			composite_framebuffer,
-			cf_albedo,
-			cf_emissive,
-			cf_bump,
-			cf_stencil,
-
-			part_shader,
-			part_mask_shader,
-			composite_shader,
-			composite_mask_shader,
-
-			textures,
-		};
-
-		// Set emission strength once (it doesn't change anywhere else)
-		renderer.bind_shader(&renderer.part_shader);
-		renderer.part_shader.set_emission_strength(&renderer.gl, 1.);
-
-		Ok(renderer)
 	}
 }
 
