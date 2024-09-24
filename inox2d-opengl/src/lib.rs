@@ -40,7 +40,6 @@ struct GlCache {
 	pub viewport: Option<UVec2>,
 	pub blend_mode: Option<BlendMode>,
 	pub program: Option<glow::Program>,
-	pub vao: Option<glow::VertexArray>,
 	pub albedo: Option<TextureId>,
 }
 
@@ -92,14 +91,6 @@ impl GlCache {
 	pub fn update_program(&mut self, program: glow::Program) -> bool {
 		if let Some(prev_program) = self.program.replace(program) {
 			prev_program != program
-		} else {
-			true
-		}
-	}
-
-	pub fn update_vao(&mut self, vao: glow::VertexArray) -> bool {
-		if let Some(prev_vao) = self.vao.replace(vao) {
-			prev_vao != vao
 		} else {
 			true
 		}
@@ -577,8 +568,6 @@ impl InoxRenderer for OpenglRenderer {
 			todo!()
 		} else {
 			unsafe {
-				gl.bind_vertex_array(Some(self.vao));
-
 				gl.active_texture(glow::TEXTURE0);
 				gl.bind_texture(glow::TEXTURE_2D, Some(self.cf_albedo));
 				gl.active_texture(glow::TEXTURE1);
