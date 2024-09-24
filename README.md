@@ -34,7 +34,7 @@ This repository is purely for developers and is not useful if you're an end user
 
 Both INP and INX files get parsed correctly.
 
-Both renderers (OpenGL, WGPU) now work on all models we could test them on (Aka, Midori, Arch-chan).
+The OpenGL renderer works on all models we could test them on (Aka, Midori, Arch-chan).
 The newer models which use the MeshGroup feature don't work yet though.
 
 Support for mesh groups and animations is on the way!
@@ -47,8 +47,6 @@ Support for mesh groups and animations is on the way!
 - [x] Rendering
   - [x] OpenGL
     - [x] WASM (WebGL)
-  - [x] WGPU
-    - [ ] WASM (WebGL)
   - [ ] Draw List
 - [x] Parameters
   - [x] Deforms (mesh vertex offsets)
@@ -79,16 +77,6 @@ cargo run -p render-opengl path/to/puppet.inp
 See the [`render_webgl`](/examples/render_webgl) example.
 
 ![WebGL-rendered Aka](https://fs.speykious.dev/inox2d/inox2d-webgl-foxgirl.png)
-
-### WGPU renderer
-
-```sh
-cargo run -p render-wgpu path/to/puppet.inp
-```
-
-![WGPU-rendered Arch-chan](https://fs.speykious.dev/inox2d/inox2d-wgpu-arch-chan.png)
-
-&nbsp;
 
 ## Implementation
 
