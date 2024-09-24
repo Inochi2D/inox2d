@@ -132,10 +132,7 @@ impl RenderCtx {
 		}
 	}
 
-	/// Update
-	/// - zsort-ordered info
-	/// - deform buffer content
-	/// inside self, according to updated puppet.
+	/// Update zsort-ordered info and deform buffer content inside self, according to updated puppet.
 	pub(crate) fn update(&mut self, nodes: &InoxNodeTree, comps: &mut World) {
 		let mut root_drawable_uuid_zsort_vec = Vec::<(InoxNodeUuid, f32)>::new();
 
@@ -340,6 +337,7 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 	///
 	/// This does not guarantee the display of a puppet on screen due to these possible reasons:
 	/// - Only provided `InoxRenderer` method implementations are called.
+	/// 
 	/// For example, maybe the caller still need to transfer content from a texture buffer to the screen surface buffer.
 	/// - The provided `InoxRender` implementation is wrong.
 	/// - `puppet` here does not belong to the `model` this `renderer` is initialized with. This will likely result in panics for non-existent node uuids.
