@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-glam = "0.25.0"
+glam = "0.29.0"
 inox2d = { path = "../../inox2d" }
 tracing = "0.1.40"
 winit = "0.29"

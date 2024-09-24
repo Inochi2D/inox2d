@@ -10,8 +10,8 @@ keywords = ["gamedev", "graphics", "inochi2d", "vtuber"]
 categories = ["graphics", "rendering"]
 
 [dependencies]
-glam = "0.25.0"
-image = { version = "0.24.7", default-features = false, features = [
+glam = "0.29.0"
+image = { version = "0.25.2", default-features = false, features = [
 	"png",
 	"jpeg",
 ] }
