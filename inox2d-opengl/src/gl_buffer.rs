@@ -12,7 +12,7 @@ use super::OpenglRendererError;
 /// # Safety
 ///
 /// `target` and `usage` must be valid OpenGL constants.
-unsafe fn upload_array_to_gl<T>(
+pub unsafe fn upload_array_to_gl<T>(
 	gl: &glow::Context,
 	array: &[T],
 	target: u32,
@@ -29,48 +29,14 @@ unsafe fn upload_array_to_gl<T>(
 	Ok(buffer)
 }
 
-/// Create a vertex array. Initialize vertex, uv, deform and index buffers, upload content and attach them to the vertex array. Return the array.
-///
-/// # Errors
-///
-/// This function will return an error if it couldn't create a vertex array.
-pub fn setup_gl_buffers(
-	gl: &glow::Context,
-	verts: &[Vec2],
-	uvs: &[Vec2],
-	deforms: &[Vec2],
-	indices: &[u16],
-) -> Result<glow::VertexArray, OpenglRendererError> {
-	unsafe {
-		let vao = gl.create_vertex_array().map_err(OpenglRendererError::Opengl)?;
-		gl.bind_vertex_array(Some(vao));
-
-		upload_array_to_gl(gl, verts, glow::ARRAY_BUFFER, glow::STATIC_DRAW)?;
-		gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, 0, 0);
-		gl.enable_vertex_attrib_array(0);
-
-		upload_array_to_gl(gl, uvs, glow::ARRAY_BUFFER, glow::STATIC_DRAW)?;
-		gl.vertex_attrib_pointer_f32(1, 2, glow::FLOAT, false, 0, 0);
-		gl.enable_vertex_attrib_array(1);
-
-		upload_array_to_gl(gl, deforms, glow::ARRAY_BUFFER, glow::DYNAMIC_DRAW)?;
-		gl.vertex_attrib_pointer_f32(2, 2, glow::FLOAT, false, 0, 0);
-		gl.enable_vertex_attrib_array(2);
-
-		upload_array_to_gl(gl, indices, glow::ELEMENT_ARRAY_BUFFER, glow::STATIC_DRAW)?;
-
-		gl.bind_vertex_array(None);
-
-		Ok(vao)
-	}
-}
-
 /// Upload full deform buffer content.
 ///
 /// # Safety
 ///
 /// The vertex array object created in `setup_gl_buffers()` must be bound and no new ARRAY_BUFFER is enabled.
-pub unsafe fn upload_deforms_to_gl(gl: &glow::Context, deforms: &[Vec2]) {
+pub unsafe fn upload_deforms_to_gl(gl: &glow::Context, deforms: &[Vec2], buffer: glow::Buffer) {
+	gl.bind_buffer(glow::ARRAY_BUFFER, Some(buffer));
+
 	// Safety: same as those described in upload_array_to_gl().
 	let bytes: &[u8] = core::slice::from_raw_parts(deforms.as_ptr() as *const u8, std::mem::size_of_val(deforms));
 	// if the above preconditions are met, deform is then the currently bound ARRAY_BUFFER.

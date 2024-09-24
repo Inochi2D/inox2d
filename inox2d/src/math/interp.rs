@@ -61,10 +61,10 @@ fn interpolate_nearest(t: f32, range_in: InterpRange<f32>, range_out: InterpRang
 fn interpolate_linear(t: f32, range_in: InterpRange<f32>, range_out: InterpRange<f32>) -> f32 {
 	debug_assert!(
 		range_in.beg <= t && t <= range_in.end,
-		"{} <= {} <= {}",
-		range_in.beg,
+		"{} is out of input range [{}, {}]",
 		t,
-		range_in.end
+		range_in.beg,
+		range_in.end,
 	);
 
 	(t - range_in.beg) * (range_out.end - range_out.beg) / (range_in.end - range_in.beg) + range_out.beg
@@ -203,7 +203,7 @@ mod tests {
 			0.0
 		);
 		assert_eq!(
-			interpolate_linear(0.0, InterpRange::new(0.5, 0.0), InterpRange::new(-5.0, 5.0)),
+			interpolate_linear(0.0, InterpRange::new(-0.5, 0.0), InterpRange::new(-5.0, 5.0)),
 			5.0
 		);
 	}
