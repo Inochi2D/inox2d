@@ -411,6 +411,8 @@ impl OpenglRenderer {
 
 impl InoxRenderer for OpenglRenderer {
 	fn on_begin_masks(&self, masks: &Masks) {
+		self.push_debug_group("inox2d - begin masks");
+
 		let gl = &self.gl;
 
 		unsafe {
@@ -426,9 +428,13 @@ impl InoxRenderer for OpenglRenderer {
 		let part_mask_shader = &self.part_mask_shader;
 		self.bind_shader(part_mask_shader);
 		part_mask_shader.set_threshold(gl, masks.threshold.clamp(0.0, 1.0));
+
+		self.pop_debug_group();
 	}
 
 	fn on_begin_mask(&self, mask: &Mask) {
+		self.push_debug_group("inox2d - begin mask");
+
 		let gl = &self.gl;
 		unsafe {
 			gl.stencil_func(glow::ALWAYS, (mask.mode == MaskMode::Mask) as i32, 0xff);
@@ -436,6 +442,8 @@ impl InoxRenderer for OpenglRenderer {
 	}
 
 	fn on_begin_masked_content(&self) {
+		self.push_debug_group("inox2d - begin masked content");
+
 		let gl = &self.gl;
 		unsafe {
 			gl.stencil_func(glow::EQUAL, 1, 0xff);
@@ -443,6 +451,8 @@ impl InoxRenderer for OpenglRenderer {
 
 			gl.color_mask(true, true, true, true);
 		}
+
+		self.pop_debug_group();
 	}
 
 	fn on_end_mask(&self) {
@@ -452,6 +462,8 @@ impl InoxRenderer for OpenglRenderer {
 			gl.stencil_func(glow::ALWAYS, 1, 0xff);
 			gl.disable(glow::STENCIL_TEST);
 		}
+		
+		self.pop_debug_group();
 	}
 
 	fn draw_textured_mesh_content(
@@ -461,6 +473,8 @@ impl InoxRenderer for OpenglRenderer {
 		render_ctx: &TexturedMeshRenderCtx,
 		_id: InoxNodeUuid,
 	) {
+		self.push_debug_group("inox2d - draw textured content");
+
 		let gl = &self.gl;
 
 		// TODO: plain masks, meshes as masks without textures
@@ -514,6 +528,8 @@ impl InoxRenderer for OpenglRenderer {
 				render_ctx.index_offset as i32 * mem::size_of::<u16>() as i32,
 			);
 		}
+
+		self.pop_debug_group();
 	}
 
 	fn begin_composite_content(
@@ -523,6 +539,8 @@ impl InoxRenderer for OpenglRenderer {
 		_render_ctx: &CompositeRenderCtx,
 		_id: InoxNodeUuid,
 	) {
+		self.push_debug_group("inox2d - begin composite content");
+
 		self.clear_texture_cache();
 
 		let gl = &self.gl;
@@ -541,6 +559,10 @@ impl InoxRenderer for OpenglRenderer {
 			gl.active_texture(glow::TEXTURE0);
 			gl.blend_func(glow::ONE, glow::ONE_MINUS_SRC_ALPHA);
 		}
+
+		self.pop_debug_group();
+
+		self.push_debug_group("inox2d - composite content");
 	}
 
 	fn finish_composite_content(
@@ -550,6 +572,10 @@ impl InoxRenderer for OpenglRenderer {
 		_render_ctx: &CompositeRenderCtx,
 		_id: InoxNodeUuid,
 	) {
+		self.pop_debug_group();
+
+		self.push_debug_group("inox2d - finish composite content");
+
 		let gl = &self.gl;
 
 		self.clear_texture_cache();
@@ -592,12 +618,16 @@ impl InoxRenderer for OpenglRenderer {
 		unsafe {
 			gl.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
 		}
+
+		self.pop_debug_group();
 	}
 }
 
 impl OpenglRenderer {
 	/// Update the renderer with latest puppet data.
 	pub fn on_begin_draw(&self, puppet: &Puppet) {
+		self.push_debug_group("inox2d - begin draw");
+
 		let gl = &self.gl;
 
 		// TODO: calculate this matrix only once per draw pass.
@@ -619,14 +649,23 @@ impl OpenglRenderer {
 			gl.enable(glow::BLEND);
 			gl.disable(glow::DEPTH_TEST);
 		}
+
+		self.pop_debug_group();
+
+		self.push_debug_group("inox2d - draw");
 	}
 
 	/// Renderer cleaning up after one frame.
 	pub fn on_end_draw(&self, _puppet: &Puppet) {
-		let gl = &self.gl;
+		self.pop_debug_group();
 
+		self.push_debug_group("inox2d - end draw");
+		
+		let gl = &self.gl;
 		unsafe {
 			gl.bind_vertex_array(None);
 		}
+		
+		self.pop_debug_group();
 	}
 }
