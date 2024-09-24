@@ -21,7 +21,6 @@ jobs:
       matrix:
         renderer:
           - OpenGL
-          - WGPU
         config:
           - { name: Linux (x86),   os: ubuntu-latest,  target: "x86_64-unknown-linux-gnu" }
           - { name: Linux (ARM),   os: ubuntu-latest,  target: "aarch64-unknown-linux-gnu" }
@@ -55,14 +54,6 @@ jobs:
       - name: Build Example (OpenGL)
         if: matrix.renderer == 'OpenGL'
         run: cargo build -p render-opengl --all-targets --target=${{ matrix.config.target }}
-
-      - name: Build Inox2D (WGPU)
-        if: matrix.renderer == 'WGPU'
-        run: cargo build -p inox2d-wgpu --all-targets --target=${{ matrix.config.target }}
-
-      - name: Build Example (WGPU)
-        if: matrix.renderer == 'WGPU'
-        run: cargo build -p render-wgpu --all-targets --target=${{ matrix.config.target }}
 
   build-webgl:
     name: Build WebGL Example
