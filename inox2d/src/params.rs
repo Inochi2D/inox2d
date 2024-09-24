@@ -1,13 +1,19 @@
+use std::collections::HashMap;
+
 use glam::{vec2, Vec2};
 
-use crate::math::interp::{bi_interpolate_f32, bi_interpolate_vec2s_additive, InterpRange, InterpolateMode};
-use crate::math::matrix::Matrix2d;
-use crate::node::InoxNodeUuid;
-use crate::puppet::Puppet;
-use crate::render::{NodeRenderCtxs, PartRenderCtx, RenderCtxKind};
+use crate::math::{
+	deform::Deform,
+	interp::{bi_interpolate_f32, bi_interpolate_vec2s_additive, InterpRange, InterpolateMode},
+	matrix::Matrix2d,
+};
+use crate::node::{
+	components::{DeformSource, DeformStack, Mesh, TransformStore, ZSort},
+	InoxNodeUuid,
+};
+use crate::puppet::{Puppet, World};
 
 /// Parameter binding to a node. This allows to animate a node based on the value of the parameter that owns it.
-#[derive(Debug, Clone)]
 pub struct Binding {
 	pub node: InoxNodeUuid,
 	pub is_set: Matrix2d<bool>,
@@ -50,7 +56,6 @@ fn ranges_out(
 pub struct ParamUuid(pub u32);
 
 /// Parameter. A simple bounded value that is used to animate nodes through bindings.
-#[derive(Debug, Clone)]
 pub struct Param {
 	pub uuid: ParamUuid,
 	pub name: String,
@@ -63,7 +68,12 @@ pub struct Param {
 }
 
 impl Param {
-	pub fn apply(&self, val: Vec2, node_render_ctxs: &mut NodeRenderCtxs, deform_buf: &mut [Vec2]) {
+	/// Internal function that modifies puppet components according to one param set.
+	/// Must be only called ONCE per frame to ensure correct behavior.
+	///
+	/// End users may repeatedly apply a same parameter for multiple times in between frames,
+	/// but other facilities should be present to make sure this `apply()` is only called once per parameter.
+	pub(crate) fn apply(&self, val: Vec2, comps: &mut World) {
 		let val = val.clamp(self.min, self.max);
 		let val_normed = (val - self.min) / (self.max - self.min);
 
@@ -96,8 +106,6 @@ impl Param {
 
 		// Apply offset on each binding
 		for binding in &self.bindings {
-			let node_offsets = node_render_ctxs.get_mut(&binding.node).unwrap();
-
 			let range_in = InterpRange::new(
 				vec2(self.axis_points.x[x_mindex], self.axis_points.y[y_mindex]),
 				vec2(self.axis_points.x[x_maxdex], self.axis_points.y[y_maxdex]),
@@ -106,51 +114,73 @@ impl Param {
 			let val_normed = val_normed.clamp(range_in.beg, range_in.end);
 
 			match binding.values {
-				BindingValues::ZSort(_) => {
-					// Seems complicated to do currently...
-					// Do nothing for now
+				BindingValues::ZSort(ref matrix) => {
+					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
+
+					comps.get_mut::<ZSort>(binding.node).unwrap().0 +=
+						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformTX(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					node_offsets.trans_offset.translation.x +=
-						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					comps
+						.get_mut::<TransformStore>(binding.node)
+						.unwrap()
+						.relative
+						.translation
+						.x += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformTY(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					node_offsets.trans_offset.translation.y +=
-						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					comps
+						.get_mut::<TransformStore>(binding.node)
+						.unwrap()
+						.relative
+						.translation
+						.y += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformSX(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					node_offsets.trans_offset.scale.x *=
+					comps.get_mut::<TransformStore>(binding.node).unwrap().relative.scale.x *=
 						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformSY(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					node_offsets.trans_offset.scale.y *=
+					comps.get_mut::<TransformStore>(binding.node).unwrap().relative.scale.y *=
 						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformRX(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					node_offsets.trans_offset.rotation.x +=
-						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					comps
+						.get_mut::<TransformStore>(binding.node)
+						.unwrap()
+						.relative
+						.rotation
+						.x += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformRY(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					node_offsets.trans_offset.rotation.y +=
-						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					comps
+						.get_mut::<TransformStore>(binding.node)
+						.unwrap()
+						.relative
+						.rotation
+						.y += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformRZ(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					node_offsets.trans_offset.rotation.z +=
-						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					comps
+						.get_mut::<TransformStore>(binding.node)
+						.unwrap()
+						.relative
+						.rotation
+						.z += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::Deform(ref matrix) => {
 					let out_top = InterpRange::new(
@@ -162,92 +192,82 @@ impl Param {
 						matrix[(x_maxdex, y_maxdex)].as_slice(),
 					);
 
-					if let RenderCtxKind::Part(PartRenderCtx {
-						vert_offset, vert_len, ..
-					}) = node_offsets.kind
-					{
-						let def_beg = vert_offset as usize;
-						let def_end = def_beg + vert_len;
+					// deform specified by a parameter must be direct, i.e., in the form of displacements of all vertices
+					let direct_deform = {
+						let mesh = comps
+							.get::<Mesh>(binding.node)
+							.expect("Deform param target must have an associated Mesh.");
 
-						bi_interpolate_vec2s_additive(
-							val_normed,
-							range_in,
-							out_top,
-							out_bottom,
-							binding.interpolate_mode,
-							&mut deform_buf[def_beg..def_end],
-						);
-					}
+						let vert_len = mesh.vertices.len();
+							let mut direct_deform: Vec<Vec2> = Vec::with_capacity(vert_len);
+							direct_deform.resize(vert_len, Vec2::ZERO);
+
+							bi_interpolate_vec2s_additive(
+								val_normed,
+								range_in,
+								out_top,
+								out_bottom,
+								binding.interpolate_mode,
+								&mut direct_deform,
+							);
+
+							direct_deform
+					};
+
+					comps
+						.get_mut::<DeformStack>(binding.node)
+						.expect("Nodes being deformed must have a DeformStack component.")
+						.push(DeformSource::Param(self.uuid), Deform::Direct(direct_deform));
 				}
 			}
 		}
 	}
 }
 
-impl Puppet {
-	pub fn get_param(&self, uuid: ParamUuid) -> Option<&Param> {
-		self.params.get(&uuid)
-	}
+/// Additional struct attached to a puppet for animating through params.
+pub struct ParamCtx {
+	values: HashMap<String, Vec2>,
+}
 
-	pub fn get_param_mut(&mut self, uuid: ParamUuid) -> Option<&mut Param> {
-		self.params.get_mut(&uuid)
-	}
-
-	pub fn get_named_param(&self, name: &str) -> Option<&Param> {
-		self.params.get(self.param_names.get(name)?)
-	}
-
-	pub fn get_named_param_mut(&mut self, name: &str) -> Option<&mut Param> {
-		self.params.get_mut(self.param_names.get(name)?)
-	}
-
-	pub fn begin_set_params(&mut self) {
-		// Reset all transform and deform offsets before applying bindings
-		for (key, value) in self.render_ctx.node_render_ctxs.iter_mut() {
-			value.trans_offset = self.nodes.get_node(*key).expect("node to be in tree").trans_offset;
-		}
-
-		for v in self.render_ctx.vertex_buffers.deforms.iter_mut() {
-			*v = Vec2::ZERO;
+impl ParamCtx {
+	pub(crate) fn new(puppet: &Puppet) -> Self {
+		Self {
+			values: puppet.params.iter().map(|p| (p.0.to_owned(), p.1.defaults)).collect(),
 		}
 	}
 
-	pub fn end_set_params(&mut self, dt: f32) {
-		// TODO: find better places for these two update calls and pass elapsed time in
-		self.update_physics(dt, self.physics);
-		self.update_trans();
+	/// Reset all params to default value.
+	pub(crate) fn reset(&mut self, params: &HashMap<String, Param>) {
+		for (name, value) in self.values.iter_mut() {
+			*value = params.get(name).unwrap().defaults;
+		}
+	}
+
+	/// Set param with name to value `val`.
+	pub fn set(&mut self, param_name: &str, val: Vec2) -> Result<(), SetParamError> {
+		if let Some(value) = self.values.get_mut(param_name) {
+			*value = val;
+			Ok(())
+		} else {
+			Err(SetParamError::NoParameterNamed(param_name.to_string()))
+		}
+	}
+
+	/// Modify components as specified by all params. Must be called ONCE per frame.
+	pub(crate) fn apply(&self, params: &HashMap<String, Param>, comps: &mut World) {
+		// a correct implementation should not care about the order of `.apply()`
+		for (param_name, val) in self.values.iter() {
+			// TODO: a correct implementation should not fail on param value (0, 0)
+			if *val != Vec2::ZERO {
+				params.get(param_name).unwrap().apply(*val, comps);
+			}
+		}
 	}
 }
 
+/// Possible errors setting a param.
 #[derive(Debug, thiserror::Error)]
 pub enum SetParamError {
 	#[error("No parameter named {0}")]
 	NoParameterNamed(String),
-
-	#[error("No parameter with uuid {0:?}")]
-	NoParameterWithUuid(ParamUuid),
-}
-
-impl Puppet {
-	pub fn set_named_param(&mut self, param_name: &str, val: Vec2) -> Result<(), SetParamError> {
-		let Some(param_uuid) = self.param_names.get(param_name) else {
-			return Err(SetParamError::NoParameterNamed(param_name.to_string()));
-		};
-
-		self.set_param(*param_uuid, val)
-	}
-
-	pub fn set_param(&mut self, param_uuid: ParamUuid, val: Vec2) -> Result<(), SetParamError> {
-		let Some(param) = self.params.get_mut(&param_uuid) else {
-			return Err(SetParamError::NoParameterWithUuid(param_uuid));
-		};
-
-		param.apply(
-			val,
-			&mut self.render_ctx.node_render_ctxs,
-			self.render_ctx.vertex_buffers.deforms.as_mut_slice(),
-		);
-
-		Ok(())
-	}
 }

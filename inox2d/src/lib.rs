@@ -1,6 +1,5 @@
 pub mod formats;
 pub mod math;
-pub mod mesh;
 pub mod model;
 pub mod node;
 pub mod params;

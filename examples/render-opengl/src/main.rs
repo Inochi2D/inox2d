@@ -3,7 +3,7 @@ use std::{error::Error, fs};
 
 use inox2d::formats::inp::parse_inp;
 use inox2d::model::Model;
-use inox2d::render::InoxRenderer;
+use inox2d::render::InoxRendererExt;
 use inox2d_opengl::OpenglRenderer;
 
 use clap::Parser;
@@ -41,11 +41,17 @@ fn main() -> Result<(), Box<dyn Error>> {
 	tracing::info!("Parsing puppet");
 
 	let data = fs::read(cli.inp_path)?;
-	let model = parse_inp(data.as_slice())?;
+	let mut model = parse_inp(data.as_slice())?;
 	tracing::info!(
 		"Successfully parsed puppet: {}",
 		(model.puppet.meta.name.as_deref()).unwrap_or("<no puppet name specified in file>")
 	);
+
+	tracing::info!("Setting up puppet for transforms, params and rendering.");
+	model.puppet.init_transforms();
+	model.puppet.init_rendering();
+	model.puppet.init_params();
+	model.puppet.init_physics();
 
 	tracing::info!("Setting up windowing and OpenGL");
 	let app_frame = AppFrame::init(
@@ -81,10 +87,9 @@ impl Inox2dOpenglExampleApp {
 
 impl App for Inox2dOpenglExampleApp {
 	fn resume_window(&mut self, gl: glow::Context) {
-		match OpenglRenderer::new(gl) {
+		match OpenglRenderer::new(gl, &self.model) {
 			Ok(mut renderer) => {
 				tracing::info!("Initializing Inox2D renderer");
-				renderer.prepare(&self.model).unwrap();
 				renderer.resize(self.width, self.height);
 				renderer.camera.scale = Vec2::splat(0.15);
 				tracing::info!("Inox2D renderer initialized");
@@ -119,12 +124,20 @@ impl App for Inox2dOpenglExampleApp {
 		renderer.clear();
 
 		let puppet = &mut self.model.puppet;
-		puppet.begin_set_params();
+		puppet.begin_frame();
 		let t = scene_ctrl.current_elapsed();
-		let _ = puppet.set_named_param("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
-		puppet.end_set_params(scene_ctrl.dt());
+		let _ = puppet
+			.param_ctx
+			.as_mut()
+			.unwrap()
+			.set("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
+		// Actually, not providing 0 for the first frame will not create too big a problem.
+		// Just that physics simulation will run for the provided time, which may be big and causes a startup delay.
+		puppet.end_frame(scene_ctrl.dt());
 
-		renderer.render(puppet);
+		renderer.on_begin_draw(puppet);
+		renderer.draw(puppet);
+		renderer.on_end_draw(puppet);
 	}
 
 	fn handle_window_event(&mut self, event: WindowEvent, elwt: &EventLoopWindowTarget<()>) {

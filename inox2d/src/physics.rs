@@ -1,106 +1,138 @@
 pub mod pendulum;
 pub(crate) mod runge_kutta;
 
-use std::f32::consts::PI;
+use std::collections::HashMap;
 
-use glam::{vec2, vec4, Vec2};
+use glam::Vec2;
 
-use crate::node::data::{InoxData, ParamMapMode, PhysicsModel, SimplePhysics};
-use crate::puppet::{Puppet, PuppetPhysics};
-use crate::render::NodeRenderCtx;
+use crate::node::components::{PhysicsModel, RigidPendulumCtx, SimplePhysics, SpringPendulumCtx, TransformStore};
+use crate::params::ParamUuid;
+use crate::puppet::{InoxNodeTree, Puppet, World};
 
-impl Puppet {
-	/// Update the puppet's nodes' absolute transforms, by applying further displacements yielded by the physics system
-	/// in response to displacements caused by parameter changes
-	pub fn update_physics(&mut self, dt: f32, puppet_physics: PuppetPhysics) {
-		for driver_uuid in self.drivers.clone() {
-			let Some(driver) = self.nodes.get_node_mut(driver_uuid) else {
-				continue;
-			};
-
-			let InoxData::SimplePhysics(ref mut system) = driver.data else {
-				continue;
-			};
-
-			let nrc = &self.render_ctx.node_render_ctxs[&driver.uuid];
-
-			let output = system.update(dt, puppet_physics, nrc);
-			let param_uuid = system.param;
-			let _ = self.set_param(param_uuid, output);
-		}
-	}
+/// Global physics parameters for the puppet.
+pub struct PuppetPhysics {
+	pub pixels_per_meter: f32,
+	pub gravity: f32,
 }
 
-impl SimplePhysics {
-	fn update(&mut self, dt: f32, puppet_physics: PuppetPhysics, node_render_ctx: &NodeRenderCtx) -> Vec2 {
+type SimplePhysicsProps<'a> = (&'a PuppetPhysics, &'a SimplePhysics);
+
+/// Components implementing this will be able to yield a parameter value every frame based on
+/// - time history of transforms of the associated node.
+/// - Physics simulation.
+pub trait SimplePhysicsCtx {
+	/// Type of input to the simulation.
+	type Anchor;
+
+	/// Convert node transform to input.
+	fn calc_anchor(&self, props: &SimplePhysicsProps, transform: &TransformStore) -> Self::Anchor;
+	/// Run one step of simulation given input.
+	fn tick(&mut self, props: &SimplePhysicsProps, anchor: &Self::Anchor, t: f32, dt: f32);
+	/// Convert simulation result into a parameter value to set.
+	fn calc_output(&self, props: &SimplePhysicsProps, transform: &TransformStore, anchor: Self::Anchor) -> Vec2;
+}
+
+/// Auto implemented trait for all `impl SimplePhysicsCtx`.
+trait SimplePhysicsCtxCommon {
+	fn update(&mut self, props: &SimplePhysicsProps, transform: &TransformStore, t: f32, dt: f32) -> Vec2;
+}
+
+impl<T: SimplePhysicsCtx> SimplePhysicsCtxCommon for T {
+	/// Run physics simulation for one frame given provided methods. Handle big `dt` problems.
+	fn update(&mut self, props: &SimplePhysicsProps, transform: &TransformStore, t: f32, dt: f32) -> Vec2 {
 		// Timestep is limited to 10 seconds.
 		// If you're getting 0.1 FPS, you have bigger issues to deal with.
 		let mut dt = dt.min(10.);
 
-		let anchor = self.calc_anchor(node_render_ctx);
+		let anchor = self.calc_anchor(props, transform);
 
-		// Minimum physics timestep: 0.01s
-		while dt > 0.01 {
-			self.tick(0.01, anchor, puppet_physics);
+		// Minimum physics timestep: 0.01s. If not satisfied, break simulation into steps.
+		let mut t = t;
+		while dt > 0. {
+			self.tick(props, &anchor, t, dt.min(0.01));
+			t += 0.01;
 			dt -= 0.01;
 		}
 
-		self.tick(dt, anchor, puppet_physics);
-
-		self.calc_output(anchor, node_render_ctx)
+		self.calc_output(props, transform, anchor)
 	}
+}
 
-	fn tick(&mut self, dt: f32, anchor: Vec2, puppet_physics: PuppetPhysics) {
-		// enum dispatch, fill the branches once other systems are implemented
-		// as for inox2d, users are not expected to bring their own physics system,
-		// no need to do dynamic dispatch with something like Box<dyn SimplePhysicsSystem>
-		self.bob = match &mut self.model_type {
-			PhysicsModel::RigidPendulum(state) => state.tick(puppet_physics, &self.props, self.bob, anchor, dt),
-			PhysicsModel::SpringPendulum(state) => state.tick(puppet_physics, &self.props, self.bob, anchor, dt),
-		};
-	}
+/// Additional struct attached to a puppet for executing all physics nodes.
+pub(crate) struct PhysicsCtx {
+	/// Time since first simulation step.
+	t: f32,
+	param_uuid_to_name: HashMap<ParamUuid, String>,
+}
 
-	fn calc_anchor(&self, node_render_ctx: &NodeRenderCtx) -> Vec2 {
-		let anchor = match self.local_only {
-			true => node_render_ctx.trans_offset.translation.extend(1.0),
-			false => node_render_ctx.trans * vec4(0.0, 0.0, 0.0, 1.0),
-		};
-
-		vec2(anchor.x, anchor.y)
-	}
-
-	fn calc_output(&self, anchor: Vec2, node_render_ctx: &NodeRenderCtx) -> Vec2 {
-		let oscale = self.props.output_scale;
-		let bob = self.bob;
-
-		// "Okay, so this is confusing. We want to translate the angle back to local space, but not the coordinates."
-		// - Asahi Lina
-
-		// Transform the physics output back into local space.
-		// The origin here is the anchor. This gives us the local angle.
-		let local_pos4 = match self.local_only {
-			true => vec4(bob.x, bob.y, 0.0, 1.0),
-			false => node_render_ctx.trans.inverse() * vec4(bob.x, bob.y, 0.0, 1.0),
-		};
-
-		let local_angle = vec2(local_pos4.x, local_pos4.y).normalize();
-
-		// Figure out the relative length. We can work this out directly in global space.
-		let relative_length = bob.distance(anchor) / self.props.length;
-
-		let param_value = match self.map_mode {
-			ParamMapMode::XY => {
-				let local_pos_norm = local_angle * relative_length;
-				let mut result = local_pos_norm - Vec2::Y;
-				result.y = -result.y; // Y goes up for params
-				result
+impl PhysicsCtx {
+	/// MODIFIES puppet. In addition to initializing self, installs physics contexts in the World of components
+	pub fn new(puppet: &mut Puppet) -> Self {
+		for node in puppet.nodes.iter() {
+			if let Some(simple_physics) = puppet.node_comps.get::<SimplePhysics>(node.uuid) {
+				match simple_physics.model_type {
+					PhysicsModel::RigidPendulum => puppet.node_comps.add(node.uuid, RigidPendulumCtx::default()),
+					PhysicsModel::SpringPendulum => puppet.node_comps.add(node.uuid, SpringPendulumCtx::default()),
+				}
 			}
-			ParamMapMode::AngleLength => {
-				let a = f32::atan2(-local_angle.x, local_angle.y) / PI;
-				vec2(a, relative_length)
-			}
-		};
+		}
 
-		param_value * oscale
+		Self {
+			t: 0.,
+			param_uuid_to_name: puppet.params.iter().map(|p| (p.1.uuid, p.0.to_owned())).collect(),
+		}
+	}
+
+	pub fn step(
+		&mut self,
+		puppet_physics: &PuppetPhysics,
+		nodes: &InoxNodeTree,
+		comps: &mut World,
+		dt: f32,
+	) -> HashMap<String, Vec2> {
+		let mut values_to_apply = HashMap::new();
+
+		if dt == 0. {
+			return values_to_apply;
+		} else if dt < 0. {
+			panic!("Time travel has happened.");
+		}
+
+		for node in nodes.iter() {
+			if let Some(simple_physics) = comps.get::<SimplePhysics>(node.uuid) {
+				// before we use some Rust dark magic so that two components can be mutably borrowed at the same time,
+				// need to clone to workaround comps ownership problem
+				let simple_physics = simple_physics.clone();
+				let props = &(puppet_physics, &simple_physics);
+				let transform = &comps
+					.get::<TransformStore>(node.uuid)
+					.expect("All nodes with SimplePhysics must have associated TransformStore.")
+					.clone();
+
+				let param_value = if let Some(rigid_pendulum_ctx) = comps.get_mut::<RigidPendulumCtx>(node.uuid) {
+					Some(rigid_pendulum_ctx.update(props, transform, self.t, dt))
+				} else if let Some(spring_pendulum_ctx) = comps.get_mut::<SpringPendulumCtx>(node.uuid) {
+					Some(spring_pendulum_ctx.update(props, transform, self.t, dt))
+				} else {
+					None
+				};
+
+				if let Some(param_value) = param_value {
+					values_to_apply
+						.entry(
+							self.param_uuid_to_name
+								.get(&simple_physics.param)
+								.expect("A SimplePhysics node must reference a valid param.")
+								.to_owned(),
+						)
+						.and_modify(|_| panic!("Two SimplePhysics nodes reference a same param."))
+						.or_insert(param_value);
+				}
+			}
+		}
+
+		self.t += dt;
+
+		values_to_apply
 	}
 }

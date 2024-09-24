@@ -1,12 +1,15 @@
 use glam::{vec2, Vec2};
 
-use crate::node::data::PhysicsProps;
-use crate::physics::runge_kutta::{self, IsPhysicsVars, PhysicsState};
-use crate::puppet::PuppetPhysics;
+use crate::node::components::{PhysicsProps, RigidPendulumCtx};
+use crate::physics::{
+	pendulum::Pendulum,
+	runge_kutta::{IsPhysicsVars, PhysicsState},
+	PuppetPhysics, SimplePhysicsProps,
+};
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default)]
-pub struct RigidPendulum {
+/// Variables for Runge-Kutta method.
+#[derive(Default)]
+pub(crate) struct RigidPendulum {
 	pub θ: f32,
 	pub ω: f32,
 }
@@ -21,34 +24,36 @@ impl IsPhysicsVars<2> for RigidPendulum {
 	}
 }
 
-impl PhysicsState<RigidPendulum> {
-	pub(crate) fn tick(
-		&mut self,
-		puppet_physics: PuppetPhysics,
-		props: &PhysicsProps,
-		bob: Vec2,
-		anchor: Vec2,
-		dt: f32,
-	) -> Vec2 {
+impl Pendulum for RigidPendulumCtx {
+	fn get_bob(&self) -> Vec2 {
+		self.bob
+	}
+
+	fn set_bob(&mut self, bob: Vec2) {
+		self.bob = bob;
+	}
+
+	fn tick(&mut self, props: &SimplePhysicsProps, anchor: Vec2, t: f32, dt: f32) -> Vec2 {
 		// Compute the angle against the updated anchor position
-		let d_bob = bob - anchor;
-		self.vars.θ = f32::atan2(-d_bob.x, d_bob.y);
+		let d_bob = self.bob - anchor;
+		self.state.vars.θ = f32::atan2(-d_bob.x, d_bob.y);
 
 		// Run the pendulum simulation in terms of angle
-		runge_kutta::tick(&eval, self, (puppet_physics, props), anchor, dt);
+		self.state.tick(&eval, (props.0, &props.1.props), &anchor, t, dt);
 
 		// Update the bob position at the new angle
-		let angle = self.vars.θ;
+		let angle = self.state.vars.θ;
 		let d_bob = vec2(-angle.sin(), angle.cos());
 
-		anchor + d_bob * props.length
+		anchor + d_bob * props.1.props.length
 	}
 }
 
+/// Acceleration of bob caused by gravity.
 fn eval(
-	state: &mut PhysicsState<RigidPendulum>,
-	&(puppet_physics, props): &(PuppetPhysics, &PhysicsProps),
-	_anchor: Vec2,
+	state: &mut PhysicsState<2, RigidPendulum>,
+	(puppet_physics, props): &(&PuppetPhysics, &PhysicsProps),
+	_anchor: &Vec2,
 	_t: f32,
 ) {
 	// https://www.myphysicslab.com/pendulum/pendulum-en.html

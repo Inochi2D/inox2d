@@ -7,20 +7,25 @@ use std::cell::RefCell;
 use std::mem;
 use std::ops::Deref;
 
-use gl_buffer::RenderCtxOpenglExt;
-use glam::{uvec2, Mat4, UVec2, Vec2, Vec3};
+use glam::{uvec2, UVec2, Vec3};
 use glow::HasContext;
-use inox2d::texture::{decode_model_textures, TextureId};
 
 use inox2d::math::camera::Camera;
-use inox2d::model::{Model, ModelTexture};
-use inox2d::node::data::{BlendMode, Composite, Part};
+use inox2d::model::Model;
+use inox2d::node::{
+	components::{BlendMode, Mask, MaskMode, Masks, TexturedMesh},
+	drawables::{CompositeComponents, TexturedMeshComponents},
+	InoxNodeUuid,
+};
 use inox2d::puppet::Puppet;
-use inox2d::render::{InoxRenderer, InoxRendererCommon, NodeRenderCtx, PartRenderCtx};
+use inox2d::render::{CompositeRenderCtx, InoxRenderer, TexturedMeshRenderCtx};
+use inox2d::texture::{decode_model_textures, TextureId};
 
 use self::shader::ShaderCompileError;
 use self::shaders::{CompositeMaskShader, CompositeShader, PartMaskShader, PartShader};
-use self::texture::{Texture, TextureError};
+use self::texture::Texture;
+
+use gl_buffer::{upload_array_to_gl, upload_deforms_to_gl};
 
 #[derive(Debug, thiserror::Error)]
 #[error("Could not initialize OpenGL renderer: {0}")]
@@ -29,8 +34,8 @@ pub enum OpenglRendererError {
 	Opengl(String),
 }
 
-#[derive(Default, Clone)]
-pub struct GlCache {
+#[derive(Default)]
+struct GlCache {
 	pub camera: Option<Camera>,
 	pub viewport: Option<UVec2>,
 	pub blend_mode: Option<BlendMode>,
@@ -109,7 +114,6 @@ impl GlCache {
 	}
 }
 
-#[allow(unused)]
 pub struct OpenglRenderer {
 	gl: glow::Context,
 	support_debug_extension: bool,
@@ -118,6 +122,7 @@ pub struct OpenglRenderer {
 	cache: RefCell<GlCache>,
 
 	vao: glow::VertexArray,
+	deform_buffer: glow::Buffer,
 
 	composite_framebuffer: glow::Framebuffer,
 	cf_albedo: glow::Texture,
@@ -129,83 +134,100 @@ pub struct OpenglRenderer {
 	part_mask_shader: PartMaskShader,
 	composite_shader: CompositeShader,
 	composite_mask_shader: CompositeMaskShader,
-	deform_buffer: Option<glow::Buffer>,
 
 	textures: Vec<Texture>,
 }
 
-// TODO: remove the #[allow(unused)]
-#[allow(unused)]
 impl OpenglRenderer {
-	pub fn new(gl: glow::Context) -> Result<Self, OpenglRendererError> {
-		let vao = unsafe { gl.create_vertex_array().map_err(OpenglRendererError::Opengl)? };
-
-		// Initialize framebuffers
-		let composite_framebuffer;
-		let cf_albedo;
-		let cf_emissive;
-		let cf_bump;
-		let cf_stencil;
+	/// Given a Model, create an OpenglRenderer:
+	/// - Setup buffers and shaders.
+	/// - Decode textures.
+	/// - Upload static buffer data and textures.
+	pub fn new(gl: glow::Context, model: &Model) -> Result<Self, OpenglRendererError> {
 		unsafe {
-			cf_albedo = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
-			cf_emissive = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
-			cf_bump = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
-			cf_stencil = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
+			// Initialize framebuffers
+			let cf_albedo = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
+			let cf_emissive = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
+			let cf_bump = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
+			let cf_stencil = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
 
-			composite_framebuffer = gl.create_framebuffer().map_err(OpenglRendererError::Opengl)?;
+			let composite_framebuffer = gl.create_framebuffer().map_err(OpenglRendererError::Opengl)?;
+
+			// Shaders
+			let part_shader = PartShader::new(&gl)?;
+			let part_mask_shader = PartMaskShader::new(&gl)?;
+			let composite_shader = CompositeShader::new(&gl)?;
+			let composite_mask_shader = CompositeMaskShader::new(&gl)?;
+
+			let support_debug_extension = gl.supported_extensions().contains("GL_KHR_debug");
+
+			let inox_buffers = (model.puppet.render_ctx.as_ref())
+				.expect("Rendering for a puppet must be initialized before creating a renderer.");
+
+			// setup GL buffers
+			let vao = gl.create_vertex_array().map_err(OpenglRendererError::Opengl)?;
+			gl.bind_vertex_array(Some(vao));
+
+			let verts = inox_buffers.vertex_buffers.verts.as_slice();
+			upload_array_to_gl(&gl, verts, glow::ARRAY_BUFFER, glow::STATIC_DRAW)?;
+			gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, 0, 0);
+			gl.enable_vertex_attrib_array(0);
+
+			let uvs = inox_buffers.vertex_buffers.uvs.as_slice();
+			upload_array_to_gl(&gl, uvs, glow::ARRAY_BUFFER, glow::STATIC_DRAW)?;
+			gl.vertex_attrib_pointer_f32(1, 2, glow::FLOAT, false, 0, 0);
+			gl.enable_vertex_attrib_array(1);
+
+			let deforms = inox_buffers.vertex_buffers.deforms.as_slice();
+			let deform_buffer = upload_array_to_gl(&gl, deforms, glow::ARRAY_BUFFER, glow::DYNAMIC_DRAW)?;
+			gl.vertex_attrib_pointer_f32(2, 2, glow::FLOAT, false, 0, 0);
+			gl.enable_vertex_attrib_array(2);
+
+			let indices = inox_buffers.vertex_buffers.indices.as_slice();
+			upload_array_to_gl(&gl, indices, glow::ELEMENT_ARRAY_BUFFER, glow::STATIC_DRAW)?;
+
+			gl.bind_vertex_array(None);
+
+			// decode textures in parallel
+			let shalltexs = decode_model_textures(model.textures.iter());
+			let textures = (shalltexs.iter().enumerate())
+				.map(|e| {
+					tracing::debug!("Uploading shallow texture {:?}", e.0);
+					texture::Texture::from_shallow_texture(&gl, e.1)
+						.map_err(|e| OpenglRendererError::Opengl(e.to_string()))
+				})
+				.collect::<Result<Vec<_>, _>>()?;
+
+			let renderer = Self {
+				gl,
+				support_debug_extension,
+				camera: Camera::default(),
+				viewport: UVec2::default(),
+				cache: RefCell::new(GlCache::default()),
+
+				vao,
+				deform_buffer,
+
+				composite_framebuffer,
+				cf_albedo,
+				cf_emissive,
+				cf_bump,
+				cf_stencil,
+
+				part_shader,
+				part_mask_shader,
+				composite_shader,
+				composite_mask_shader,
+
+				textures,
+			};
+
+			// Set emission strength once (it doesn't change anywhere else)
+			renderer.bind_shader(&renderer.part_shader);
+			renderer.part_shader.set_emission_strength(&renderer.gl, 1.);
+
+			Ok(renderer)
 		}
-
-		// Shaders
-		let part_shader = PartShader::new(&gl)?;
-		let part_mask_shader = PartMaskShader::new(&gl)?;
-		let composite_shader = CompositeShader::new(&gl)?;
-		let composite_mask_shader = CompositeMaskShader::new(&gl)?;
-
-		let support_debug_extension = gl.supported_extensions().contains("GL_KHR_debug");
-
-		let renderer = Self {
-			gl,
-			support_debug_extension,
-			camera: Camera::default(),
-			viewport: UVec2::default(),
-			cache: RefCell::new(GlCache::default()),
-
-			vao,
-
-			composite_framebuffer,
-			cf_albedo,
-			cf_emissive,
-			cf_bump,
-			cf_stencil,
-
-			part_shader,
-			part_mask_shader,
-			composite_shader,
-			composite_mask_shader,
-
-			textures: Vec::new(),
-			deform_buffer: None,
-		};
-
-		// Set emission strength once (it doesn't change anywhere else)
-		renderer.bind_shader(&renderer.part_shader);
-		renderer.part_shader.set_emission_strength(&renderer.gl, 1.);
-
-		Ok(renderer)
-	}
-
-	fn upload_model_textures(&mut self, model_textures: &[ModelTexture]) -> Result<(), TextureError> {
-		// decode textures in parallel
-		let shalltexs = decode_model_textures(model_textures.iter());
-
-		// upload textures
-		for (i, shalltex) in shalltexs.iter().enumerate() {
-			tracing::debug!("Uploading shallow texture {:?}", i);
-			let tex = texture::Texture::from_shallow_texture(&self.gl, shalltex)?;
-			self.textures.push(tex);
-		}
-
-		Ok(())
 	}
 
 	/// Pushes an OpenGL debug group.
@@ -255,7 +277,7 @@ impl OpenglRenderer {
 	}
 
 	/// Set blending mode. See `BlendMode` for supported blend modes.
-	pub fn set_blend_mode(&self, blend_mode: BlendMode) {
+	fn set_blend_mode(&self, blend_mode: BlendMode) {
 		if !self.cache.borrow_mut().update_blend_mode(blend_mode) {
 			return;
 		}
@@ -304,7 +326,7 @@ impl OpenglRenderer {
 		unsafe { self.gl.use_program(Some(program)) };
 	}
 
-	fn bind_part_textures(&self, part: &Part) {
+	fn bind_part_textures(&self, part: &TexturedMesh) {
 		if !self.cache.borrow_mut().update_albedo(part.tex_albedo) {
 			return;
 		}
@@ -317,7 +339,7 @@ impl OpenglRenderer {
 
 	/// Clear the texture cache
 	/// This one method missing made me pull my hair out for an entire month.
-	pub fn clear_texture_cache(&self) {
+	fn clear_texture_cache(&self) {
 		self.cache.borrow_mut().albedo = None;
 	}
 
@@ -356,21 +378,8 @@ impl OpenglRenderer {
 
 		gl.bind_framebuffer(glow::FRAMEBUFFER, None);
 	}
-}
 
-impl InoxRenderer for OpenglRenderer {
-	type Error = OpenglRendererError;
-
-	fn prepare(&mut self, model: &Model) -> Result<(), Self::Error> {
-		self.deform_buffer = Some(unsafe { model.puppet.render_ctx.setup_gl_buffers(&self.gl, self.vao)? });
-
-		match self.upload_model_textures(&model.textures) {
-			Ok(_) => Ok(()),
-			Err(_) => Err(OpenglRendererError::Opengl("Texture Upload Error.".to_string())),
-		}
-	}
-
-	fn resize(&mut self, w: u32, h: u32) {
+	pub fn resize(&mut self, w: u32, h: u32) {
 		self.viewport = uvec2(w, h);
 
 		let gl = &self.gl;
@@ -400,67 +409,38 @@ impl InoxRenderer for OpenglRenderer {
 		self.update_camera();
 	}
 
-	fn clear(&self) {
+	pub fn clear(&self) {
 		self.cache.borrow_mut().clear();
 
 		unsafe {
 			self.gl.clear(glow::COLOR_BUFFER_BIT);
 		}
 	}
+}
 
-	/*
-		These functions should be reworked together:
-		setup_gl_buffers -> should set up in a way so that the draw functions draws into a texture
-		on_begin/end_scene -> prepares and ends drawing to texture. also post-processing
-		draw_scene -> actually makes things appear on a surface
-	*/
-
-	fn on_begin_scene(&self) {
-		todo!()
-	}
-
-	fn render(&self, puppet: &Puppet) {
+impl InoxRenderer for OpenglRenderer {
+	fn on_begin_masks(&self, masks: &Masks) {
 		let gl = &self.gl;
-		unsafe {
-			if let Some(deform_buffer) = self.deform_buffer {
-				puppet.render_ctx.upload_deforms_to_gl(gl, deform_buffer);
-			}
 
-			gl.enable(glow::BLEND);
-			gl.disable(glow::DEPTH_TEST);
-		}
-
-		let camera = self
-			.camera
-			.matrix(Vec2::new(self.viewport.x as f32, self.viewport.y as f32));
-		self.draw(&camera, puppet);
-	}
-
-	fn on_end_scene(&self) {
-		todo!()
-	}
-
-	fn draw_scene(&self) {
-		todo!()
-	}
-
-	fn on_begin_mask(&self, has_mask: bool) {
-		let gl = &self.gl;
 		unsafe {
 			gl.enable(glow::STENCIL_TEST);
-			gl.clear_stencil(!has_mask as i32);
+			gl.clear_stencil(!masks.has_masks() as i32);
 			gl.clear(glow::STENCIL_BUFFER_BIT);
 
 			gl.color_mask(false, false, false, false);
 			gl.stencil_op(glow::KEEP, glow::KEEP, glow::REPLACE);
 			gl.stencil_mask(0xff);
 		}
+
+		let part_mask_shader = &self.part_mask_shader;
+		self.bind_shader(part_mask_shader);
+		part_mask_shader.set_threshold(gl, masks.threshold.clamp(0.0, 1.0));
 	}
 
-	fn set_mask_mode(&self, dodge: bool) {
+	fn on_begin_mask(&self, mask: &Mask) {
 		let gl = &self.gl;
 		unsafe {
-			gl.stencil_func(glow::ALWAYS, !dodge as i32, 0xff);
+			gl.stencil_func(glow::ALWAYS, (mask.mode == MaskMode::Mask) as i32, 0xff);
 		}
 	}
 
@@ -483,9 +463,16 @@ impl InoxRenderer for OpenglRenderer {
 		}
 	}
 
-	fn draw_mesh_self(&self, _as_mask: bool, _camera: &Mat4) {
-		// TODO
+	fn draw_textured_mesh_content(
+		&self,
+		as_mask: bool,
+		components: &TexturedMeshComponents,
+		render_ctx: &TexturedMeshRenderCtx,
+		_id: InoxNodeUuid,
+	) {
+		let gl = &self.gl;
 
+		// TODO: plain masks, meshes as masks without textures
 		/*
 		maskShader.use();
 		maskShader.setUniform(offset, data.origin);
@@ -502,36 +489,19 @@ impl InoxRenderer for OpenglRenderer {
 		// Disable the vertex attribs after use
 		glDisableVertexAttribArray(0);
 		*/
-		todo!()
-	}
 
-	fn draw_part_self(
-		&self,
-		as_mask: bool,
-		camera: &Mat4,
-		node_render_ctx: &NodeRenderCtx,
-		part: &Part,
-		part_render_ctx: &PartRenderCtx,
-	) {
-		let gl = &self.gl;
+		self.bind_part_textures(components.texture);
+		self.set_blend_mode(components.drawable.blending.mode);
 
-		self.bind_part_textures(part);
-		self.set_blend_mode(part.draw_state.blend_mode);
-
-		let part_shader = &self.part_shader;
-		self.bind_shader(part_shader);
-		// vert uniforms
-		let mvp = *camera * node_render_ctx.trans;
+		let mvp = self.camera.matrix(self.viewport.as_vec2()) * *components.transform;
 
 		if as_mask {
-			let part_mask_shader = &self.part_mask_shader;
-			self.bind_shader(part_mask_shader);
+			// if as_mask is set, in .on_begin_masks():
+			// - part_mask_shader must have been bound and prepared.
+			// - mask threshold must have been uploaded.
 
 			// vert uniforms
-			part_mask_shader.set_mvp(gl, mvp);
-
-			// frag uniforms
-			part_mask_shader.set_threshold(gl, part.draw_state.mask_threshold.clamp(0.0, 1.0));
+			self.part_mask_shader.set_mvp(gl, mvp);
 		} else {
 			let part_shader = &self.part_shader;
 			self.bind_shader(part_shader);
@@ -540,23 +510,28 @@ impl InoxRenderer for OpenglRenderer {
 			part_shader.set_mvp(gl, mvp);
 
 			// frag uniforms
-			part_shader.set_opacity(gl, part.draw_state.opacity);
-			part_shader.set_mult_color(gl, part.draw_state.tint);
-			part_shader.set_screen_color(gl, part.draw_state.screen_tint);
+			part_shader.set_opacity(gl, components.drawable.blending.opacity);
+			part_shader.set_mult_color(gl, components.drawable.blending.tint);
+			part_shader.set_screen_color(gl, components.drawable.blending.screen_tint);
 		}
 
 		unsafe {
-			gl.bind_vertex_array(Some(self.vao));
 			gl.draw_elements(
 				glow::TRIANGLES,
-				part.mesh.indices.len() as i32,
+				render_ctx.index_len as i32,
 				glow::UNSIGNED_SHORT,
-				part_render_ctx.index_offset as i32 * mem::size_of::<u16>() as i32,
+				render_ctx.index_offset as i32 * mem::size_of::<u16>() as i32,
 			);
 		}
 	}
 
-	fn begin_composite_content(&self) {
+	fn begin_composite_content(
+		&self,
+		_as_mask: bool,
+		_components: &CompositeComponents,
+		_render_ctx: &CompositeRenderCtx,
+		_id: InoxNodeUuid,
+	) {
 		self.clear_texture_cache();
 
 		let gl = &self.gl;
@@ -577,7 +552,13 @@ impl InoxRenderer for OpenglRenderer {
 		}
 	}
 
-	fn finish_composite_content(&self, as_mask: bool, composite: &Composite) {
+	fn finish_composite_content(
+		&self,
+		as_mask: bool,
+		components: &CompositeComponents,
+		_render_ctx: &CompositeRenderCtx,
+		_id: InoxNodeUuid,
+	) {
 		let gl = &self.gl;
 
 		self.clear_texture_cache();
@@ -585,7 +566,7 @@ impl InoxRenderer for OpenglRenderer {
 			gl.bind_framebuffer(glow::FRAMEBUFFER, None);
 		}
 
-		let comp = &composite.draw_state;
+		let blending = &components.drawable.blending;
 		if as_mask {
 			/*
 			cShaderMask.use();
@@ -606,11 +587,11 @@ impl InoxRenderer for OpenglRenderer {
 				gl.bind_texture(glow::TEXTURE_2D, Some(self.cf_bump));
 			}
 
-			self.set_blend_mode(comp.blend_mode);
+			self.set_blend_mode(blending.mode);
 
-			let opacity = comp.opacity.clamp(0.0, 1.0);
-			let tint = comp.tint.clamp(Vec3::ZERO, Vec3::ONE);
-			let screen_tint = comp.screen_tint.clamp(Vec3::ZERO, Vec3::ONE);
+			let opacity = blending.opacity.clamp(0.0, 1.0);
+			let tint = blending.tint.clamp(Vec3::ZERO, Vec3::ONE);
+			let screen_tint = blending.screen_tint.clamp(Vec3::ZERO, Vec3::ONE);
 
 			let composite_shader = &self.composite_shader;
 			self.bind_shader(composite_shader);
@@ -621,6 +602,42 @@ impl InoxRenderer for OpenglRenderer {
 
 		unsafe {
 			gl.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+		}
+	}
+}
+
+impl OpenglRenderer {
+	/// Update the renderer with latest puppet data.
+	pub fn on_begin_draw(&self, puppet: &Puppet) {
+		let gl = &self.gl;
+
+		// TODO: calculate this matrix only once per draw pass.
+		// let matrix = self.camera.matrix(self.viewport.as_vec2());
+
+		unsafe {
+			gl.bind_vertex_array(Some(self.vao));
+			upload_deforms_to_gl(
+				gl,
+				puppet
+					.render_ctx
+					.as_ref()
+					.expect("Rendering for a puppet must be initialized by now.")
+					.vertex_buffers
+					.deforms
+					.as_slice(),
+				self.deform_buffer,
+			);
+			gl.enable(glow::BLEND);
+			gl.disable(glow::DEPTH_TEST);
+		}
+	}
+
+	/// Renderer cleaning up after one frame.
+	pub fn on_end_draw(&self, _puppet: &Puppet) {
+		let gl = &self.gl;
+
+		unsafe {
+			gl.bind_vertex_array(None);
 		}
 	}
 }
