@@ -41,7 +41,8 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 	use std::cell::RefCell;
 	use std::rc::Rc;
 
-	use inox2d::{formats::inp::parse_inp, render::InoxRenderer};
+	use inox2d::formats::inp::parse_inp;
+	use inox2d::render::InoxRendererExt;
 	use inox2d_opengl::OpenglRenderer;
 
 	use glam::Vec2;
@@ -86,13 +87,18 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 		.await?;
 
 	let model_bytes = res.bytes().await?;
-	let model = parse_inp(model_bytes.as_ref())?;
+	let mut model = parse_inp(model_bytes.as_ref())?;
+
+	tracing::info!("Setting up puppet for transforms, params and rendering.");
+	model.puppet.init_transforms();
+	model.puppet.init_rendering();
+	model.puppet.init_params();
+	model.puppet.init_physics();
 
 	info!("Initializing Inox2D renderer");
-	let mut renderer = OpenglRenderer::new(gl)?;
+	let mut renderer = OpenglRenderer::new(gl, &model)?;
 
 	info!("Creating buffers and uploading model textures");
-	renderer.prepare(&model)?;
 	renderer.camera.scale = Vec2::splat(0.15);
 	info!("Inox2D renderer initialized");
 
@@ -115,15 +121,26 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 		*anim_loop_g.borrow_mut() = Some(Closure::new(move || {
 			scene_ctrl.borrow_mut().update(&mut renderer.borrow_mut().camera);
 
-			renderer.borrow().clear();
 			{
+				renderer.borrow().clear();
+
 				let mut puppet = puppet.borrow_mut();
-				puppet.begin_set_params();
+				puppet.begin_frame();
 				let t = scene_ctrl.borrow().current_elapsed();
-				puppet.set_named_param("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
-				puppet.end_set_params(scene_ctrl.borrow().dt());
+				let _ = puppet
+					.param_ctx
+					.as_mut()
+					.unwrap()
+					.set("Head:: Yaw-Pitch", Vec2::new(t.cos(), t.sin()));
+
+				// Actually, not providing 0 for the first frame will not create too big a problem.
+				// Just that physics simulation will run for the provided time, which may be big and causes a startup delay.
+				puppet.end_frame(scene_ctrl.borrow().dt());
+
+				renderer.borrow().on_begin_draw(&puppet);
+				renderer.borrow().draw(&puppet);
+				renderer.borrow().on_end_draw(&puppet);
 			}
-			renderer.borrow().render(&puppet.borrow());
 
 			request_animation_frame(anim_loop_f.borrow().as_ref().unwrap());
 		}));
