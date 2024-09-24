@@ -3,6 +3,5 @@ resolver = "2"
 members = [
     "inox2d",
     "inox2d-opengl",
-    "inox2d-wgpu",
     "examples/*",
 ]
