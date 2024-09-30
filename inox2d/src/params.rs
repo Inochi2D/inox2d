@@ -201,19 +201,19 @@ impl Param {
 							.expect("Deform param target must have an associated Mesh.");
 
 						let vert_len = mesh.vertices.len();
-							let mut direct_deform: Vec<Vec2> = Vec::with_capacity(vert_len);
-							direct_deform.resize(vert_len, Vec2::ZERO);
+						let mut direct_deform: Vec<Vec2> = Vec::with_capacity(vert_len);
+						direct_deform.resize(vert_len, Vec2::ZERO);
 
-							bi_interpolate_vec2s_additive(
-								val_normed,
-								range_in,
-								out_top,
-								out_bottom,
-								binding.interpolate_mode,
-								&mut direct_deform,
-							);
+						bi_interpolate_vec2s_additive(
+							val_normed,
+							range_in,
+							out_top,
+							out_bottom,
+							binding.interpolate_mode,
+							&mut direct_deform,
+						);
 
-							direct_deform
+						direct_deform
 					};
 
 					comps
