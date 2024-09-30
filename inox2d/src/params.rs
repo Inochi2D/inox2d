@@ -32,6 +32,8 @@ pub enum BindingValues {
 	TransformRY(Matrix2d<f32>),
 	TransformRZ(Matrix2d<f32>),
 	Deform(Matrix2d<Vec<Vec2>>),
+	// TODO
+	Opacity,
 }
 
 #[derive(Debug, Clone)]
@@ -219,6 +221,8 @@ impl Param {
 						.expect("Nodes being deformed must have a DeformStack component.")
 						.push(DeformSource::Param(self.uuid), Deform::Direct(direct_deform));
 				}
+				// TODO
+				BindingValues::Opacity => {}
 			}
 		}
 	}
