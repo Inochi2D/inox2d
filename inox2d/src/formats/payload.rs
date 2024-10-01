@@ -407,7 +407,15 @@ fn deserialize_param(obj: JsonObject) -> InoxParseResult<(String, Param)> {
 fn deserialize_bindings(vals: &[json::JsonValue]) -> InoxParseResult<Vec<Binding>> {
 	let mut bindings = Vec::new();
 	for val in vals {
-		bindings.push(deserialize_binding(as_object("binding", val)?)?);
+		let Ok(binding_object) = as_object("binding", val) else {
+			tracing::error!("Encountered binding that is not a JSON object, ignoring");
+			continue;
+		};
+
+		match deserialize_binding(binding_object) {
+			Ok(binding) => bindings.push(binding),
+			Err(e) => tracing::error!("Invalid binding: {e}"),
+		}
 	}
 
 	Ok(bindings)
