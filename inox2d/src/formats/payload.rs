@@ -157,6 +157,7 @@ fn deserialize_simple_physics(obj: JsonObject) -> InoxParseResult<SimplePhysics>
 		map_mode: match obj.get_str("map_mode")? {
 			"AngleLength" => PhysicsParamMapMode::AngleLength,
 			"XY" => PhysicsParamMapMode::XY,
+			"YX" => PhysicsParamMapMode::YX,
 			unknown => return Err(InoxParseError::UnknownParamMapMode(unknown.to_owned())),
 		},
 
@@ -454,6 +455,8 @@ fn deserialize_binding_values(param_name: &str, values: &[JsonValue]) -> InoxPar
 
 			BindingValues::Deform(Matrix2d::from_slice_vecs(&parsed, true)?)
 		}
+		// TODO
+		"opacity" => BindingValues::Opacity,
 		param_name => return Err(InoxParseError::UnknownParamName(param_name.to_owned())),
 	})
 }

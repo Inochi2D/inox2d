@@ -32,6 +32,8 @@ pub enum BindingValues {
 	TransformRY(Matrix2d<f32>),
 	TransformRZ(Matrix2d<f32>),
 	Deform(Matrix2d<Vec<Vec2>>),
+	// TODO
+	Opacity,
 }
 
 #[derive(Debug, Clone)]
@@ -199,19 +201,19 @@ impl Param {
 							.expect("Deform param target must have an associated Mesh.");
 
 						let vert_len = mesh.vertices.len();
-							let mut direct_deform: Vec<Vec2> = Vec::with_capacity(vert_len);
-							direct_deform.resize(vert_len, Vec2::ZERO);
+						let mut direct_deform: Vec<Vec2> = Vec::with_capacity(vert_len);
+						direct_deform.resize(vert_len, Vec2::ZERO);
 
-							bi_interpolate_vec2s_additive(
-								val_normed,
-								range_in,
-								out_top,
-								out_bottom,
-								binding.interpolate_mode,
-								&mut direct_deform,
-							);
+						bi_interpolate_vec2s_additive(
+							val_normed,
+							range_in,
+							out_top,
+							out_bottom,
+							binding.interpolate_mode,
+							&mut direct_deform,
+						);
 
-							direct_deform
+						direct_deform
 					};
 
 					comps
@@ -219,6 +221,8 @@ impl Param {
 						.expect("Nodes being deformed must have a DeformStack component.")
 						.push(DeformSource::Param(self.uuid), Deform::Direct(direct_deform));
 				}
+				// TODO
+				BindingValues::Opacity => {}
 			}
 		}
 	}

@@ -62,6 +62,14 @@ impl<T: Pendulum> SimplePhysicsCtx for T {
 				result.y = -result.y; // Y goes up for params
 				result
 			}
+			PhysicsParamMapMode::YX => {
+				let local_pos_norm = local_angle * relative_length;
+				let mut result = local_pos_norm - Vec2::Y;
+				result.y = -result.y; // Y goes up for params
+
+				use glam::Vec2Swizzles;
+				result.yx()
+			}
 			PhysicsParamMapMode::AngleLength => {
 				let a = f32::atan2(-local_angle.x, local_angle.y) / PI;
 				Vec2::new(a, relative_length)

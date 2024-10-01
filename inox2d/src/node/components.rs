@@ -130,6 +130,7 @@ pub enum PhysicsModel {
 pub enum PhysicsParamMapMode {
 	AngleLength,
 	XY,
+	YX,
 }
 
 #[derive(Clone)]
