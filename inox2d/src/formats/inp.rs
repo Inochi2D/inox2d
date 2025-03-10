@@ -1,4 +1,6 @@
-use std::io::{self, Read};
+use std::fs::{self, File};
+use std::io::{self, Read, Write};
+use std::path::Path;
 use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use std::sync::Arc;
@@ -104,4 +106,83 @@ pub fn parse_inp<R: Read>(mut data: R) -> Result<Model, ParseInpError> {
 		textures,
 		vendors,
 	})
+}
+/// Parse `.inp` and `.inx` files.
+pub fn dump_inp<R: Read>(mut data: R, directory: &Path) -> Result<(), ParseInpError> {
+	// check magic bytes
+	let magic = read_n::<_, 8>(&mut data)?;
+	if magic != MAGIC {
+		return Err(ParseInpError::IncorrectMagic);
+	}
+
+	// parse json payload into puppet
+	let length = read_be_u32(&mut data)? as usize;
+	let payload = read_vec(&mut data, length)?;
+	File::create(directory.join("payload.json"))?.write_all(&payload)?;
+
+	// check texture section header
+	let tex_sect = read_n::<_, 8>(&mut data).map_err(|_| ParseInpError::NoTexSect)?;
+	if tex_sect != TEX_SECT {
+		return Err(ParseInpError::NoTexSect);
+	}
+
+	// retrieve textures
+	fs::create_dir(directory.join("textures"))?;
+	let tex_count = read_be_u32(&mut data)? as usize;
+	for i in 0..tex_count {
+		let tex_length = read_be_u32(&mut data)? as usize;
+		let tex_encoding = read_u8(&mut data)?;
+
+		let format = match tex_encoding {
+			0 => ImageFormat::Png, // PNG
+			1 => ImageFormat::Tga, // TGA
+			2 => return Err(ParseInpError::Bc7NotSupported),
+			n => return Err(ParseInpError::InvalidTexEncoding(n)),
+		};
+
+		let extension = match format {
+			ImageFormat::Png => "png",
+			ImageFormat::Jpeg => "jpeg",
+			ImageFormat::Gif => "gif",
+			ImageFormat::WebP => "webp",
+			ImageFormat::Pnm => "pnm",
+			ImageFormat::Tiff => "tiff",
+			ImageFormat::Tga => "tga",
+			ImageFormat::Dds => "dds",
+			ImageFormat::Bmp => "bmp",
+			ImageFormat::Ico => "ico",
+			ImageFormat::Hdr => "hdr",
+			ImageFormat::OpenExr => "openexr",
+			ImageFormat::Farbfeld => "farbfeld",
+			ImageFormat::Avif => "avif",
+			ImageFormat::Qoi => "qoi",
+			_ => unreachable!(),
+		};
+
+		let data: Vec<u8> = read_vec(&mut data, tex_length)?;
+		File::create(directory.join(format!("textures/tex-{:03}.{}", i, extension)))?.write_all(&data)?;
+	}
+
+	// read extended section header if present
+	let Ok(ext_sect) = read_n::<_, 8>(&mut data) else {
+		return Ok(());
+	};
+
+	fs::create_dir(directory.join("vendors"))?;
+	if ext_sect == EXT_SECT {
+		let ext_count = read_be_u32(&mut data)? as usize;
+
+		for i in 0..ext_count {
+			let length = read_be_u32(&mut data)? as usize;
+			let name = read_vec(&mut data, length)?;
+			let name = String::from_utf8(name)?;
+
+			let length = read_be_u32(&mut data)? as usize;
+			let payload = read_vec(&mut data, length)?;
+
+			File::create(directory.join(format!("vendors/{:02} - {}.json", i, name)))?.write_all(&payload)?;
+		}
+	}
+
+	Ok(())
 }
