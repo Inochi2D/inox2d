@@ -74,6 +74,10 @@ impl<T: Pendulum> SimplePhysicsCtx for T {
 				let a = f32::atan2(-local_angle.x, local_angle.y) / PI;
 				Vec2::new(a, relative_length)
 			}
+			PhysicsParamMapMode::LengthAngle => {
+				let a = f32::atan2(-local_angle.x, local_angle.y) / PI;
+				Vec2::new(relative_length, a)
+			},
 		};
 
 		param_value * oscale
