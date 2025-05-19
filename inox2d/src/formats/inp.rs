@@ -107,6 +107,7 @@ pub fn parse_inp<R: Read>(mut data: R) -> Result<Model, ParseInpError> {
 		vendors,
 	})
 }
+
 /// Parse `.inp` and `.inx` files.
 pub fn dump_inp<R: Read>(mut data: R, directory: &Path) -> Result<(), ParseInpError> {
 	// check magic bytes
@@ -184,5 +185,61 @@ pub fn dump_inp<R: Read>(mut data: R, directory: &Path) -> Result<(), ParseInpEr
 		}
 	}
 
+	Ok(())
+}
+
+pub fn dump_to_inp<W: Write>(directory: &Path, w: &mut W) -> io::Result<()> {
+	let mut payload_file = File::open(directory.join("payload.json"))?;
+
+	w.write_all(MAGIC)?;
+	w.write_all(&(payload_file.metadata()?.len() as u32).to_be_bytes())?;
+	io::copy(&mut payload_file, w)?;
+
+	let mut texture_files = Vec::new();
+	for tex_file in fs::read_dir(directory.join("textures"))? {
+		let tex_file = tex_file?;
+		let path = tex_file.path();
+		let Some(ext) = path.extension() else {
+			eprintln!("File {:?} has no extension, ignoring", tex_file.file_name());
+			continue;
+		};
+
+		let Some(ext) = ext.to_str() else {
+			eprintln!("File {:?} has unrecognized extension, ignoring", tex_file.file_name());
+			continue;
+		};
+
+		let tex_encoding: u8 = match ext {
+			"png" => 0,
+			"tga" => 1,
+			"bc7" => 2,
+			ext => {
+				eprintln!(
+					"File {:?} has unsupported extension {:?}, ignoring",
+					tex_file.file_name(),
+					ext
+				);
+				continue;
+			}
+		};
+
+		texture_files.push((tex_encoding, path));
+	}
+
+	w.write_all(TEX_SECT)?;
+	w.write_all(&(texture_files.len() as u32).to_be_bytes())?;
+	for (tex_encoding, tex_path) in texture_files {
+		let mut tex_file = File::open(tex_path)?;
+
+		let file_len = tex_file.metadata()?.len() as u32;
+		println!("t {} | {:?} {} B", tex_encoding, file_len.to_be_bytes(), file_len);
+
+		w.write_all(&file_len.to_be_bytes())?;
+		w.write_all(&[tex_encoding])?;
+
+		io::copy(&mut tex_file, w)?;
+	}
+
+	w.flush().unwrap();
 	Ok(())
 }
