@@ -196,9 +196,12 @@ impl Param {
 
 					// deform specified by a parameter must be direct, i.e., in the form of displacements of all vertices
 					let direct_deform = {
-						let mesh = comps
-							.get::<Mesh>(binding.node)
-							.expect("Deform param target must have an associated Mesh.");
+						let mesh = comps.get::<Mesh>(binding.node).unwrap_or_else(|| {
+							panic!(
+								"Deform param target must have an associated Mesh. (Binding Node ID: {:?})",
+								binding.node.0
+							)
+						});
 
 						let vert_len = mesh.vertices.len();
 						let mut direct_deform: Vec<Vec2> = Vec::with_capacity(vert_len);
