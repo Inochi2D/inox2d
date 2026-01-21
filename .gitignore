@@ -8,3 +8,6 @@
 
 # renderdoc capture file
 *.cap
+/node_modules
+package-lock.json
+bun.lock
