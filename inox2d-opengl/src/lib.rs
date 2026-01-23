@@ -128,6 +128,8 @@ pub struct OpenglRenderer {
 	composite_mask_shader: CompositeMaskShader,
 
 	textures: Vec<Texture>,
+
+	mask_source_depth: std::cell::Cell<usize>,
 }
 
 impl OpenglRenderer {
@@ -214,6 +216,8 @@ impl OpenglRenderer {
 				composite_mask_shader,
 
 				textures,
+
+				mask_source_depth: std::cell::Cell::new(0),
 			};
 
 			// Set emission strength once (it doesn't change anywhere else)
@@ -424,13 +428,16 @@ impl<'a> InoxRenderer<'a> for OpenglRenderer {
 
 		unsafe {
 			gl.enable(glow::STENCIL_TEST);
-			gl.clear_stencil(!masks.has_masks() as i32);
-			gl.clear(glow::STENCIL_BUFFER_BIT);
+			if self.mask_source_depth.get() == 0 {
+				gl.clear_stencil(!masks.has_masks() as i32);
+				gl.clear(glow::STENCIL_BUFFER_BIT);
+			}
 
 			gl.color_mask(false, false, false, false);
 			gl.stencil_op(glow::KEEP, glow::KEEP, glow::REPLACE);
 			gl.stencil_mask(0xff);
 		}
+		self.mask_source_depth.set(self.mask_source_depth.get() + 1);
 
 		let part_mask_shader = &self.part_mask_shader;
 		self.bind_shader(part_mask_shader);
@@ -455,11 +462,14 @@ impl<'a> InoxRenderer<'a> for OpenglRenderer {
 		self.push_debug_group("inox2d - begin masked content");
 
 		let gl = &self.gl;
+		self.mask_source_depth.set(self.mask_source_depth.get() - 1);
 		unsafe {
 			gl.stencil_func(glow::EQUAL, 1, 0xff);
 			gl.stencil_mask(0x00);
 
-			gl.color_mask(true, true, true, true);
+			if self.mask_source_depth.get() == 0 {
+				gl.color_mask(true, true, true, true);
+			}
 		}
 
 		self.pop_debug_group();

@@ -61,7 +61,7 @@ impl RenderCtx {
 		let mut vertex_buffers = VertexBuffers::default();
 
 		let mut root_drawables_count: usize = 0;
-		for node in nodes.iter() {
+		for node in nodes.pre_order_iter() {
 			let drawable_kind = DrawableKind::new(node.uuid, comps, true);
 			if let Some(drawable_kind) = drawable_kind {
 				root_drawables_count += 1;
@@ -126,7 +126,7 @@ impl RenderCtx {
 
 	/// Reset all `DeformStack`.
 	pub(crate) fn reset(&mut self, nodes: &InoxNodeTree, comps: &mut World) {
-		for node in nodes.iter() {
+		for node in nodes.pre_order_iter() {
 			if let Some(deform_stack) = comps.get_mut::<DeformStack>(node.uuid) {
 				deform_stack.reset();
 			}
@@ -138,7 +138,7 @@ impl RenderCtx {
 		let mut root_drawable_uuid_zsort_vec = Vec::<(InoxNodeUuid, f32)>::new();
 
 		// root is definitely not a drawable.
-		for node in nodes.iter().skip(1) {
+		for node in nodes.pre_order_iter().skip(1) {
 			if let Some(drawable_kind) = DrawableKind::new(node.uuid, comps, false) {
 				let parent = nodes.get_parent(node.uuid);
 				let node_zsort = comps.get::<ZSort>(node.uuid).unwrap().0;
@@ -169,7 +169,7 @@ impl RenderCtx {
 						zsorted_children_list.sort_by(|a, b| {
 							let zsort_a = comps.get::<ZSort>(*a).unwrap();
 							let zsort_b = comps.get::<ZSort>(*b).unwrap();
-							zsort_a.total_cmp(zsort_b)
+							zsort_a.total_cmp(zsort_b).reverse()
 						});
 
 						swap(
@@ -198,7 +198,7 @@ impl RenderCtx {
 			}
 		}
 
-		root_drawable_uuid_zsort_vec.sort_by(|a, b| a.1.total_cmp(&b.1));
+		root_drawable_uuid_zsort_vec.sort_by(|a, b| a.1.total_cmp(&b.1).reverse());
 		self.root_drawables_zsorted
 			.iter_mut()
 			.zip(root_drawable_uuid_zsort_vec.iter())
@@ -319,14 +319,7 @@ impl<'a, T: InoxRenderer<'a>> InoxRendererExt<'a> for T {
 		self.begin_composite_content(as_mask, components, render_ctx, id);
 
 		for uuid in &render_ctx.zsorted_children_list {
-			let drawable_kind = DrawableKind::new(*uuid, comps, false)
-				.expect("All children in zsorted_children_list should be a Drawable.");
-			match drawable_kind {
-				DrawableKind::TexturedMesh(components) => {
-					self.draw_textured_mesh_content(as_mask, components, comps.get(*uuid).unwrap(), *uuid)
-				}
-				DrawableKind::Composite { .. } => panic!("Composite inside Composite not allowed."),
-			}
+			self.draw_drawable(as_mask, comps, *uuid);
 		}
 
 		self.finish_composite_content(as_mask, components, render_ctx, id);
