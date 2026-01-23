@@ -21,6 +21,7 @@ pub(crate) enum DrawableKind<'comps> {
 pub struct TexturedMeshComponents<'comps> {
 	// Only the absolute part of `TransformStore` that the renderer backend may need.
 	pub transform: &'comps Mat4,
+	pub zsort: f32,
 	pub drawable: &'comps Drawable,
 	pub texture: &'comps TexturedMesh,
 	pub mesh: &'comps Mesh,
@@ -31,6 +32,7 @@ pub struct TexturedMeshComponents<'comps> {
 pub struct CompositeComponents<'comps> {
 	// Only the absolute part of `TransformStore` that the renderer backend may need.
 	pub transform: &'comps Mat4,
+	pub zsort: f32,
 	pub drawable: &'comps Drawable,
 	pub data: &'comps Composite,
 }
@@ -48,6 +50,10 @@ impl<'comps> DrawableKind<'comps> {
 			.absolute;
 		let textured_mesh = comps.get::<TexturedMesh>(id);
 		let composite = comps.get::<Composite>(id);
+		let zsort = comps
+			.get::<crate::node::components::ZSort>(id)
+			.expect("A drawable must have an associated zsort.")
+			.0;
 
 		match (textured_mesh.is_some(), composite.is_some()) {
 			(true, true) => {
@@ -59,6 +65,7 @@ impl<'comps> DrawableKind<'comps> {
 				}
 				Some(DrawableKind::TexturedMesh(TexturedMeshComponents {
 					transform,
+					zsort,
 					drawable,
 					texture: textured_mesh.unwrap(),
 					mesh: comps
@@ -77,6 +84,7 @@ impl<'comps> DrawableKind<'comps> {
 			}
 			(true, false) => Some(DrawableKind::TexturedMesh(TexturedMeshComponents {
 				transform,
+				zsort,
 				drawable,
 				texture: textured_mesh.unwrap(),
 				mesh: comps
@@ -85,6 +93,7 @@ impl<'comps> DrawableKind<'comps> {
 			})),
 			(false, true) => Some(DrawableKind::Composite(CompositeComponents {
 				transform,
+				zsort,
 				drawable,
 				data: composite.unwrap(),
 			})),

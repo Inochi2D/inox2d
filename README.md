@@ -52,7 +52,7 @@ Support for mesh groups and animations is on the way!
 - [x] Parameters
   - [x] Deforms (mesh vertex offsets)
   - [x] Values (node transform offsets)
-  - [ ] Z-sort
+  - [x] Z-sort
 - [x] Physics
 - [ ] Animations
 - [ ] Mesh groups

@@ -169,7 +169,7 @@ impl RenderCtx {
 						zsorted_children_list.sort_by(|a, b| {
 							let zsort_a = comps.get::<ZSort>(*a).unwrap();
 							let zsort_b = comps.get::<ZSort>(*b).unwrap();
-							zsort_a.total_cmp(zsort_b).reverse()
+							zsort_a.total_cmp(zsort_b)
 						});
 
 						swap(
@@ -198,7 +198,7 @@ impl RenderCtx {
 			}
 		}
 
-		root_drawable_uuid_zsort_vec.sort_by(|a, b| a.1.total_cmp(&b.1).reverse());
+		root_drawable_uuid_zsort_vec.sort_by(|a, b| a.1.total_cmp(&b.1));
 		self.root_drawables_zsorted
 			.iter_mut()
 			.zip(root_drawable_uuid_zsort_vec.iter())
