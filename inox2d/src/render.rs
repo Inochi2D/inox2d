@@ -56,16 +56,14 @@ impl RenderCtx {
 				}
 			});
 		}
-		// TODO: Further fill the set when Meshgroup is implemented.
 
 		let mut vertex_buffers = VertexBuffers::default();
+		let mut root_drawables_zsorted = Vec::new();
 
-		let mut root_drawables_count: usize = 0;
+		// Pre-order traversal to initialize RenderCtx components
 		for node in nodes.pre_order_iter() {
 			let drawable_kind = DrawableKind::new(node.uuid, comps, true);
 			if let Some(drawable_kind) = drawable_kind {
-				root_drawables_count += 1;
-
 				match drawable_kind {
 					DrawableKind::TexturedMesh(components) => {
 						let (index_offset, vert_offset) = vertex_buffers.push(components.mesh);
@@ -81,42 +79,43 @@ impl RenderCtx {
 							},
 						);
 
-						// TexturedMesh not deformed by any source does not need a DeformStack
 						if nodes_to_deform.contains(&node.uuid) {
 							comps.add(node.uuid, DeformStack::new(vert_len));
 						}
 					}
 					DrawableKind::Composite { .. } => {
-						// exclude non-drawable children
-						let children_list: Vec<InoxNodeUuid> = nodes
-							.get_children(node.uuid)
-							.filter_map(|n| {
-								if DrawableKind::new(n.uuid, comps, false).is_some() {
-									Some(n.uuid)
-								} else {
-									None
-								}
-							})
-							.collect();
-
-						// composite children are excluded from root_drawables_zsorted
-						root_drawables_count -= children_list.len();
-
 						comps.add(
 							node.uuid,
 							CompositeRenderCtx {
-								// sort later, before render
-								zsorted_children_list: children_list,
+								zsorted_children_list: Vec::new(),
 							},
 						);
 					}
-				};
+				}
+
+				// Global/Nested identification
+				let mut current = node.uuid;
+				let mut nearest_composite = None;
+				while current != nodes.root_node_id {
+					let parent_uuid = nodes.get_parent(current).uuid;
+					if comps.get::<CompositeRenderCtx>(parent_uuid).is_some() {
+						nearest_composite = Some(parent_uuid);
+						break;
+					}
+					current = parent_uuid;
+				}
+
+				if let Some(comp_uuid) = nearest_composite {
+					comps
+						.get_mut::<CompositeRenderCtx>(comp_uuid)
+						.unwrap()
+						.zsorted_children_list
+						.push(node.uuid);
+				} else {
+					root_drawables_zsorted.push(node.uuid);
+				}
 			}
 		}
-
-		let mut root_drawables_zsorted = Vec::new();
-		// similarly, populate later, before render
-		root_drawables_zsorted.resize(root_drawables_count, InoxNodeUuid(0));
 
 		Self {
 			vertex_buffers,
@@ -135,19 +134,26 @@ impl RenderCtx {
 
 	/// Update zsort-ordered info and deform buffer content inside self, according to updated puppet.
 	pub(crate) fn update(&mut self, nodes: &InoxNodeTree, comps: &mut World) {
+		// We don't need to rebuild the lists, just update their Z-order
 		let mut root_drawable_uuid_zsort_vec = Vec::<(InoxNodeUuid, f32)>::new();
 
-		// root is definitely not a drawable.
 		for node in nodes.pre_order_iter().skip(1) {
 			if let Some(drawable_kind) = DrawableKind::new(node.uuid, comps, false) {
-				let parent = nodes.get_parent(node.uuid);
 				let node_zsort = comps.get::<ZSort>(node.uuid).unwrap().0;
 
-				if !matches!(
-					DrawableKind::new(parent.uuid, comps, false),
-					Some(DrawableKind::Composite(_))
-				) {
-					// exclude composite children
+				// Check if root drawable (no composite ancestors)
+				let mut current = node.uuid;
+				let mut is_root = true;
+				while current != nodes.root_node_id {
+					let parent_uuid = nodes.get_parent(current).uuid;
+					if comps.get::<CompositeRenderCtx>(parent_uuid).is_some() {
+						is_root = false;
+						break;
+					}
+					current = parent_uuid;
+				}
+
+				if is_root {
 					root_drawable_uuid_zsort_vec.push((node.uuid, node_zsort));
 				}
 
