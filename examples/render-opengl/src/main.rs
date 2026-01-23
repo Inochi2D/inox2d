@@ -52,6 +52,18 @@ fn main() -> Result<(), Box<dyn Error>> {
 	model.puppet.init_rendering();
 	model.puppet.init_params();
 	model.puppet.init_physics();
+	model.puppet.init_animations();
+	tracing::info!("Loaded {} animations", model.puppet.animations.len());
+	for (i, anim) in model.puppet.animations.iter().enumerate() {
+		tracing::info!("  [{}] {}", i + 1, anim.name);
+	}
+	tracing::info!("  [0] Stop all animations");
+
+	if let Some(anim) = model.puppet.animations.first() {
+		let name = anim.name.clone();
+		tracing::info!("Playing default animation: {}", name);
+		model.puppet.play_animation(&name, 1.0);
+	}
 
 	tracing::info!("Setting up windowing and OpenGL");
 	let app_frame = AppFrame::init(
@@ -155,11 +167,51 @@ impl App for Inox2dOpenglExampleApp {
 				tracing::info!("There is an Escape D:");
 				elwt.exit();
 			}
+			WindowEvent::KeyboardInput {
+				event:
+					KeyEvent {
+						state: ElementState::Pressed,
+						physical_key: PhysicalKey::Code(code),
+						..
+					},
+				..
+			} => {
+				let puppet = &mut self.model.puppet;
+				match code {
+					KeyCode::Digit1 => play_anim_idx(puppet, 0),
+					KeyCode::Digit2 => play_anim_idx(puppet, 1),
+					KeyCode::Digit3 => play_anim_idx(puppet, 2),
+					KeyCode::Digit4 => play_anim_idx(puppet, 3),
+					KeyCode::Digit5 => play_anim_idx(puppet, 4),
+					KeyCode::Digit6 => play_anim_idx(puppet, 5),
+					KeyCode::Digit7 => play_anim_idx(puppet, 6),
+					KeyCode::Digit8 => play_anim_idx(puppet, 7),
+					KeyCode::Digit9 => play_anim_idx(puppet, 8),
+					KeyCode::Digit0 => {
+						tracing::info!("Stopping all animations");
+						puppet.stop_all_animations();
+					}
+					_ => {
+						if let Some((renderer, scene_ctrl)) = &mut self.on_window {
+							scene_ctrl.interact(&event, &renderer.camera)
+						}
+					}
+				}
+			}
 			event => {
 				if let Some((renderer, scene_ctrl)) = &mut self.on_window {
 					scene_ctrl.interact(&event, &renderer.camera)
 				}
 			}
 		}
+	}
+}
+
+fn play_anim_idx(puppet: &mut inox2d::puppet::Puppet, idx: usize) {
+	if let Some(anim) = puppet.animations.get(idx) {
+		let name = anim.name.clone();
+		tracing::info!("Playing animation: {}", name);
+		puppet.stop_all_animations();
+		puppet.play_animation(&name, 1.0);
 	}
 }

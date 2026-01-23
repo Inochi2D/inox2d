@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use glam::{vec2, vec3, Vec2};
 use json::JsonValue;
 
+use crate::animation::*;
 use crate::math::interp::InterpolateMode;
 use crate::math::matrix::{Matrix2d, Matrix2dFromSliceVecsError};
 use crate::math::transform::TransformOffset;
@@ -295,6 +296,7 @@ impl Puppet {
 		let meta = vals("meta", deserialize_puppet_meta(obj.get_object("meta")?))?;
 		let physics = vals("physics", deserialize_puppet_physics(obj.get_object("physics")?))?;
 		let parameters = deserialize_params(obj.get_list("param")?)?;
+		let animations = deserialize_animations(obj.get_list("animations").unwrap_or(&[]))?;
 
 		let root = vals("nodes", deserialize_node(obj.get_object("nodes")?))?;
 		let ParsedNode {
@@ -305,7 +307,7 @@ impl Puppet {
 		} = root;
 		let root_id = node.uuid;
 
-		let mut puppet = Self::new(meta, physics, node, parameters);
+		let mut puppet = Self::new(meta, physics, node, parameters, animations);
 
 		puppet.load_node_data(root_id, ty, data, load_node_data_custom)?;
 		puppet.load_children_rec(root_id, children, load_node_data_custom)?;
@@ -331,6 +333,11 @@ impl Puppet {
 			"Composite" => {
 				self.node_comps.add(id, deserialize_drawable(data)?);
 				self.node_comps.add(id, Composite {});
+			}
+			"MeshGroup" => {
+				self.node_comps.add(id, MeshGroup {});
+				self.node_comps
+					.add(id, vals("mesh", deserialize_mesh(data.get_object("mesh")?))?)
 			}
 			"SimplePhysics" => {
 				self.node_comps.add(id, deserialize_simple_physics(data)?);
@@ -536,5 +543,68 @@ fn deserialize_puppet_usage_rights(obj: JsonObject) -> InoxParseResult<PuppetUsa
 			unknown => return Err(InoxParseError::UnknownPuppetAllowedModification(unknown.to_owned())),
 		},
 		require_attribution: obj.get_bool("require_attribution")?,
+	})
+}
+
+fn deserialize_animations(vals: &[json::JsonValue]) -> InoxParseResult<Vec<Animation>> {
+	let mut animations = Vec::new();
+	for val in vals {
+		animations.push(deserialize_animation(as_object("animation", val)?)?);
+	}
+	Ok(animations)
+}
+
+fn deserialize_animation(obj: JsonObject) -> InoxParseResult<Animation> {
+	Ok(Animation {
+		name: obj.get_str("name")?.to_owned(),
+		length: obj.get_f32("length")?,
+		loop_mode: match obj.get_str("loopMode")? {
+			"Loop" => AnimationLoopMode::Loop,
+			"PingPong" => AnimationLoopMode::PingPong,
+			"Once" => AnimationLoopMode::Once,
+			_ => AnimationLoopMode::Once,
+		},
+		tracks: deserialize_animation_tracks(obj.get_list("tracks")?)?,
+	})
+}
+
+fn deserialize_animation_tracks(vals: &[json::JsonValue]) -> InoxParseResult<Vec<AnimationTrack>> {
+	let mut tracks = Vec::new();
+	for val in vals {
+		tracks.push(deserialize_animation_track(as_object("track", val)?)?);
+	}
+	Ok(tracks)
+}
+
+fn deserialize_animation_track(obj: JsonObject) -> InoxParseResult<AnimationTrack> {
+	Ok(AnimationTrack {
+		param_uuid: ParamUuid(obj.get_u32("target")?),
+		axis: match obj.get_u32("axis").unwrap_or(0) {
+			0 => AnimationAxis::X,
+			1 => AnimationAxis::Y,
+			_ => AnimationAxis::X,
+		},
+		keyframes: deserialize_keyframes(obj.get_list("keyframes")?)?,
+	})
+}
+
+fn deserialize_keyframes(vals: &[json::JsonValue]) -> InoxParseResult<Vec<Keyframe>> {
+	let mut keyframes = Vec::new();
+	for val in vals {
+		keyframes.push(deserialize_keyframe(as_object("keyframe", val)?)?);
+	}
+	keyframes.sort_by(|a, b| a.time.total_cmp(&b.time));
+	Ok(keyframes)
+}
+
+fn deserialize_keyframe(obj: JsonObject) -> InoxParseResult<Keyframe> {
+	Ok(Keyframe {
+		time: obj.get_f32("time")?,
+		value: obj.get_f32("value")?,
+		interpolation: match obj.get_str("interpolation")? {
+			"Nearest" => InterpolateMode::Nearest,
+			"Linear" => InterpolateMode::Linear,
+			_ => InterpolateMode::Linear,
+		},
 	})
 }

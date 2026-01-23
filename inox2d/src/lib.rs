@@ -1,3 +1,4 @@
+pub mod animation;
 pub mod formats;
 pub mod math;
 pub mod model;

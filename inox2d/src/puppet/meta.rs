@@ -1,5 +1,6 @@
 use std::fmt;
 
+#[derive(Default)]
 pub struct PuppetMeta {
 	/// Name of the puppet.
 	pub name: Option<String>,
@@ -24,6 +25,15 @@ pub struct PuppetMeta {
 	/// Whether the puppet should preserve pixel borders.
 	/// This feature is mainly useful for puppets that use pixel art.
 	pub preserve_pixels: bool,
+}
+
+impl PuppetMeta {
+	pub fn new_with_version(version: String) -> Self {
+		Self {
+			version,
+			..Default::default()
+		}
+	}
 }
 
 fn writeln_opt<T: fmt::Display>(f: &mut fmt::Formatter<'_>, field_name: &str, opt: &Option<T>) -> fmt::Result {
@@ -83,6 +93,7 @@ impl fmt::Display for PuppetMeta {
 }
 
 /// Terms of usage of the puppet.
+#[derive(Default)]
 pub struct PuppetUsageRights {
 	/// Who is allowed to use the puppet?
 	pub allowed_users: PuppetAllowedUsers,

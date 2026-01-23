@@ -25,6 +25,13 @@ use crate::texture::TextureId;
 /// Empty as only a marker, zsorted children list constructed later on demand
 pub struct Composite {}
 
+/* --- MESH GROUP --- */
+
+/// If has this as a component, the node should deform all children
+///
+/// Empty as only a marker, mesh component must also be present
+pub struct MeshGroup {}
+
 /* --- DRAWABLE --- */
 
 /// If has this as a component, the node should render something

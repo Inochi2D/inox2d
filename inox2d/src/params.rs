@@ -233,7 +233,7 @@ impl Param {
 
 /// Additional struct attached to a puppet for animating through params.
 pub struct ParamCtx {
-	values: HashMap<String, Vec2>,
+	pub(crate) values: HashMap<String, Vec2>,
 }
 
 impl ParamCtx {

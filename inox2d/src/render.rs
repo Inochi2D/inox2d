@@ -114,6 +114,11 @@ impl RenderCtx {
 				} else {
 					root_drawables_zsorted.push(node.uuid);
 				}
+			} else if comps.get::<crate::node::components::MeshGroup>(node.uuid).is_some() {
+				// Initialize DeformStack for MeshGroup
+				if let Some(mesh) = comps.get::<crate::node::components::Mesh>(node.uuid) {
+					comps.add(node.uuid, DeformStack::new(mesh.vertices.len()));
+				}
 			}
 		}
 

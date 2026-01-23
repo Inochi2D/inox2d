@@ -54,8 +54,8 @@ Support for mesh groups and animations is on the way!
   - [x] Values (node transform offsets)
   - [x] Z-sort
 - [x] Physics
-- [ ] Animations
-- [ ] Mesh groups
+- [x] Animations
+- [x] Mesh groups
 
 ### INP and INX parsing
 

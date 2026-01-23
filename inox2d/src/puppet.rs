@@ -5,6 +5,7 @@ mod world;
 
 use std::collections::HashMap;
 
+use crate::animation::{Animation, AnimationCtx};
 use crate::node::{InoxNode, InoxNodeUuid};
 use crate::params::{Param, ParamCtx};
 use crate::physics::{PhysicsCtx, PuppetPhysics};
@@ -29,6 +30,9 @@ pub struct Puppet {
 	pub(crate) params: HashMap<String, Param>,
 	/// Context for animating puppet with parameters. See `.init_params()`
 	pub param_ctx: Option<ParamCtx>,
+	pub animations: Vec<Animation>,
+	/// Context for playing animations. See `.init_animations()`
+	pub animation_ctx: Option<AnimationCtx>,
 }
 
 impl Puppet {
@@ -37,6 +41,7 @@ impl Puppet {
 		physics: PuppetPhysics,
 		root: InoxNode,
 		params: HashMap<String, Param>,
+		animations: Vec<Animation>,
 	) -> Self {
 		Self {
 			meta,
@@ -48,7 +53,43 @@ impl Puppet {
 			render_ctx: None,
 			params,
 			param_ctx: None,
+			animations,
+			animation_ctx: None,
 		}
+	}
+
+	/// Call this on a puppet if animations are going to be used.
+	pub fn init_animations(&mut self) {
+		if self.animation_ctx.is_some() {
+			panic!("Puppet already initialized for animations.");
+		}
+
+		self.animation_ctx = Some(AnimationCtx::new(&self.params));
+	}
+
+	/// Play an animation by name.
+	pub fn play_animation(&mut self, name: &str, weight: f32) {
+		if let Some(animation_ctx) = self.animation_ctx.as_mut() {
+			animation_ctx.play(name, weight);
+		}
+	}
+
+	/// Stop all playing animations.
+	pub fn stop_all_animations(&mut self) {
+		if let Some(animation_ctx) = self.animation_ctx.as_mut() {
+			animation_ctx.clear();
+		}
+	}
+
+	/// Add an animation to the puppet. Useful for programmatically creating animations
+	/// for models that don't have embedded animations.
+	pub fn add_animation(&mut self, animation: Animation) {
+		self.animations.push(animation);
+	}
+
+	/// Get access to the puppet's parameters for creating animations.
+	pub fn params(&self) -> &HashMap<String, Param> {
+		&self.params
 	}
 
 	/// Create a copy of node transform/zsort for modification. Panicks on second call.
@@ -125,6 +166,13 @@ impl Puppet {
 	///
 	/// Provide elapsed time for physics, if initialized, to run. Provide `0` for the first call.
 	pub fn end_frame(&mut self, dt: f32) {
+		if let Some(animation_ctx) = self.animation_ctx.as_mut() {
+			animation_ctx.update(dt);
+			if let Some(param_ctx) = self.param_ctx.as_mut() {
+				animation_ctx.apply(&self.animations, param_ctx);
+			}
+		}
+
 		if let Some(param_ctx) = self.param_ctx.as_mut() {
 			param_ctx.apply(&self.params, &mut self.node_comps);
 		}

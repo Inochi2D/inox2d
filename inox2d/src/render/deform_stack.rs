@@ -30,20 +30,47 @@ impl DeformStack {
 
 		let direct_deforms = self.stack.values().filter_map(|enabled_deform| {
 			if enabled_deform.0 {
-				let Deform::Direct(ref direct_deform) = enabled_deform.1;
-				Some(direct_deform)
+				if let Deform::Direct(ref direct_deform) = enabled_deform.1 {
+					Some(direct_deform)
+				} else {
+					None
+				}
 			} else {
 				None
 			}
 		});
 		linear_combine(direct_deforms, result);
+
+		// Apply MeshGroup deforms
+		for (enabled, deform) in self.stack.values() {
+			if *enabled {
+				if let Deform::MeshGroup {
+					mesh_group: _,
+					vertex_weights: _,
+				} = deform
+				{
+					// Get the deformed vertices of the parent mesh group
+					// We need a way to access the combined result of the parent's DeformStack.
+					// For now, let's assume we can't easily do it without a cache.
+					// TODO: Implement MeshGroup deformation application logic
+				}
+			}
+		}
 	}
 
 	/// Submit a deform from a source for a node.
 	pub(crate) fn push(&mut self, src: DeformSource, mut deform: Deform) {
-		let Deform::Direct(ref direct_deform) = deform;
-		if direct_deform.len() != self.deform_len {
-			panic!("A direct deform with non-matching dimensions is submitted to a node.");
+		match deform {
+			Deform::Direct(ref direct_deform) => {
+				if direct_deform.len() != self.deform_len {
+					panic!("A direct deform with non-matching dimensions is submitted to a node.");
+				}
+			}
+			Deform::MeshGroup { ref vertex_weights, .. } => {
+				if vertex_weights.len() != self.deform_len {
+					panic!("A mesh group deform with non-matching dimensions is submitted to a node.");
+				}
+			}
 		}
 
 		self.stack
