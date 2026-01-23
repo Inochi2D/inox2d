@@ -180,8 +180,8 @@ pub(crate) struct SpringPendulumCtx {
 /// If has this as a component, the node should render a deformed texture
 pub struct TexturedMesh {
 	pub tex_albedo: TextureId,
-	pub tex_emissive: TextureId,
-	pub tex_bumpmap: TextureId,
+	pub tex_emissive: Option<TextureId>,
+	pub tex_bumpmap: Option<TextureId>,
 }
 
 /* --- MESH --- */

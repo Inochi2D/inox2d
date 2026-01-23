@@ -61,28 +61,28 @@ pub struct JsonObject<'a>(pub &'a json::object::Object);
 
 #[allow(unused)]
 impl<'a> JsonObject<'a> {
-	fn get(self, key: &'a str) -> JsonResult<&json::JsonValue> {
+	fn get(self, key: &'a str) -> JsonResult<&'a json::JsonValue> {
 		match self.0.get(key) {
 			Some(value) => Ok(value),
 			None => Err(JsonError::KeyDoesNotExist(key.to_owned())),
 		}
 	}
 
-	pub fn get_object(self, key: &'a str) -> JsonResult<JsonObject> {
+	pub fn get_object(self, key: &'a str) -> JsonResult<JsonObject<'a>> {
 		match self.get(key)?.as_object() {
 			Some(obj) => Ok(JsonObject(obj)),
 			None => Err(JsonError::ValueIsNotObject(key.to_owned())),
 		}
 	}
 
-	pub fn get_list(self, key: &'a str) -> JsonResult<&[JsonValue]> {
+	pub fn get_list(self, key: &'a str) -> JsonResult<&'a [JsonValue]> {
 		match self.get(key)? {
 			json::JsonValue::Array(arr) => Ok(arr),
 			_ => Err(JsonError::ValueIsNotList(key.to_owned())),
 		}
 	}
 
-	pub fn get_nullable_str(self, key: &'a str) -> JsonResult<Option<&str>> {
+	pub fn get_nullable_str(self, key: &'a str) -> JsonResult<Option<&'a str>> {
 		let val = self.get(key)?;
 		if val.is_null() {
 			return Ok(None);
@@ -93,7 +93,7 @@ impl<'a> JsonObject<'a> {
 		}
 	}
 
-	pub fn get_str(self, key: &'a str) -> JsonResult<&str> {
+	pub fn get_str(self, key: &'a str) -> JsonResult<&'a str> {
 		match self.get(key)?.as_str() {
 			Some(val) => Ok(val),
 			None => Err(JsonError::ValueIsNotString(key.to_owned())),

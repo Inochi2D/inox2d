@@ -8,6 +8,7 @@ repository = "https://github.com/Inochi2D/inox2d"
 license = "BSD-2-Clause"
 keywords = ["gamedev", "graphics", "inochi2d", "vtuber", "opengl"]
 categories = ["graphics", "rendering"]
+readme = "../README.md"
 
 [dependencies]
 inox2d = { path = "../inox2d", version = "0.3.0" }

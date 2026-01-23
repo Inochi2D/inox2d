@@ -120,19 +120,19 @@ fn deserialize_textured_mesh(obj: JsonObject) -> InoxParseResult<TexturedMesh> {
 		let tex_emissive = match textures.get(1).and_then(JsonValue::as_number) {
 			Some(val) => (val.try_into())
 				// Map u32::MAX to nothing
-				.map(|val| if val == u32::MAX as usize { 0 } else { val })
-				.map(TextureId)
+				.map(|val| if val == u32::MAX as usize { None } else { Some(val) })
+				.map(|val| val.map(TextureId))
 				.map_err(|_| InoxParseError::JsonError(JsonError::ParseIntError("1".to_owned()).nested("textures")))?,
-			None => TextureId(0),
+			None => None,
 		};
 
 		let tex_bumpmap = match textures.get(2).and_then(JsonValue::as_number) {
 			Some(val) => (val.try_into())
 				// Map u32::MAX to nothing
-				.map(|val| if val == u32::MAX as usize { 0 } else { val })
-				.map(TextureId)
+				.map(|val| if val == u32::MAX as usize { None } else { Some(val) })
+				.map(|val| val.map(TextureId))
 				.map_err(|_| InoxParseError::JsonError(JsonError::ParseIntError("2".to_owned()).nested("textures")))?,
-			None => TextureId(0),
+			None => None,
 		};
 
 		(tex_albedo, tex_emissive, tex_bumpmap)

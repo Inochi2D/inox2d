@@ -150,7 +150,9 @@ impl OpenglRenderer {
 			let composite_shader = CompositeShader::new(&gl)?;
 			let composite_mask_shader = CompositeMaskShader::new(&gl)?;
 
-			let support_debug_extension = gl.supported_extensions().contains("GL_KHR_debug");
+			// FIXME: This is causing GL_STACK_OVERFLOW on some drivers/models due to deep nesting or unbalanced calls.
+			// Disabling for now to ensure stability.
+			let support_debug_extension = false; // gl.supported_extensions().contains("GL_KHR_debug");
 
 			let inox_buffers = (model.puppet.render_ctx.as_ref())
 				.expect("Rendering for a puppet must be initialized before creating a renderer.");
@@ -324,8 +326,12 @@ impl OpenglRenderer {
 
 		let gl = &self.gl;
 		self.textures[part.tex_albedo.raw()].bind_on(gl, 0);
-		self.textures[part.tex_bumpmap.raw()].bind_on(gl, 1);
-		self.textures[part.tex_emissive.raw()].bind_on(gl, 2);
+		if let Some(tex) = part.tex_bumpmap {
+			self.textures[tex.raw()].bind_on(gl, 1);
+		}
+		if let Some(tex) = part.tex_emissive {
+			self.textures[tex.raw()].bind_on(gl, 2);
+		}
 	}
 
 	/// Clear the texture cache

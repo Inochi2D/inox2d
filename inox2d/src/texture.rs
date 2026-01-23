@@ -1,7 +1,6 @@
 use std::io;
 
 use image::{ImageBuffer, ImageError, ImageFormat, Rgba};
-use tracing::error;
 
 use crate::model::ModelTexture;
 
