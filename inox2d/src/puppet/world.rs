@@ -84,10 +84,7 @@ impl World {
 	}
 
 	pub fn get<T: Component>(&self, node: InoxNodeUuid) -> Option<&T> {
-		let pair = match self.columns.get(&TypeId::of::<T>()) {
-			Some(c) => c,
-			None => return None,
-		};
+		let pair = self.columns.get(&TypeId::of::<T>())?;
 		// SAFETY: AnyVec in pair must be of type T, enforced by hashing
 		let column = unsafe { pair.0.downcast_unchecked() };
 
@@ -101,10 +98,7 @@ impl World {
 	}
 
 	pub fn get_mut<T: Component>(&mut self, node: InoxNodeUuid) -> Option<&mut T> {
-		let pair = match self.columns.get_mut(&TypeId::of::<T>()) {
-			Some(c) => c,
-			None => return None,
-		};
+		let pair = self.columns.get_mut(&TypeId::of::<T>())?;
 		// SAFETY: AnyVec in pair must be of type T, enforced by hashing
 		let column = unsafe { pair.0.downcast_mut_unchecked() };
 

@@ -6,10 +6,11 @@
   <div align="center">
 
 Officially supported experimental Rust port of [Inochi2D](https://github.com/Inochi2D/inochi2d).
-    &nbsp;
-    <a align="center" href="https://discord.com/invite/abnxwN6r9v">
-      <img align="center" src="https://img.shields.io/discord/855173611409506334?color=7289DA&label=%20&logo=discord&logoColor=white" alt="Discord" />
-    </a>
+&nbsp;
+<a align="center" href="https://discord.com/invite/abnxwN6r9v">
+<img align="center" src="https://img.shields.io/discord/855173611409506334?color=7289DA&label=%20&logo=discord&logoColor=white" alt="Discord" />
+</a>
+
   </div>
 </p>
 
@@ -47,7 +48,7 @@ Support for mesh groups and animations is on the way!
 - [x] Rendering
   - [x] OpenGL
     - [x] WASM (WebGL)
-  - [ ] Draw List
+  - [x] Draw List
 - [x] Parameters
   - [x] Deforms (mesh vertex offsets)
   - [x] Values (node transform offsets)
@@ -90,7 +91,7 @@ Inox2D is designed to be extensible. Nodes are extensible through a generic `Ino
 
 | Implementation        | language | OpenGL calls |
 | --------------------- | -------- | ------------ |
-| Inochi2D reference*   | D        | 3076         |
+| Inochi2D reference\*  | D        | 3076         |
 | Link Mauve's inochi2d | Rust     | 551          |
 | Inox2D                | Rust     | 1639         |
 

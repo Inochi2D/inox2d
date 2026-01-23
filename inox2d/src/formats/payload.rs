@@ -250,7 +250,7 @@ fn deserialize_f32s(val: &[json::JsonValue]) -> Vec<f32> {
 }
 
 fn deserialize_vec2s_flat(vals: &[json::JsonValue]) -> InoxParseResult<Vec<Vec2>> {
-	if vals.len() % 2 != 0 {
+	if !vals.len().is_multiple_of(2) {
 		return Err(InoxParseError::OddNumberOfFloatsInList(vals.len()));
 	}
 

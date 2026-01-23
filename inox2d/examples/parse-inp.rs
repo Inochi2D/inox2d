@@ -11,7 +11,10 @@ struct Cli {
 	#[arg(help = "Path to the .inp or .inx file.")]
 	inp_path: PathBuf,
 
-	#[arg(long, help = "The directory where to dump the inp file's internals. (No dumping if unspecified.)")]
+	#[arg(
+		long,
+		help = "The directory where to dump the inp file's internals. (No dumping if unspecified.)"
+	)]
 	dump_dir: Option<PathBuf>,
 }
 

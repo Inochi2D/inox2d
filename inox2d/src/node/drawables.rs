@@ -17,6 +17,7 @@ pub(crate) enum DrawableKind<'comps> {
 }
 
 /// Pack of components for a TexturedMesh. "Part" in Inochi2D terms.
+#[derive(Clone, Copy)]
 pub struct TexturedMeshComponents<'comps> {
 	// Only the absolute part of `TransformStore` that the renderer backend may need.
 	pub transform: &'comps Mat4,
@@ -26,6 +27,7 @@ pub struct TexturedMeshComponents<'comps> {
 }
 
 /// Pack of components for a Composite node.
+#[derive(Clone, Copy)]
 pub struct CompositeComponents<'comps> {
 	// Only the absolute part of `TransformStore` that the renderer backend may need.
 	pub transform: &'comps Mat4,
@@ -39,10 +41,7 @@ impl<'comps> DrawableKind<'comps> {
 	///
 	/// If `check`, will send a warning to `tracing` if component combination non-standard for a supposed-to-be Drawable node.
 	pub(crate) fn new(id: InoxNodeUuid, comps: &'comps World, check: bool) -> Option<Self> {
-		let drawable = match comps.get::<Drawable>(id) {
-			Some(drawable) => drawable,
-			None => return None,
-		};
+		let drawable = comps.get::<Drawable>(id)?;
 		let transform = &comps
 			.get::<TransformStore>(id)
 			.expect("A drawble must have an associated transform.")

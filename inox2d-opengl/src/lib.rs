@@ -41,6 +41,7 @@ struct GlCache {
 	pub blend_mode: Option<BlendMode>,
 	pub program: Option<glow::Program>,
 	pub albedo: Option<TextureId>,
+	pub mask_threshold: Option<f32>,
 }
 
 impl GlCache {
@@ -415,8 +416,8 @@ impl OpenglRenderer {
 	}
 }
 
-impl InoxRenderer for OpenglRenderer {
-	fn on_begin_masks(&self, masks: &Masks) {
+impl<'a> InoxRenderer<'a> for OpenglRenderer {
+	fn on_begin_masks(&self, masks: &'a Masks) {
 		self.push_debug_group("inox2d - begin masks");
 
 		let gl = &self.gl;
@@ -433,12 +434,15 @@ impl InoxRenderer for OpenglRenderer {
 
 		let part_mask_shader = &self.part_mask_shader;
 		self.bind_shader(part_mask_shader);
-		part_mask_shader.set_threshold(gl, masks.threshold.clamp(0.0, 1.0));
+		let threshold = masks.threshold.clamp(0.0, 1.0);
+		part_mask_shader.set_threshold(gl, threshold);
+
+		self.cache.borrow_mut().mask_threshold = Some(threshold);
 
 		self.pop_debug_group();
 	}
 
-	fn on_begin_mask(&self, mask: &Mask) {
+	fn on_begin_mask(&self, mask: &'a Mask) {
 		self.push_debug_group("inox2d - begin mask");
 
 		let gl = &self.gl;
@@ -468,15 +472,15 @@ impl InoxRenderer for OpenglRenderer {
 			gl.stencil_func(glow::ALWAYS, 1, 0xff);
 			gl.disable(glow::STENCIL_TEST);
 		}
-		
+
 		self.pop_debug_group();
 	}
 
 	fn draw_textured_mesh_content(
 		&self,
 		as_mask: bool,
-		components: &TexturedMeshComponents,
-		render_ctx: &TexturedMeshRenderCtx,
+		components: TexturedMeshComponents<'a>,
+		render_ctx: &'a TexturedMeshRenderCtx,
 		_id: InoxNodeUuid,
 	) {
 		self.push_debug_group("inox2d - draw textured content");
@@ -513,12 +517,14 @@ impl InoxRenderer for OpenglRenderer {
 
 			// vert uniforms
 			self.part_mask_shader.set_mvp(gl, mvp);
+			self.part_mask_shader.set_offset(gl, components.mesh.origin);
 		} else {
 			let part_shader = &self.part_shader;
 			self.bind_shader(part_shader);
 
 			// vert uniforms
 			part_shader.set_mvp(gl, mvp);
+			part_shader.set_offset(gl, components.mesh.origin);
 
 			// frag uniforms
 			part_shader.set_opacity(gl, components.drawable.blending.opacity);
@@ -541,8 +547,8 @@ impl InoxRenderer for OpenglRenderer {
 	fn begin_composite_content(
 		&self,
 		_as_mask: bool,
-		_components: &CompositeComponents,
-		_render_ctx: &CompositeRenderCtx,
+		_components: CompositeComponents<'a>,
+		_render_ctx: &'a CompositeRenderCtx,
 		_id: InoxNodeUuid,
 	) {
 		self.push_debug_group("inox2d - begin composite content");
@@ -574,8 +580,8 @@ impl InoxRenderer for OpenglRenderer {
 	fn finish_composite_content(
 		&self,
 		as_mask: bool,
-		components: &CompositeComponents,
-		_render_ctx: &CompositeRenderCtx,
+		components: CompositeComponents<'a>,
+		_render_ctx: &'a CompositeRenderCtx,
 		_id: InoxNodeUuid,
 	) {
 		self.pop_debug_group();
@@ -591,13 +597,19 @@ impl InoxRenderer for OpenglRenderer {
 
 		let blending = &components.drawable.blending;
 		if as_mask {
-			/*
-			cShaderMask.use();
-			cShaderMask.setUniform(mopacity, opacity);
-			cShaderMask.setUniform(mthreshold, threshold);
-			glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-			*/
-			todo!()
+			let opacity = blending.opacity.clamp(0.0, 1.0);
+			let threshold = self.cache.borrow().mask_threshold.unwrap_or(0.0);
+
+			let composite_mask_shader = &self.composite_mask_shader;
+			self.bind_shader(composite_mask_shader);
+			composite_mask_shader.set_opacity(gl, opacity);
+			composite_mask_shader.set_threshold(gl, threshold);
+
+			unsafe {
+				gl.active_texture(glow::TEXTURE0);
+				gl.bind_texture(glow::TEXTURE_2D, Some(self.cf_albedo));
+				gl.blend_func(glow::ONE, glow::ONE_MINUS_SRC_ALPHA);
+			}
 		} else {
 			unsafe {
 				gl.active_texture(glow::TEXTURE0);
@@ -666,12 +678,12 @@ impl OpenglRenderer {
 		self.pop_debug_group();
 
 		self.push_debug_group("inox2d - end draw");
-		
+
 		let gl = &self.gl;
 		unsafe {
 			gl.bind_vertex_array(None);
 		}
-		
+
 		self.pop_debug_group();
 	}
 }
