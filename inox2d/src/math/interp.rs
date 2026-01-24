@@ -67,7 +67,12 @@ fn interpolate_linear(t: f32, range_in: InterpRange<f32>, range_out: InterpRange
 		range_in.end,
 	);
 
-	(t - range_in.beg) * (range_out.end - range_out.beg) / (range_in.end - range_in.beg) + range_out.beg
+	let denom = range_in.end - range_in.beg;
+	if denom == 0.0 {
+		return range_out.beg;
+	}
+
+	(t - range_in.beg) * (range_out.end - range_out.beg) / denom + range_out.beg
 }
 
 #[inline]

@@ -41,6 +41,7 @@ pub struct Drawable {
 	pub masks: Option<Masks>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Blending {
 	pub mode: BlendMode,
 	pub tint: Vec3,
@@ -48,7 +49,7 @@ pub struct Blending {
 	pub opacity: f32,
 }
 
-#[derive(Default, PartialEq, Clone, Copy)]
+#[derive(Debug, Default, PartialEq, Clone, Copy)]
 pub enum BlendMode {
 	/// Normal blending mode.
 	#[default]

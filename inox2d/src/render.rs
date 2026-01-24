@@ -25,11 +25,13 @@ pub struct TexturedMeshRenderCtx {
 	pub vert_offset: u16,
 	pub index_len: usize,
 	pub vert_len: usize,
+	pub base_blending: crate::node::components::Blending,
 }
 
 /// Additional info per node for rendering a Composite.
 pub struct CompositeRenderCtx {
 	pub zsorted_children_list: Vec<InoxNodeUuid>,
+	pub base_blending: crate::node::components::Blending,
 }
 
 /// Additional struct attached to a puppet for rendering.
@@ -76,6 +78,7 @@ impl RenderCtx {
 								vert_offset,
 								index_len,
 								vert_len,
+								base_blending: components.drawable.blending,
 							},
 						);
 
@@ -83,11 +86,12 @@ impl RenderCtx {
 							comps.add(node.uuid, DeformStack::new(vert_len));
 						}
 					}
-					DrawableKind::Composite { .. } => {
+					DrawableKind::Composite(components) => {
 						comps.add(
 							node.uuid,
 							CompositeRenderCtx {
 								zsorted_children_list: Vec::new(),
+								base_blending: components.drawable.blending,
 							},
 						);
 					}
@@ -133,6 +137,18 @@ impl RenderCtx {
 		for node in nodes.pre_order_iter() {
 			if let Some(deform_stack) = comps.get_mut::<DeformStack>(node.uuid) {
 				deform_stack.reset();
+			}
+
+			if let Some(render_ctx) = comps.get::<TexturedMeshRenderCtx>(node.uuid) {
+				let base = render_ctx.base_blending;
+				if let Some(drawable) = comps.get_mut::<crate::node::components::Drawable>(node.uuid) {
+					drawable.blending = base;
+				}
+			} else if let Some(render_ctx) = comps.get::<CompositeRenderCtx>(node.uuid) {
+				let base = render_ctx.base_blending;
+				if let Some(drawable) = comps.get_mut::<crate::node::components::Drawable>(node.uuid) {
+					drawable.blending = base;
+				}
 			}
 		}
 	}

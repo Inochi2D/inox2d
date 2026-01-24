@@ -8,7 +8,7 @@ use crate::math::{
 	matrix::Matrix2d,
 };
 use crate::node::{
-	components::{DeformSource, DeformStack, Mesh, TransformStore, ZSort},
+	components::{DeformSource, DeformStack, Drawable, Mesh, TransformStore, ZSort},
 	InoxNodeUuid,
 };
 use crate::puppet::{Puppet, World};
@@ -32,8 +32,7 @@ pub enum BindingValues {
 	TransformRY(Matrix2d<f32>),
 	TransformRZ(Matrix2d<f32>),
 	Deform(Matrix2d<Vec<Vec2>>),
-	// TODO
-	Opacity,
+	Opacity(Matrix2d<f32>),
 }
 
 #[derive(Debug, Clone)]
@@ -77,51 +76,47 @@ impl Param {
 	/// but other facilities should be present to make sure this `apply()` is only called once per parameter.
 	pub(crate) fn apply(&self, val: Vec2, comps: &mut World) {
 		let val = val.clamp(self.min, self.max);
-		let val_normed = (val - self.min) / (self.max - self.min);
+		let range = self.max - self.min;
+		let val_normed = vec2(
+			if range.x > 0.0 {
+				(val.x - self.min.x) / range.x
+			} else {
+				0.0
+			},
+			if range.y > 0.0 {
+				(val.y - self.min.y) / range.y
+			} else {
+				0.0
+			},
+		);
 
 		// calculate axis point indexes
-		let (x_mindex, x_maxdex) = {
-			let x_temp = self.axis_points.x.binary_search_by(|a| a.total_cmp(&val_normed.x));
+		let (x_mindex, x_maxdex) = Self::find_indices(&self.axis_points.x, val_normed.x);
+		let (y_mindex, y_maxdex) = Self::find_indices(&self.axis_points.y, val_normed.y);
 
-			let last_idx = self.axis_points.x.len() - 1;
+		let range_in = InterpRange::new(
+			vec2(
+				self.axis_points.x.get(x_mindex).copied().unwrap_or(0.0),
+				self.axis_points.y.get(y_mindex).copied().unwrap_or(0.0),
+			),
+			vec2(
+				self.axis_points.x.get(x_maxdex).copied().unwrap_or(0.0),
+				self.axis_points.y.get(y_maxdex).copied().unwrap_or(0.0),
+			),
+		);
 
-			match x_temp {
-				Ok(_) | Err(_) if last_idx == 0 => (last_idx, last_idx),
-				Ok(ind) if ind >= last_idx => (last_idx - 1, last_idx),
-				Ok(ind) => (ind, ind + 1),
-				Err(ind) => (ind - 1, ind),
-			}
-		};
+		// Clamp normalized value to the selected range to avoid interpolation artifacts
+		let val_clamped = val_normed.clamp(range_in.beg, range_in.end);
 
-		let (y_mindex, y_maxdex) = {
-			let y_temp = self.axis_points.y.binary_search_by(|a| a.total_cmp(&val_normed.y));
-
-			let last_idx = self.axis_points.y.len() - 1;
-
-			match y_temp {
-				Ok(_) | Err(_) if last_idx == 0 => (last_idx, last_idx),
-				Ok(ind) if ind >= last_idx => (last_idx - 1, last_idx),
-				Ok(ind) => (ind, ind + 1),
-				Err(ind) => (ind - 1, ind),
-			}
-		};
-
-		// Apply offset on each binding
+		// Apply each binding
 		for binding in &self.bindings {
-			let range_in = InterpRange::new(
-				vec2(self.axis_points.x[x_mindex], self.axis_points.y[y_mindex]),
-				vec2(self.axis_points.x[x_maxdex], self.axis_points.y[y_maxdex]),
-			);
-
-			let val_normed = val_normed.clamp(range_in.beg, range_in.end);
-
 			match binding.values {
 				BindingValues::ZSort(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
 					if let Some(zsort) = comps.get_mut::<ZSort>(binding.node) {
 						zsort.0 +=
-							bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+							bi_interpolate_f32(val_clamped, range_in, out_top, out_bottom, binding.interpolate_mode);
 					}
 				}
 				BindingValues::TransformTX(ref matrix) => {
@@ -129,7 +124,7 @@ impl Param {
 
 					if let Some(trans) = comps.get_mut::<TransformStore>(binding.node) {
 						trans.relative.translation.x +=
-							bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+							bi_interpolate_f32(val_clamped, range_in, out_top, out_bottom, binding.interpolate_mode);
 					}
 				}
 				BindingValues::TransformTY(ref matrix) => {
@@ -137,7 +132,7 @@ impl Param {
 
 					if let Some(trans) = comps.get_mut::<TransformStore>(binding.node) {
 						trans.relative.translation.y +=
-							bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+							bi_interpolate_f32(val_clamped, range_in, out_top, out_bottom, binding.interpolate_mode);
 					}
 				}
 				BindingValues::TransformSX(ref matrix) => {
@@ -145,7 +140,7 @@ impl Param {
 
 					if let Some(trans) = comps.get_mut::<TransformStore>(binding.node) {
 						trans.relative.scale.x *=
-							bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+							bi_interpolate_f32(val_clamped, range_in, out_top, out_bottom, binding.interpolate_mode);
 					}
 				}
 				BindingValues::TransformSY(ref matrix) => {
@@ -153,7 +148,7 @@ impl Param {
 
 					if let Some(trans) = comps.get_mut::<TransformStore>(binding.node) {
 						trans.relative.scale.y *=
-							bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+							bi_interpolate_f32(val_clamped, range_in, out_top, out_bottom, binding.interpolate_mode);
 					}
 				}
 				BindingValues::TransformRX(ref matrix) => {
@@ -161,7 +156,7 @@ impl Param {
 
 					if let Some(trans) = comps.get_mut::<TransformStore>(binding.node) {
 						trans.relative.rotation.x +=
-							bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+							bi_interpolate_f32(val_clamped, range_in, out_top, out_bottom, binding.interpolate_mode);
 					}
 				}
 				BindingValues::TransformRY(ref matrix) => {
@@ -169,7 +164,7 @@ impl Param {
 
 					if let Some(trans) = comps.get_mut::<TransformStore>(binding.node) {
 						trans.relative.rotation.y +=
-							bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+							bi_interpolate_f32(val_clamped, range_in, out_top, out_bottom, binding.interpolate_mode);
 					}
 				}
 				BindingValues::TransformRZ(ref matrix) => {
@@ -177,50 +172,79 @@ impl Param {
 
 					if let Some(trans) = comps.get_mut::<TransformStore>(binding.node) {
 						trans.relative.rotation.z +=
-							bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+							bi_interpolate_f32(val_clamped, range_in, out_top, out_bottom, binding.interpolate_mode);
 					}
 				}
 				BindingValues::Deform(ref matrix) => {
 					let out_top = InterpRange::new(
-						matrix[(x_mindex, y_mindex)].as_slice(),
-						matrix[(x_maxdex, y_mindex)].as_slice(),
+						matrix.get(x_mindex, y_mindex).map(|v| v.as_slice()).unwrap_or(&[]),
+						matrix.get(x_maxdex, y_mindex).map(|v| v.as_slice()).unwrap_or(&[]),
 					);
 					let out_bottom = InterpRange::new(
-						matrix[(x_mindex, y_maxdex)].as_slice(),
-						matrix[(x_maxdex, y_maxdex)].as_slice(),
+						matrix.get(x_mindex, y_maxdex).map(|v| v.as_slice()).unwrap_or(&[]),
+						matrix.get(x_maxdex, y_maxdex).map(|v| v.as_slice()).unwrap_or(&[]),
 					);
 
-					// deform specified by a parameter must be direct, i.e., in the form of displacements of all vertices
-					let direct_deform = {
-						let mesh = comps.get::<Mesh>(binding.node).unwrap_or_else(|| {
-							panic!(
-								"Deform param target must have an associated Mesh. (Binding Node ID: {:?})",
-								binding.node.0
-							)
-						});
+					let mesh = comps.get::<Mesh>(binding.node).unwrap_or_else(|| {
+						panic!(
+							"Deform param target must have an associated Mesh. (Binding Node ID: {:?})",
+							binding.node.0
+						)
+					});
 
-						let vert_len = mesh.vertices.len();
-						let mut direct_deform: Vec<Vec2> = Vec::with_capacity(vert_len);
-						direct_deform.resize(vert_len, Vec2::ZERO);
+					let vert_len = mesh.vertices.len();
+					let mut direct_deform: Vec<Vec2> = vec![Vec2::ZERO; vert_len];
 
-						bi_interpolate_vec2s_additive(
-							val_normed,
-							range_in,
-							out_top,
-							out_bottom,
-							binding.interpolate_mode,
-							&mut direct_deform,
-						);
-
-						direct_deform
-					};
+					bi_interpolate_vec2s_additive(
+						val_clamped,
+						range_in,
+						out_top,
+						out_bottom,
+						binding.interpolate_mode,
+						&mut direct_deform,
+					);
 
 					if let Some(deform_stack) = comps.get_mut::<DeformStack>(binding.node) {
 						deform_stack.push(DeformSource::Param(self.uuid), Deform::Direct(direct_deform));
 					}
 				}
-				// TODO
-				BindingValues::Opacity => {}
+				BindingValues::Opacity(ref matrix) => {
+					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
+
+					if let Some(drawable) = comps.get_mut::<Drawable>(binding.node) {
+						drawable.blending.opacity *=
+							bi_interpolate_f32(val_clamped, range_in, out_top, out_bottom, binding.interpolate_mode);
+					}
+				}
+			}
+		}
+	}
+
+	fn find_indices(points: &[f32], t: f32) -> (usize, usize) {
+		let len = points.len();
+		if len == 0 {
+			return (0, 0);
+		}
+		if len == 1 {
+			return (0, 0);
+		}
+
+		match points.binary_search_by(|a| a.total_cmp(&t)) {
+			Ok(ind) => {
+				if ind + 1 < len {
+					(ind, ind + 1)
+				} else {
+					(ind - 1, ind)
+				}
+			}
+			Err(ind) => {
+				if ind == 0 {
+					(0, 1)
+				} else if ind >= len {
+					(len - 2, len - 1)
+				} else {
+					(ind - 1, ind)
+				}
 			}
 		}
 	}
@@ -241,7 +265,9 @@ impl ParamCtx {
 	/// Reset all params to default value.
 	pub(crate) fn reset(&mut self, params: &HashMap<String, Param>) {
 		for (name, value) in self.values.iter_mut() {
-			*value = params.get(name).unwrap().defaults;
+			if let Some(param) = params.get(name) {
+				*value = param.defaults;
+			}
 		}
 	}
 
@@ -257,11 +283,11 @@ impl ParamCtx {
 
 	/// Modify components as specified by all params. Must be called ONCE per frame.
 	pub(crate) fn apply(&self, params: &HashMap<String, Param>, comps: &mut World) {
-		// a correct implementation should not care about the order of `.apply()`
 		for (param_name, val) in self.values.iter() {
-			// TODO: a correct implementation should not fail on param value (0, 0)
-			if *val != Vec2::ZERO {
-				params.get(param_name).unwrap().apply(*val, comps);
+			if let Some(param) = params.get(param_name) {
+				// Apply even if it's (0, 0) to ensure correctness, as per TODO.
+				// We can optimize this later if needed by checking against param.defaults.
+				param.apply(*val, comps);
 			}
 		}
 	}

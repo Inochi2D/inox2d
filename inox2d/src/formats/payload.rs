@@ -472,7 +472,7 @@ fn deserialize_binding_values(param_name: &str, values: &[JsonValue]) -> InoxPar
 			BindingValues::Deform(Matrix2d::from_slice_vecs(&parsed, true)?)
 		}
 		// TODO
-		"opacity" => BindingValues::Opacity,
+		"opacity" => BindingValues::Opacity(deserialize_inner_binding_values(values)?),
 		param_name => return Err(InoxParseError::UnknownParamName(param_name.to_owned())),
 	})
 }
