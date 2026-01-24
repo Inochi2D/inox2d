@@ -119,70 +119,66 @@ impl Param {
 				BindingValues::ZSort(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					comps.get_mut::<ZSort>(binding.node).unwrap().0 +=
-						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					if let Some(zsort) = comps.get_mut::<ZSort>(binding.node) {
+						zsort.0 +=
+							bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					}
 				}
 				BindingValues::TransformTX(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					comps
-						.get_mut::<TransformStore>(binding.node)
-						.unwrap()
-						.relative
-						.translation
-						.x += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					if let Some(trans) = comps.get_mut::<TransformStore>(binding.node) {
+						trans.relative.translation.x +=
+							bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					}
 				}
 				BindingValues::TransformTY(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					comps
-						.get_mut::<TransformStore>(binding.node)
-						.unwrap()
-						.relative
-						.translation
-						.y += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					if let Some(trans) = comps.get_mut::<TransformStore>(binding.node) {
+						trans.relative.translation.y +=
+							bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					}
 				}
 				BindingValues::TransformSX(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					comps.get_mut::<TransformStore>(binding.node).unwrap().relative.scale.x *=
-						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					if let Some(trans) = comps.get_mut::<TransformStore>(binding.node) {
+						trans.relative.scale.x *=
+							bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					}
 				}
 				BindingValues::TransformSY(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					comps.get_mut::<TransformStore>(binding.node).unwrap().relative.scale.y *=
-						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					if let Some(trans) = comps.get_mut::<TransformStore>(binding.node) {
+						trans.relative.scale.y *=
+							bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					}
 				}
 				BindingValues::TransformRX(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					comps
-						.get_mut::<TransformStore>(binding.node)
-						.unwrap()
-						.relative
-						.rotation
-						.x += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					if let Some(trans) = comps.get_mut::<TransformStore>(binding.node) {
+						trans.relative.rotation.x +=
+							bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					}
 				}
 				BindingValues::TransformRY(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					comps
-						.get_mut::<TransformStore>(binding.node)
-						.unwrap()
-						.relative
-						.rotation
-						.y += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					if let Some(trans) = comps.get_mut::<TransformStore>(binding.node) {
+						trans.relative.rotation.y +=
+							bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					}
 				}
 				BindingValues::TransformRZ(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					comps
-						.get_mut::<TransformStore>(binding.node)
-						.unwrap()
-						.relative
-						.rotation
-						.z += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					if let Some(trans) = comps.get_mut::<TransformStore>(binding.node) {
+						trans.relative.rotation.z +=
+							bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+					}
 				}
 				BindingValues::Deform(ref matrix) => {
 					let out_top = InterpRange::new(
@@ -219,10 +215,9 @@ impl Param {
 						direct_deform
 					};
 
-					comps
-						.get_mut::<DeformStack>(binding.node)
-						.expect("Nodes being deformed must have a DeformStack component.")
-						.push(DeformSource::Param(self.uuid), Deform::Direct(direct_deform));
+					if let Some(deform_stack) = comps.get_mut::<DeformStack>(binding.node) {
+						deform_stack.push(DeformSource::Param(self.uuid), Deform::Direct(direct_deform));
+					}
 				}
 				// TODO
 				BindingValues::Opacity => {}

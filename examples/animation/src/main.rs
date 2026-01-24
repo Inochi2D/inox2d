@@ -52,32 +52,62 @@ fn create_demo_animations(puppet: &mut inox2d::puppet::Puppet) {
 
 	// Create Blink animation if eye blink parameters exist
 	if let Some(right_uuid) = right_blink_uuid {
-		let mut tracks = vec![
-			AnimationTrack {
-				param_uuid: right_uuid,
-				axis: AnimationAxis::X,
-				keyframes: vec![
-					Keyframe { time: 0.0, value: 0.0, interpolation: InterpolateMode::Linear },
-					Keyframe { time: 0.1, value: 1.0, interpolation: InterpolateMode::Linear },
-					Keyframe { time: 0.2, value: 0.0, interpolation: InterpolateMode::Linear },
-					Keyframe { time: 2.5, value: 0.0, interpolation: InterpolateMode::Linear },
-				],
-			},
-		];
-		
+		let mut tracks = vec![AnimationTrack {
+			param_uuid: right_uuid,
+			axis: AnimationAxis::X,
+			keyframes: vec![
+				Keyframe {
+					time: 0.0,
+					value: 0.0,
+					interpolation: InterpolateMode::Linear,
+				},
+				Keyframe {
+					time: 0.1,
+					value: 1.0,
+					interpolation: InterpolateMode::Linear,
+				},
+				Keyframe {
+					time: 0.2,
+					value: 0.0,
+					interpolation: InterpolateMode::Linear,
+				},
+				Keyframe {
+					time: 2.5,
+					value: 0.0,
+					interpolation: InterpolateMode::Linear,
+				},
+			],
+		}];
+
 		if let Some(left_uuid) = left_blink_uuid {
 			tracks.push(AnimationTrack {
 				param_uuid: left_uuid,
 				axis: AnimationAxis::X,
 				keyframes: vec![
-					Keyframe { time: 0.0, value: 0.0, interpolation: InterpolateMode::Linear },
-					Keyframe { time: 0.1, value: 1.0, interpolation: InterpolateMode::Linear },
-					Keyframe { time: 0.2, value: 0.0, interpolation: InterpolateMode::Linear },
-					Keyframe { time: 2.5, value: 0.0, interpolation: InterpolateMode::Linear },
+					Keyframe {
+						time: 0.0,
+						value: 0.0,
+						interpolation: InterpolateMode::Linear,
+					},
+					Keyframe {
+						time: 0.1,
+						value: 1.0,
+						interpolation: InterpolateMode::Linear,
+					},
+					Keyframe {
+						time: 0.2,
+						value: 0.0,
+						interpolation: InterpolateMode::Linear,
+					},
+					Keyframe {
+						time: 2.5,
+						value: 0.0,
+						interpolation: InterpolateMode::Linear,
+					},
 				],
 			});
 		}
-		
+
 		animations.push(Animation {
 			name: "Blink".to_string(),
 			length: 2.5,
@@ -98,20 +128,52 @@ fn create_demo_animations(puppet: &mut inox2d::puppet::Puppet) {
 					param_uuid: head_uuid,
 					axis: AnimationAxis::X,
 					keyframes: vec![
-						Keyframe { time: 0.0, value: -0.3, interpolation: InterpolateMode::Linear },
-						Keyframe { time: 2.0, value: 0.3, interpolation: InterpolateMode::Linear },
-						Keyframe { time: 4.0, value: -0.3, interpolation: InterpolateMode::Linear },
+						Keyframe {
+							time: 0.0,
+							value: -0.3,
+							interpolation: InterpolateMode::Linear,
+						},
+						Keyframe {
+							time: 2.0,
+							value: 0.3,
+							interpolation: InterpolateMode::Linear,
+						},
+						Keyframe {
+							time: 4.0,
+							value: -0.3,
+							interpolation: InterpolateMode::Linear,
+						},
 					],
 				},
 				AnimationTrack {
 					param_uuid: head_uuid,
 					axis: AnimationAxis::Y,
 					keyframes: vec![
-						Keyframe { time: 0.0, value: 0.0, interpolation: InterpolateMode::Linear },
-						Keyframe { time: 1.0, value: -0.2, interpolation: InterpolateMode::Linear },
-						Keyframe { time: 2.0, value: 0.0, interpolation: InterpolateMode::Linear },
-						Keyframe { time: 3.0, value: 0.2, interpolation: InterpolateMode::Linear },
-						Keyframe { time: 4.0, value: 0.0, interpolation: InterpolateMode::Linear },
+						Keyframe {
+							time: 0.0,
+							value: 0.0,
+							interpolation: InterpolateMode::Linear,
+						},
+						Keyframe {
+							time: 1.0,
+							value: -0.2,
+							interpolation: InterpolateMode::Linear,
+						},
+						Keyframe {
+							time: 2.0,
+							value: 0.0,
+							interpolation: InterpolateMode::Linear,
+						},
+						Keyframe {
+							time: 3.0,
+							value: 0.2,
+							interpolation: InterpolateMode::Linear,
+						},
+						Keyframe {
+							time: 4.0,
+							value: 0.0,
+							interpolation: InterpolateMode::Linear,
+						},
 					],
 				},
 			],
@@ -130,22 +192,62 @@ fn create_demo_animations(puppet: &mut inox2d::puppet::Puppet) {
 					param_uuid: mouth_uuid,
 					axis: AnimationAxis::X,
 					keyframes: vec![
-						Keyframe { time: 0.0, value: 0.0, interpolation: InterpolateMode::Linear },
-						Keyframe { time: 0.15, value: 0.5, interpolation: InterpolateMode::Linear },
-						Keyframe { time: 0.3, value: 0.0, interpolation: InterpolateMode::Linear },
-						Keyframe { time: 0.45, value: 0.8, interpolation: InterpolateMode::Linear },
-						Keyframe { time: 0.6, value: 0.0, interpolation: InterpolateMode::Linear },
+						Keyframe {
+							time: 0.0,
+							value: 0.0,
+							interpolation: InterpolateMode::Linear,
+						},
+						Keyframe {
+							time: 0.15,
+							value: 0.5,
+							interpolation: InterpolateMode::Linear,
+						},
+						Keyframe {
+							time: 0.3,
+							value: 0.0,
+							interpolation: InterpolateMode::Linear,
+						},
+						Keyframe {
+							time: 0.45,
+							value: 0.8,
+							interpolation: InterpolateMode::Linear,
+						},
+						Keyframe {
+							time: 0.6,
+							value: 0.0,
+							interpolation: InterpolateMode::Linear,
+						},
 					],
 				},
 				AnimationTrack {
 					param_uuid: mouth_uuid,
 					axis: AnimationAxis::Y,
 					keyframes: vec![
-						Keyframe { time: 0.0, value: 0.0, interpolation: InterpolateMode::Linear },
-						Keyframe { time: 0.15, value: 0.3, interpolation: InterpolateMode::Linear },
-						Keyframe { time: 0.3, value: 0.0, interpolation: InterpolateMode::Linear },
-						Keyframe { time: 0.45, value: 0.5, interpolation: InterpolateMode::Linear },
-						Keyframe { time: 0.6, value: 0.0, interpolation: InterpolateMode::Linear },
+						Keyframe {
+							time: 0.0,
+							value: 0.0,
+							interpolation: InterpolateMode::Linear,
+						},
+						Keyframe {
+							time: 0.15,
+							value: 0.3,
+							interpolation: InterpolateMode::Linear,
+						},
+						Keyframe {
+							time: 0.3,
+							value: 0.0,
+							interpolation: InterpolateMode::Linear,
+						},
+						Keyframe {
+							time: 0.45,
+							value: 0.5,
+							interpolation: InterpolateMode::Linear,
+						},
+						Keyframe {
+							time: 0.6,
+							value: 0.0,
+							interpolation: InterpolateMode::Linear,
+						},
 					],
 				},
 			],
@@ -159,17 +261,27 @@ fn create_demo_animations(puppet: &mut inox2d::puppet::Puppet) {
 			name: "Breathing".to_string(),
 			length: 3.0,
 			loop_mode: AnimationLoopMode::Loop,
-			tracks: vec![
-				AnimationTrack {
-					param_uuid: breath_u,
-					axis: AnimationAxis::X,
-					keyframes: vec![
-						Keyframe { time: 0.0, value: 0.0, interpolation: InterpolateMode::Linear },
-						Keyframe { time: 1.5, value: 1.0, interpolation: InterpolateMode::Linear },
-						Keyframe { time: 3.0, value: 0.0, interpolation: InterpolateMode::Linear },
-					],
-				},
-			],
+			tracks: vec![AnimationTrack {
+				param_uuid: breath_u,
+				axis: AnimationAxis::X,
+				keyframes: vec![
+					Keyframe {
+						time: 0.0,
+						value: 0.0,
+						interpolation: InterpolateMode::Linear,
+					},
+					Keyframe {
+						time: 1.5,
+						value: 1.0,
+						interpolation: InterpolateMode::Linear,
+					},
+					Keyframe {
+						time: 3.0,
+						value: 0.0,
+						interpolation: InterpolateMode::Linear,
+					},
+				],
+			}],
 		});
 		tracing::info!("Created 'Breathing' animation");
 	}
@@ -212,7 +324,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 	tracing::info!("--- Animation Example ---");
 	tracing::info!("Loaded {} animations:", model.puppet.animations.len());
 	for (i, anim) in model.puppet.animations.iter().enumerate() {
-		tracing::info!("  [{}] {} ({:.2}s, {:?})", i + 1, anim.name, anim.length, anim.loop_mode);
+		tracing::info!(
+			"  [{}] {} ({:.2}s, {:?})",
+			i + 1,
+			anim.name,
+			anim.length,
+			anim.loop_mode
+		);
 	}
 	tracing::info!("  [0] Stop all animations");
 	tracing::info!("Press keys 1-9 to play animations, or 0 to stop.");

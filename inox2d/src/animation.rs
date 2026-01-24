@@ -169,11 +169,7 @@ impl AnimationState {
 		match anim.loop_mode {
 			AnimationLoopMode::PingPong => {
 				let double_len = anim.length * 2.0;
-				let t = if double_len > 0.0 {
-					self.time % double_len
-				} else {
-					0.0
-				};
+				let t = if double_len > 0.0 { self.time % double_len } else { 0.0 };
 				if t > anim.length {
 					2.0 * anim.length - t
 				} else {
