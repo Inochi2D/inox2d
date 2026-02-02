@@ -14,6 +14,8 @@ use super::json::JsonError;
 use super::payload::InoxParseError;
 use super::{read_be_u32, read_n, read_u8, read_vec};
 
+use json::JsonValue;
+
 #[derive(Debug, thiserror::Error)]
 #[error("Could not parse INP file\n  - {0}")]
 pub enum ParseInpError {
@@ -40,8 +42,8 @@ const TEX_SECT: &[u8] = b"TEX_SECT";
 /// Optional EXTended Vendor Data section for app provided settings for the puppet
 const EXT_SECT: &[u8] = b"EXT_SECT";
 
-/// Parse `.inp` and `.inx` files.
-pub fn parse_inp<R: Read>(mut data: R) -> Result<Model, ParseInpError> {
+/// Parse `.inp` and `.inx` files into parts.
+pub fn parse_inp_parts<R: Read>(mut data: R) -> Result<(JsonValue, Vec<ModelTexture>, Vec<VendorData>), ParseInpError> {
 	// check magic bytes
 	let magic = read_n::<_, 8>(&mut data)?;
 	if magic != MAGIC {
@@ -52,8 +54,7 @@ pub fn parse_inp<R: Read>(mut data: R) -> Result<Model, ParseInpError> {
 	let length = read_be_u32(&mut data)? as usize;
 	let payload = read_vec(&mut data, length)?;
 	let payload = std::str::from_utf8(&payload)?;
-	let payload = json::parse(payload)?;
-	let puppet = Puppet::new_from_json(&payload)?;
+	let puppet = json::parse(payload)?;
 
 	// check texture section header
 	let tex_sect = read_n::<_, 8>(&mut data).map_err(|_| ParseInpError::NoTexSect)?;
@@ -101,6 +102,15 @@ pub fn parse_inp<R: Read>(mut data: R) -> Result<Model, ParseInpError> {
 		_ => Vec::new(),
 	};
 
+	Ok((puppet, textures, vendors))
+}
+
+/// Parse `.inp` and `.inx` files into a Model.
+pub fn parse_inp<R: Read>(data: R) -> Result<Model, ParseInpError> {
+	let (puppet_json, textures, vendors) = parse_inp_parts(data)?;
+
+	let puppet = Puppet::new_from_json(&puppet_json)?;
+
 	Ok(Model {
 		puppet,
 		textures,
@@ -108,7 +118,7 @@ pub fn parse_inp<R: Read>(mut data: R) -> Result<Model, ParseInpError> {
 	})
 }
 
-/// Parse `.inp` and `.inx` files.
+/// Parse `.inp` and `.inx` files into an on-disk format.
 pub fn dump_inp<R: Read>(mut data: R, directory: &Path) -> Result<(), ParseInpError> {
 	// check magic bytes
 	let magic = read_n::<_, 8>(&mut data)?;
@@ -188,6 +198,7 @@ pub fn dump_inp<R: Read>(mut data: R, directory: &Path) -> Result<(), ParseInpEr
 	Ok(())
 }
 
+/// Serialize on-disk JSON and texture files into an INP file.
 pub fn dump_to_inp<W: Write>(directory: &Path, w: &mut W) -> io::Result<()> {
 	let mut payload_file = File::open(directory.join("payload.json"))?;
 
@@ -241,5 +252,60 @@ pub fn dump_to_inp<W: Write>(directory: &Path, w: &mut W) -> io::Result<()> {
 	}
 
 	w.flush().unwrap();
+	Ok(())
+}
+
+/// Serialize an INP1 file as parts.
+///
+/// The parts taken by this function are equivalent to those specified in
+/// `parse_inp_parts`.
+pub fn serialize_parts<W: Write>(
+	mut file: W,
+	puppet: JsonValue,
+	textures: &[ModelTexture],
+	vendors: &[VendorData],
+) -> Result<(), ParseInpError> {
+	file.write_all(MAGIC)?;
+
+	let json = json::stringify(puppet).into_bytes();
+	file.write_all(&(json.len() as u32).to_be_bytes())?;
+	file.write_all(&json)?;
+
+	file.write_all(TEX_SECT)?;
+
+	file.write_all(&(textures.len() as u32).to_be_bytes())?;
+	for texture in textures.iter() {
+		file.write_all(&(texture.data.len() as u32).to_be_bytes())?;
+
+		file.write_all(
+			&(match texture.format {
+				ImageFormat::Png => 0,
+				ImageFormat::Tga => 1,
+				_ => return Err(ParseInpError::InvalidTexEncoding(0xFF)), //TODO: WriteInpError
+			} as u8)
+				.to_be_bytes(),
+		)?;
+
+		file.write_all(&texture.data)?;
+	}
+
+	if vendors.is_empty() {
+		//Don't write extended data if we don't have to.
+		return Ok(());
+	}
+
+	file.write_all(EXT_SECT)?;
+	file.write_all(&(vendors.len() as u32).to_be_bytes())?;
+
+	for vendor in vendors.iter() {
+		let name = vendor.name.as_bytes();
+		file.write_all(&(name.len() as u32).to_be_bytes())?;
+		file.write_all(&name)?;
+
+		let json = json::stringify(vendor.payload.clone()).into_bytes();
+		file.write_all(&(json.len() as u32).to_be_bytes())?;
+		file.write_all(&json)?;
+	}
+
 	Ok(())
 }
