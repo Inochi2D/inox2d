@@ -164,7 +164,7 @@ fn introspect_spirv(out: &mut String, snake_case_name: &str, filepath: &str, mod
     Ok(())
 }
 
-fn compile_dir(shader_path: &path::Path, output_path: &path::Path, compiler: &shaderc::Compiler, options: &shaderc::CompileOptions) -> Result<(), Box<dyn Error>> {
+fn compile_dir(shader_path: &path::Path, output_path: &path::Path, compiler: &shaderc::Compiler, options: &shaderc::CompileOptions, parent_module_rust_src: &mut String) -> Result<(), Box<dyn Error>> {
     for entry in fs::read_dir(shader_path)? {
         let entry = entry?;
         
@@ -220,13 +220,23 @@ fn compile_dir(shader_path: &path::Path, output_path: &path::Path, compiler: &sh
 
                 writeln!(&mut reflect_data, "/// Automatically generated introspection data for {}", item_filename.to_string_lossy())?;
                 let snake_case_name = filename_but_with_the_shaderkind.to_string_lossy();
+                writeln!(parent_module_rust_src, "pub mod {};", snake_case_name)?;
+
                 let snake_case_name = snake_case_name.to_uppercase();
                 introspect_spirv(&mut reflect_data, &snake_case_name, &out_path.to_string_lossy(), &reflection)?;
 
                 fs::write(&reflect_out_path, reflect_data)?;
             }
         } else if entry.file_type()?.is_dir() {
-            compile_dir(&in_path, &new_out_path, compiler, options)?;
+            let snake_case_name = item_filename.to_string_lossy();
+            writeln!(parent_module_rust_src, "pub mod {};", snake_case_name)?;
+
+            let corresponding_mod_file = in_path.with_extension("rs");
+            let mut rust_src = "/// AUTO GENERATED SOURCE DO NOT EDIT\n".to_string();
+
+            compile_dir(&in_path, &new_out_path, compiler, options, &mut rust_src)?;
+
+            fs::write(&corresponding_mod_file, rust_src)?;
         }
     }
 
@@ -247,7 +257,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let compiler = shaderc::Compiler::new()?;
     let options = shaderc::CompileOptions::new()?;
 
-    compile_dir(&shader_path, &output_path, &compiler, &options)?;
+    let corresponding_mod_file = shader_path.with_extension("rs");
+    let mut rust_src = "/// AUTO GENERATED SOURCE DO NOT EDIT\n".to_string();
+
+    compile_dir(&shader_path, &output_path, &compiler, &options, &mut rust_src)?;
+    fs::write(&corresponding_mod_file, rust_src)?;
 
     Ok(())
 }

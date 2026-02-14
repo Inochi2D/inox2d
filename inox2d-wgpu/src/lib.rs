@@ -1,6 +1,8 @@
 use wgpu;
 use inox2d::model::Model;
 
+mod shaders;
+
 #[derive(Debug, thiserror::Error)]
 #[error("Could not initialize wgpu renderer: {0}")]
 pub enum WgpuRendererError {
