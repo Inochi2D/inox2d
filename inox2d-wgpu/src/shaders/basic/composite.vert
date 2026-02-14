@@ -1,0 +1,21 @@
+/*
+    Copyright © 2020, Inochi2D Project
+    Distributed under the 2-Clause BSD License, see LICENSE file.
+
+    Authors: Luna Nielsen
+*/
+#version 440
+
+layout(binding = 0) uniform Input {
+  mat4 mvp;
+} uni_in;
+
+layout(location = 0) in vec2 verts;
+layout(location = 1) in vec2 uvs;
+
+layout(location = 0) out vec2 texUVs;
+
+void main() {
+  gl_Position = vec4(verts, 0, 1);
+  texUVs = uvs;
+}
