@@ -11,11 +11,11 @@ layout(location = 0) out vec4 outAlbedo;
 layout(location = 1) out vec4 outEmissive;
 layout(location = 2) out vec4 outBump;
 
-layout(binding = 0) uniform sampler2D albedo;
-layout(binding = 1) uniform sampler2D emissive;
-layout(binding = 2) uniform sampler2D bumpmap;
+layout(set = 1, binding = 0) uniform sampler2D albedo;
+layout(set = 1, binding = 1) uniform sampler2D emissive;
+layout(set = 1, binding = 2) uniform sampler2D bumpmap;
 
-layout(binding = 3) uniform Input {
+layout(set = 1, binding = 3) uniform Input {
     float opacity;
     vec3 multColor;
     vec3 screenColor;

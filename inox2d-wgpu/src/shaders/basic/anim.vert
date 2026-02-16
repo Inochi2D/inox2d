@@ -6,7 +6,7 @@
 */
 #version 440
 
-layout(binding = 0) uniform Input {
+layout(set = 0, binding = 0) uniform Input {
   mat4 mvp;
   vec2 offset;
   

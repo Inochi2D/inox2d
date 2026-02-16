@@ -9,7 +9,7 @@
 layout(location = 0) in vec2 texUVs;
 layout(location = 0) out vec4 outColor;
 
-layout(binding = 0) uniform sampler2D fbo;
+layout(set = 1, binding = 0) uniform sampler2D fbo;
 
 void main() {
   // Set color to the corrosponding pixel in the FBO

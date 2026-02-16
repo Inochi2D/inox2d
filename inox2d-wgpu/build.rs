@@ -450,10 +450,6 @@ fn introspect_spirv(
 	writeln!(out, "use crate::shader;")?;
 
 	for entrypoint in module.enumerate_entry_points()? {
-		writeln!(out, "/// Entry point {}", entrypoint.name)?;
-		writeln!(out, "/// Execution model {:?}", entrypoint.spirv_execution_model)?;
-		writeln!(out, "/// Shader stage {:?}", entrypoint.shader_stage)?;
-
 		// Most of these are stubs.
 		// We will eventually have this print Rust structs and consts.
 		for var in &entrypoint.input_variables {
@@ -513,6 +509,12 @@ fn introspect_spirv(
 
 			for binding in &descriptor_set.bindings {
 				writeln!(out, "/// descriptor {} (binding {})", binding.name, binding.binding)?;
+				writeln!(
+					out,
+					"const BINDINGSET_{}: u32 = {};",
+					binding.name.to_uppercase(),
+					descriptor_set.set
+				)?;
 
 				match binding.descriptor_type {
 					ReflectDescriptorType::UniformBuffer => {
@@ -572,6 +574,9 @@ fn introspect_spirv(
 
 		let struct_name = "Shader";
 
+		writeln!(out, "/// Entry point {}", entrypoint.name)?;
+		writeln!(out, "/// Execution model {:?}", entrypoint.spirv_execution_model)?;
+		writeln!(out, "/// Shader stage {:?}", entrypoint.shader_stage)?;
 		writeln!(out, "pub struct {} {{", struct_name)?;
 		writeln!(out, "    {}: wgpu::ShaderModule,", entrypoint.name)?;
 		writeln!(out, "    bindgroup_layout: wgpu::BindGroupLayout")?;

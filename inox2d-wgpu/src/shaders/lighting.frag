@@ -11,7 +11,7 @@ layout(location = 0) out vec4 outAlbedo;
 layout(location = 1) out vec4 outEmissive;
 layout(location = 2) out vec4 outBump;
 
-layout(binding = 0) uniform Input {
+layout(set = 1, binding = 0) uniform Input {
   uniform vec3 ambientLight;
   uniform vec2 fbSize;
 
@@ -19,9 +19,9 @@ layout(binding = 0) uniform Input {
   uniform int samples; // OLD DEFAULT: 25
 } uni_in;
 
-layout(binding = 1) uniform sampler2D albedo;
-layout(binding = 2) uniform sampler2D emissive;
-layout(binding = 3) uniform sampler2D bumpmap;
+layout(set = 1, binding = 1) uniform sampler2D albedo;
+layout(set = 1, binding = 2) uniform sampler2D emissive;
+layout(set = 1, binding = 3) uniform sampler2D bumpmap;
 
 // Gaussian
 float gaussian(vec2 i, float sigma) {

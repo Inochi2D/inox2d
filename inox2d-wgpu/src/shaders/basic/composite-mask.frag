@@ -9,8 +9,8 @@
 layout(location = 0) in vec2 texUVs;
 layout(location = 0) out vec4 outColor;
 
-layout(binding = 0) uniform sampler2D tex;
-layout(binding = 1) uniform Input {
+layout(set = 1, binding = 0) uniform sampler2D tex;
+layout(set = 1, binding = 1) uniform Input {
   float threshold;
   float opacity;
 } uni_in;

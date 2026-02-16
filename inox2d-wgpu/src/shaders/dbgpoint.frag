@@ -7,7 +7,7 @@
 #version 440
 layout(location = 0) out vec4 outColor;
 
-layout(binding = 0) uniform Input {
+layout(set = 1, binding = 0) uniform Input {
   vec4 color;
 } uni_in;
 
