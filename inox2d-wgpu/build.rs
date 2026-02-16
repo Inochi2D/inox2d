@@ -88,7 +88,7 @@ fn describe_block_struct(
 	typevar: &ReflectTypeDescription,
 ) -> Result<(), Box<dyn Error>> {
 	writeln!(out, "#[allow(non_snake_case)]")?; //I'm too lazy to write a to_snake_case fn
-	writeln!(out, "struct {} {{", typevar.type_name)?;
+	writeln!(out, "pub struct {} {{", typevar.type_name)?;
 
 	for (blockmember, typemember) in blockvar.members.iter().zip(typevar.members.iter()) {
 		writeln!(out, "    /// name: {}", blockmember.name)?;
@@ -100,14 +100,18 @@ fn describe_block_struct(
 		writeln!(out, "    /// Traits: {:?}", typemember.traits)?;
 
 		let rust_type = spirv_to_rust_type(typemember)?;
-		writeln!(out, "    {}: {},", blockmember.name, rust_type)?;
+		writeln!(out, "    pub {}: {},", blockmember.name, rust_type)?;
 	}
 
 	writeln!(out, "}}")?;
 	writeln!(out)?;
 
-	writeln!(out, "impl {} {{", typevar.type_name)?;
-	writeln!(out, "    fn write_buffer(self, out: &mut [u8; {}]) {{", blockvar.size)?;
+	writeln!(
+		out,
+		"impl shader::UniformBlock<{}> for {} {{",
+		blockvar.size, typevar.type_name
+	)?;
+	writeln!(out, "    fn write_buffer(&self, out: &mut [u8; {}]) {{", blockvar.size)?;
 
 	for (blockmember, typemember) in blockvar.members.iter().zip(typevar.members.iter()) {
 		if typemember.type_flags.contains(ReflectTypeFlags::MATRIX) {
@@ -279,7 +283,7 @@ fn gen_shader_bind(out: &mut String, filename: &str, entrypoint: &ReflectEntryPo
 
 	writeln!(
 		out,
-		"    fn bind(self, device: &wgpu::Device{}) -> wgpu::BindGroup {{",
+		"    pub fn bind(&self, device: &wgpu::Device{}) -> wgpu::BindGroup {{",
 		bind_params
 	)?;
 	writeln!(out, "        device.create_bind_group(&wgpu::BindGroupDescriptor {{")?;
