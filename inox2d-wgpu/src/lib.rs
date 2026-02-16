@@ -1,8 +1,11 @@
-use wgpu;
 use inox2d::model::Model;
+use wgpu;
 
+mod pipeline;
 mod shader;
 mod shaders;
+
+use shaders::basic::{basic_frag, basic_mask_frag, basic_vert};
 
 #[derive(Debug, thiserror::Error)]
 #[error("Could not initialize wgpu renderer: {0}")]
@@ -14,6 +17,9 @@ pub enum WgpuRendererError {
 
 pub struct WgpuRenderer<'window> {
 	surface: wgpu::Surface<'window>,
+
+	part_pipeline: pipeline::Pipeline<basic_vert::Shader, basic_frag::Shader>,
+	part_mask_pipeline: pipeline::Pipeline<basic_vert::Shader, basic_mask_frag::Shader>,
 }
 
 impl<'window> WgpuRenderer<'window> {
@@ -30,6 +36,23 @@ impl<'window> WgpuRenderer<'window> {
 			})
 			.await?;
 		let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor::default()).await?;
-		Ok(WgpuRenderer { surface })
+
+		// Compile all our shaders now.
+		let part_shader_vert = basic_vert::Shader::new(&device);
+		let part_shader_frag = basic_frag::Shader::new(&device);
+		let part_shader_mask_frag = basic_mask_frag::Shader::new(&device);
+
+		let part_pipeline = pipeline::Pipeline::new(&device, &part_shader_vert, &part_shader_frag);
+		let part_mask_pipeline = pipeline::Pipeline::new(&device, &part_shader_vert, &part_shader_mask_frag);
+
+		//TODO: Compositeshader, CompositeMaskShader
+
+		//TODO: Upload model textures, verts, uvs, deforms, indicies
+
+		Ok(WgpuRenderer {
+			surface,
+			part_pipeline,
+			part_mask_pipeline,
+		})
 	}
 }
