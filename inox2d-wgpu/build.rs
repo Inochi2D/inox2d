@@ -411,6 +411,14 @@ fn gen_shader_fragment_stage(out: &mut String, entrypoint: &ReflectEntryPoint) -
 	Ok(())
 }
 
+fn gen_shader_access_methods(out: &mut String) -> Result<(), Box<dyn Error>> {
+	writeln!(out, "    pub fn bindgroup_layout(&self) -> &wgpu::BindGroupLayout {{")?;
+	writeln!(out, "        &self.bindgroup_layout")?;
+	writeln!(out, "    }}")?;
+
+	Ok(())
+}
+
 fn introspect_spirv(
 	out: &mut String,
 	snake_case_name: &str,
@@ -553,10 +561,10 @@ fn introspect_spirv(
 		writeln!(out, "impl Shader {{")?;
 
 		gen_shader_new(out, snake_case_name, filename, &entrypoint)?;
-
 		writeln!(out)?;
-
 		gen_shader_bind(out, filename, &entrypoint)?;
+		writeln!(out)?;
+		gen_shader_access_methods(out)?;
 
 		if entrypoint
 			.shader_stage
