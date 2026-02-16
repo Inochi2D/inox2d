@@ -105,8 +105,7 @@ fn describe_block_struct(
 	writeln!(out)?;
 
 	writeln!(out, "impl {} {{", typevar.type_name)?;
-	writeln!(out, "    fn into_uniform_buffer(self) -> [u8; {}] {{", blockvar.size)?;
-	writeln!(out, "        let mut out = [0; {}];", blockvar.size)?;
+	writeln!(out, "    fn write_buffer(self, out: &mut [u8; {}]) {{", blockvar.size)?;
 
 	for (blockmember, typemember) in blockvar.members.iter().zip(typevar.members.iter()) {
 		if typemember.type_flags.contains(ReflectTypeFlags::MATRIX) {
@@ -136,7 +135,6 @@ fn describe_block_struct(
 		}
 	}
 
-	writeln!(out, "        out")?;
 	writeln!(out, "    }}")?;
 	writeln!(out, "}}")?;
 	writeln!(out)?;
