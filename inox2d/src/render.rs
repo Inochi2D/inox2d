@@ -3,6 +3,7 @@ mod vertex_buffers;
 
 use std::collections::HashSet;
 use std::mem::swap;
+use std::error::Error;
 
 use crate::node::{
 	components::{DeformStack, Mask, Masks, ZSort},
@@ -215,25 +216,33 @@ impl RenderCtx {
 ///
 /// Either way, the point is Inox2D will implement a `draw()` method for any `impl InoxRenderer`, dispatching calls based on puppet structure according to Inochi2D standard.
 pub trait InoxRenderer {
+	/// Begin rendering a whole puppet.
+	/// 
+	/// Calls to `begin_render()` and `end_render_and_flush()` must be
+	/// balanced. Failure to balance these calls will result in a panic.
+	fn begin_render(&mut self) -> Result<(), Box<dyn Error>> {
+		Ok(())
+	}
+
 	/// Begin masking.
 	///
 	/// Ref impl: Clear and start writing to the stencil buffer, lock the color buffer.
-	fn on_begin_masks(&self, masks: &Masks);
+	fn on_begin_masks(&mut self, masks: &Masks);
 	/// Get prepared for rendering a singular Mask.
-	fn on_begin_mask(&self, mask: &Mask);
+	fn on_begin_mask(&mut self, mask: &Mask);
 	/// Get prepared for rendering masked content.
 	///
 	/// Ref impl: Read only from the stencil buffer, unlock the color buffer.
-	fn on_begin_masked_content(&self);
+	fn on_begin_masked_content(&mut self);
 	/// End masking.
 	///
 	/// Ref impl: Disable the stencil buffer.
-	fn on_end_mask(&self);
+	fn on_end_mask(&mut self);
 
 	/// Draw TexturedMesh content.
 	// TODO: TexturedMesh without any texture (usually for mesh masks)?
 	fn draw_textured_mesh_content(
-		&self,
+		&mut self,
 		as_mask: bool,
 		components: &TexturedMeshComponents,
 		render_ctx: &TexturedMeshRenderCtx,
@@ -244,7 +253,7 @@ pub trait InoxRenderer {
 	///
 	/// Ref impl: Prepare composite buffers.
 	fn begin_composite_content(
-		&self,
+		&mut self,
 		as_mask: bool,
 		components: &CompositeComponents,
 		render_ctx: &CompositeRenderCtx,
@@ -254,30 +263,34 @@ pub trait InoxRenderer {
 	///
 	/// Ref impl: Transfer content from composite buffers to normal buffers.
 	fn finish_composite_content(
-		&self,
+		&mut self,
 		as_mask: bool,
 		components: &CompositeComponents,
 		render_ctx: &CompositeRenderCtx,
 		id: InoxNodeUuid,
 	);
+
+	/// Finish rendering, flush any pending operations, and present the puppet
+	/// to the given display.
+	fn end_render_and_flush(&mut self) {}
 }
 
 pub trait InoxRendererExt {
 	/// Draw a Drawable, which is potentially masked.
-	fn draw_drawable(&self, as_mask: bool, comps: &World, id: InoxNodeUuid);
+	fn draw_drawable(&mut self, as_mask: bool, comps: &World, id: InoxNodeUuid);
 
 	/// Draw one composite. `components` must be referencing `comps`.
-	fn draw_composite(&self, as_mask: bool, comps: &World, components: &CompositeComponents, id: InoxNodeUuid);
+	fn draw_composite(&mut self, as_mask: bool, comps: &World, components: &CompositeComponents, id: InoxNodeUuid);
 
 	/// Iterate over top-level drawables (excluding masks) in zsort order,
 	/// and make draw calls correspondingly.
 	///
 	/// This effectively draws the complete puppet.
-	fn draw(&self, puppet: &Puppet);
+	fn draw(&mut self, puppet: &Puppet);
 }
 
 impl<T: InoxRenderer> InoxRendererExt for T {
-	fn draw_drawable(&self, as_mask: bool, comps: &World, id: InoxNodeUuid) {
+	fn draw_drawable(&mut self, as_mask: bool, comps: &World, id: InoxNodeUuid) {
 		let drawable_kind = DrawableKind::new(id, comps, false).expect("Node must be a Drawable.");
 		let masks = match drawable_kind {
 			DrawableKind::TexturedMesh(ref components) => &components.drawable.masks,
@@ -308,7 +321,7 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 		}
 	}
 
-	fn draw_composite(&self, as_mask: bool, comps: &World, components: &CompositeComponents, id: InoxNodeUuid) {
+	fn draw_composite(&mut self, as_mask: bool, comps: &World, components: &CompositeComponents, id: InoxNodeUuid) {
 		let render_ctx = comps.get::<CompositeRenderCtx>(id).unwrap();
 		if render_ctx.zsorted_children_list.is_empty() {
 			// Optimization: Nothing to be drawn, skip context switching
@@ -341,7 +354,9 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 	/// For example, maybe the caller still need to transfer content from a texture buffer to the screen surface buffer.
 	/// - The provided `InoxRender` implementation is wrong.
 	/// - `puppet` here does not belong to the `model` this `renderer` is initialized with. This will likely result in panics for non-existent node uuids.
-	fn draw(&self, puppet: &Puppet) {
+	fn draw(&mut self, puppet: &Puppet) {
+		self.begin_render();
+
 		for uuid in &puppet
 			.render_ctx
 			.as_ref()
@@ -350,5 +365,7 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 		{
 			self.draw_drawable(false, &puppet.node_comps, *uuid);
 		}
+
+		self.end_render_and_flush();
 	}
 }

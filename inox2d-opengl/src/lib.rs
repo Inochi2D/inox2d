@@ -410,7 +410,7 @@ impl OpenglRenderer {
 }
 
 impl InoxRenderer for OpenglRenderer {
-	fn on_begin_masks(&self, masks: &Masks) {
+	fn on_begin_masks(&mut self, masks: &Masks) {
 		self.push_debug_group("inox2d - begin masks");
 
 		let gl = &self.gl;
@@ -432,7 +432,7 @@ impl InoxRenderer for OpenglRenderer {
 		self.pop_debug_group();
 	}
 
-	fn on_begin_mask(&self, mask: &Mask) {
+	fn on_begin_mask(&mut self, mask: &Mask) {
 		self.push_debug_group("inox2d - begin mask");
 
 		let gl = &self.gl;
@@ -441,7 +441,7 @@ impl InoxRenderer for OpenglRenderer {
 		}
 	}
 
-	fn on_begin_masked_content(&self) {
+	fn on_begin_masked_content(&mut self) {
 		self.push_debug_group("inox2d - begin masked content");
 
 		let gl = &self.gl;
@@ -455,7 +455,7 @@ impl InoxRenderer for OpenglRenderer {
 		self.pop_debug_group();
 	}
 
-	fn on_end_mask(&self) {
+	fn on_end_mask(&mut self) {
 		let gl = &self.gl;
 		unsafe {
 			gl.stencil_mask(0xff);
@@ -467,7 +467,7 @@ impl InoxRenderer for OpenglRenderer {
 	}
 
 	fn draw_textured_mesh_content(
-		&self,
+		&mut self,
 		as_mask: bool,
 		components: &TexturedMeshComponents,
 		render_ctx: &TexturedMeshRenderCtx,
@@ -533,7 +533,7 @@ impl InoxRenderer for OpenglRenderer {
 	}
 
 	fn begin_composite_content(
-		&self,
+		&mut self,
 		_as_mask: bool,
 		_components: &CompositeComponents,
 		_render_ctx: &CompositeRenderCtx,
@@ -566,7 +566,7 @@ impl InoxRenderer for OpenglRenderer {
 	}
 
 	fn finish_composite_content(
-		&self,
+		&mut self,
 		as_mask: bool,
 		components: &CompositeComponents,
 		_render_ctx: &CompositeRenderCtx,
