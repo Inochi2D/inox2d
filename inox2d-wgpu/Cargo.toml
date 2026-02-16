@@ -11,6 +11,7 @@ categories = ["graphics", "rendering"]
 
 [dependencies]
 inox2d = { path = "../inox2d", version = "0.3.0" }
+glam = "0.29.0"
 wgpu = { version = "28.0.0", features=["spirv"] }
 thiserror = "1.0.39"
 

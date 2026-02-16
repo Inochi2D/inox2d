@@ -63,4 +63,8 @@ where
 	{
 		render_pass.set_bind_group(1, bind_group, &[])
 	}
+
+	pub fn pipeline(&self) -> &wgpu::RenderPipeline {
+		&self.pipeline
+	}
 }
