@@ -338,8 +338,13 @@ fn gen_shader_bind(out: &mut String, filename: &str, entrypoint: &ReflectEntryPo
 	Ok(())
 }
 
-fn gen_shader_vertex_stage(out: &mut String, entrypoint: &ReflectEntryPoint) -> Result<(), Box<dyn Error>> {
-	writeln!(out, "    pub fn as_vertex_stage(&self) -> wgpu::VertexState {{")?;
+fn gen_vertexshader_trait_methods(
+	out: &mut String,
+	entrypoint: &ReflectEntryPoint,
+	struct_name: &str,
+) -> Result<(), Box<dyn Error>> {
+	writeln!(out, "impl shader::VertexShader for {} {{", struct_name)?;
+	writeln!(out, "    fn as_vertex_state(&self) -> wgpu::VertexState {{")?;
 	writeln!(out, "        wgpu::VertexState {{")?;
 	writeln!(out, "            module: &self.{},", entrypoint.name)?;
 	writeln!(out, "            entry_point: Some(\"{}\"),", entrypoint.name)?;
@@ -391,12 +396,18 @@ fn gen_shader_vertex_stage(out: &mut String, entrypoint: &ReflectEntryPoint) -> 
 	)?;
 	writeln!(out, "        }}")?;
 	writeln!(out, "    }}")?;
+	writeln!(out, "}}")?;
 
 	Ok(())
 }
 
-fn gen_shader_fragment_stage(out: &mut String, entrypoint: &ReflectEntryPoint) -> Result<(), Box<dyn Error>> {
-	writeln!(out, "    pub fn as_fragment_stage(&self) -> wgpu::FragmentState {{")?;
+fn gen_fragmentshader_trait_methods(
+	out: &mut String,
+	entrypoint: &ReflectEntryPoint,
+	struct_name: &str,
+) -> Result<(), Box<dyn Error>> {
+	writeln!(out, "impl shader::FragmentShader for {} {{", struct_name)?;
+	writeln!(out, "    fn as_fragment_state(&self) -> wgpu::FragmentState {{")?;
 	writeln!(out, "        wgpu::FragmentState {{")?;
 	writeln!(out, "            module: &self.{},", entrypoint.name)?;
 	writeln!(out, "            entry_point: Some(\"{}\"),", entrypoint.name)?;
@@ -407,14 +418,17 @@ fn gen_shader_fragment_stage(out: &mut String, entrypoint: &ReflectEntryPoint) -
 	)?;
 	writeln!(out, "        }}")?;
 	writeln!(out, "    }}")?;
+	writeln!(out, "}}")?;
 
 	Ok(())
 }
 
-fn gen_shader_access_methods(out: &mut String) -> Result<(), Box<dyn Error>> {
-	writeln!(out, "    pub fn bindgroup_layout(&self) -> &wgpu::BindGroupLayout {{")?;
+fn gen_shader_trait_methods(out: &mut String, struct_name: &str) -> Result<(), Box<dyn Error>> {
+	writeln!(out, "impl shader::Shader for {} {{", struct_name)?;
+	writeln!(out, "    fn bindgroup_layout(&self) -> &wgpu::BindGroupLayout {{")?;
 	writeln!(out, "        &self.bindgroup_layout")?;
 	writeln!(out, "    }}")?;
+	writeln!(out, "}}")?;
 
 	Ok(())
 }
@@ -432,6 +446,8 @@ fn introspect_spirv(
 	writeln!(out, "use wgpu::include_spirv;")?;
 	writeln!(out)?;
 	writeln!(out, "use std::num::NonZero;")?;
+	writeln!(out)?;
+	writeln!(out, "use crate::shader;")?;
 
 	for entrypoint in module.enumerate_entry_points()? {
 		writeln!(out, "/// Entry point {}", entrypoint.name)?;
@@ -553,25 +569,30 @@ fn introspect_spirv(
 			filepath.replace("\\", "\\\\")
 		)?;
 		writeln!(out)?;
-		writeln!(out, "pub struct Shader {{")?;
+
+		let struct_name = "Shader";
+
+		writeln!(out, "pub struct {} {{", struct_name)?;
 		writeln!(out, "    {}: wgpu::ShaderModule,", entrypoint.name)?;
 		writeln!(out, "    bindgroup_layout: wgpu::BindGroupLayout")?;
 		writeln!(out, "}}")?;
 		writeln!(out)?;
-		writeln!(out, "impl Shader {{")?;
+		writeln!(out, "impl {} {{", struct_name)?;
 
 		gen_shader_new(out, snake_case_name, filename, &entrypoint)?;
 		writeln!(out)?;
 		gen_shader_bind(out, filename, &entrypoint)?;
+		writeln!(out, "}}")?;
+
 		writeln!(out)?;
-		gen_shader_access_methods(out)?;
+		gen_shader_trait_methods(out, &struct_name)?;
 
 		if entrypoint
 			.shader_stage
 			.contains(spirv_reflect::types::ReflectShaderStageFlags::VERTEX)
 		{
 			writeln!(out)?;
-			gen_shader_vertex_stage(out, &entrypoint)?;
+			gen_vertexshader_trait_methods(out, &entrypoint, &struct_name)?;
 		}
 
 		if entrypoint
@@ -579,10 +600,8 @@ fn introspect_spirv(
 			.contains(spirv_reflect::types::ReflectShaderStageFlags::FRAGMENT)
 		{
 			writeln!(out)?;
-			gen_shader_fragment_stage(out, &entrypoint)?;
+			gen_fragmentshader_trait_methods(out, &entrypoint, &struct_name)?;
 		}
-
-		writeln!(out, "}}")?;
 	}
 
 	Ok(())

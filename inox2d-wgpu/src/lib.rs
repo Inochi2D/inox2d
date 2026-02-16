@@ -1,6 +1,7 @@
 use wgpu;
 use inox2d::model::Model;
 
+mod shader;
 mod shaders;
 
 #[derive(Debug, thiserror::Error)]
