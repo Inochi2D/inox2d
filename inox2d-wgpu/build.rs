@@ -8,6 +8,78 @@ use std::ffi::OsString;
 use std::fmt::Write;
 use std::{fs, path};
 
+fn spirv_to_rust_type(typemember: &ReflectTypeDescription) -> Result<Cow<str>, Box<dyn Error>> {
+	let base_type = if typemember.type_flags.contains(ReflectTypeFlags::FLOAT) {
+		match typemember.traits.numeric.scalar.width {
+			32 => "f32",
+			_ => "unimplemented",
+		}
+	} else if typemember.type_flags.contains(ReflectTypeFlags::INT) {
+		match (
+			typemember.traits.numeric.scalar.width,
+			typemember.traits.numeric.scalar.signedness,
+		) {
+			(8, 1) => "i8",
+			(16, 1) => "i16",
+			(32, 1) => "i32",
+			(8, 0) => "u8",
+			(16, 0) => "u16",
+			(32, 0) => "u32",
+			_ => "unimplemented",
+		}
+	} else {
+		"unimplemented"
+	};
+
+	if typemember.type_flags.contains(ReflectTypeFlags::MATRIX) {
+		Ok(format!(
+			"[[{}; {}]; {}]",
+			base_type, typemember.traits.numeric.matrix.column_count, typemember.traits.numeric.matrix.row_count
+		)
+		.into())
+	} else if typemember.type_flags.contains(ReflectTypeFlags::VECTOR) {
+		//Represent vectors as arrays.
+		Ok(format!("[{}; {}]", base_type, typemember.traits.numeric.vector.component_count).into())
+	} else {
+		//Single
+		Ok(base_type.into())
+	}
+}
+
+fn spirv_to_wgpu_vertex_format(typemember: &ReflectTypeDescription) -> Result<Cow<str>, Box<dyn Error>> {
+	let base_type = if typemember.type_flags.contains(ReflectTypeFlags::FLOAT) {
+		match typemember.traits.numeric.scalar.width {
+			32 => "Float32",
+			_ => "unimplemented",
+		}
+	} else if typemember.type_flags.contains(ReflectTypeFlags::INT) {
+		match (
+			typemember.traits.numeric.scalar.width,
+			typemember.traits.numeric.scalar.signedness,
+		) {
+			(8, 1) => "Sint8",
+			(16, 1) => "Sint16",
+			(32, 1) => "Sint32",
+			(8, 0) => "Uint8",
+			(16, 0) => "Uint16",
+			(32, 0) => "Uint32",
+			_ => "unimplemented",
+		}
+	} else {
+		"unimplemented"
+	};
+
+	if typemember.type_flags.contains(ReflectTypeFlags::MATRIX) {
+		Ok("matrix not supported".into())
+	} else if typemember.type_flags.contains(ReflectTypeFlags::VECTOR) {
+		//Represent vectors as arrays.
+		Ok(format!("{}x{}", base_type, typemember.traits.numeric.vector.component_count).into())
+	} else {
+		//Single
+		Ok(base_type.into())
+	}
+}
+
 fn describe_block_struct(
 	out: &mut String,
 	blockvar: &ReflectBlockVariable,
@@ -25,55 +97,8 @@ fn describe_block_struct(
 		writeln!(out, "    /// Decoration Flags: {:?}", typemember.decoration_flags)?;
 		writeln!(out, "    /// Traits: {:?}", typemember.traits)?;
 
-		let base_type = if typemember.type_flags.contains(ReflectTypeFlags::FLOAT) {
-			match typemember.traits.numeric.scalar.width {
-				32 => "f32",
-				_ => {
-					writeln!(out, "/// UNIMPLEMENTED {}", typemember.traits.numeric.scalar.width)?;
-					"unimplemented"
-				}
-			}
-		} else if typemember.type_flags.contains(ReflectTypeFlags::INT) {
-			match (
-				typemember.traits.numeric.scalar.width,
-				typemember.traits.numeric.scalar.signedness,
-			) {
-				(8, 1) => "i8",
-				(16, 1) => "i16",
-				(32, 1) => "i32",
-				(8, 0) => "u8",
-				(16, 0) => "u16",
-				(32, 0) => "u32",
-				_ => {
-					writeln!(out, "/// UNIMPLEMENTED {}", typemember.traits.numeric.scalar.width)?;
-					"unimplemented"
-				}
-			}
-		} else {
-			writeln!(out, "/// UNIMPLEMENTED")?;
-			"unimplemented"
-		};
-
-		if typemember.type_flags.contains(ReflectTypeFlags::MATRIX) {
-			writeln!(
-				out,
-				"    {}: [[{}; {}]; {}],",
-				blockmember.name,
-				base_type,
-				typemember.traits.numeric.matrix.column_count,
-				typemember.traits.numeric.matrix.row_count
-			)?;
-		} else if typemember.type_flags.contains(ReflectTypeFlags::VECTOR) {
-			//Represent vectors as arrays.
-			writeln!(
-				out,
-				"    {}: [{}; {}],",
-				blockmember.name, base_type, typemember.traits.numeric.vector.component_count
-			)?;
-		} else {
-			//Single
-			writeln!(out, "    {}: {},", blockmember.name, base_type)?;
-		}
+		let rust_type = spirv_to_rust_type(typemember)?;
+		writeln!(out, "    {}: {},", blockmember.name, rust_type)?;
 	}
 
 	writeln!(out, "}}")?;
@@ -122,11 +147,16 @@ fn describe_block_struct(
 fn introspect_spirv(
 	out: &mut String,
 	snake_case_name: &str,
+	filename: &str,
 	filepath: &str,
 	module: &spirv_reflect::ShaderModule,
 ) -> Result<(), Box<dyn Error>> {
+	writeln!(out, "/// Automatically generated introspection data for {}", filename)?;
+
 	writeln!(out, "use wgpu;")?;
 	writeln!(out, "use wgpu::include_spirv;")?;
+	writeln!(out)?;
+	writeln!(out, "use std::num::NonZero;")?;
 
 	for entrypoint in module.enumerate_entry_points()? {
 		writeln!(out, "/// Entry point {}", entrypoint.name)?;
@@ -135,7 +165,7 @@ fn introspect_spirv(
 
 		// Most of these are stubs.
 		// We will eventually have this print Rust structs and consts.
-		for var in entrypoint.input_variables {
+		for var in &entrypoint.input_variables {
 			writeln!(out, "/// input {}", var.name)?;
 			writeln!(out, "/// location {}", var.location)?;
 			writeln!(out, "/// semantic {}", var.semantic)?;
@@ -144,7 +174,7 @@ fn introspect_spirv(
 			writeln!(out, "/// Format: {:?}", var.format)?;
 			writeln!(out, "/// members:")?;
 
-			for var in var.members {
+			for var in &var.members {
 				writeln!(out, "    /// {}", var.name)?;
 				writeln!(out, "    /// location {}", var.location)?;
 				writeln!(out, "    /// semantic {}", var.semantic)?;
@@ -153,6 +183,12 @@ fn introspect_spirv(
 				writeln!(out, "    /// Format: {:?}", var.format)?;
 			}
 			writeln!(out, "/// END members:")?;
+			writeln!(
+				out,
+				"const INPUT_LOCATION_{}: u32 = {};",
+				var.name.to_uppercase(),
+				var.location
+			)?;
 		}
 
 		for var in entrypoint.output_variables {
@@ -173,17 +209,23 @@ fn introspect_spirv(
 				writeln!(out, "    /// Format: {:?}", var.format)?;
 			}
 			writeln!(out, "/// END members:")?;
+			writeln!(
+				out,
+				"const OUTPUT_LOCATION_{}: u32 = {};",
+				var.name.to_uppercase(),
+				var.location
+			)?;
 		}
 
-		for descriptor_set in entrypoint.descriptor_sets {
+		for descriptor_set in &entrypoint.descriptor_sets {
 			writeln!(out, "/// descriptor set {}", descriptor_set.set)?;
 
-			for binding in descriptor_set.bindings {
+			for binding in &descriptor_set.bindings {
 				writeln!(out, "/// descriptor {} (binding {})", binding.name, binding.binding)?;
 
 				match binding.descriptor_type {
 					ReflectDescriptorType::UniformBuffer => {
-						if let Some(typevar) = binding.type_description {
+						if let Some(typevar) = &binding.type_description {
 							writeln!(out, "/// UNIFORM BUFFER of type {}", typevar.type_name)?;
 							writeln!(out, "/// Struct member name: {}", typevar.struct_member_name)?;
 							writeln!(out, "/// Storage class: {:?}", typevar.storage_class)?;
@@ -191,6 +233,12 @@ fn introspect_spirv(
 							writeln!(out, "/// Decoration Flags: {:?}", typevar.decoration_flags)?;
 							writeln!(out, "/// Traits: {:?}", typevar.traits)?;
 							describe_block_struct(out, &binding.block, &typevar)?;
+							writeln!(
+								out,
+								"const BINDING_{}: u32 = {};",
+								binding.name.to_uppercase(),
+								binding.binding
+							)?;
 						} else {
 							writeln!(out, "/// UNIFORM BUFFER of unknown type name {}", binding.name)?;
 							writeln!(
@@ -244,6 +292,166 @@ fn introspect_spirv(
 		)?;
 		writeln!(out, "        }}")?;
 		writeln!(out, "    }}")?;
+
+		//TODO: What about vert/frag visible uniform blocks?
+		let visibility = if entrypoint
+			.shader_stage
+			.contains(spirv_reflect::types::ReflectShaderStageFlags::VERTEX)
+		{
+			"wgpu::ShaderStages::VERTEX"
+		} else if entrypoint
+			.shader_stage
+			.contains(spirv_reflect::types::ReflectShaderStageFlags::FRAGMENT)
+		{
+			"wgpu::ShaderStages::FRAGMENT"
+		} else {
+			"wgpu::ShaderStages::NONE"
+		};
+
+		writeln!(out)?;
+		writeln!(
+			out,
+			"    fn bind_group_layout(self, device: &wgpu::Device) -> wgpu::BindGroupLayout {{"
+		)?;
+		writeln!(
+			out,
+			"        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {{"
+		)?;
+		writeln!(out, "            entries: &[")?;
+		for descriptor_set in entrypoint.descriptor_sets {
+			writeln!(out, "                // descriptor set {}", descriptor_set.set)?;
+			for binding in descriptor_set.bindings {
+				writeln!(out, "                wgpu::BindGroupLayoutEntry {{")?;
+				writeln!(out, "                    binding: {},", binding.binding)?;
+				writeln!(out, "                    count: None,")?; //TODO: Array support
+				writeln!(out, "                    visibility: {},", visibility)?;
+
+				match binding.descriptor_type {
+					ReflectDescriptorType::UniformBuffer => {
+						writeln!(out, "                    ty: wgpu::BindingType::Buffer {{")?;
+						writeln!(out, "                        ty: wgpu::BufferBindingType::Uniform,")?;
+						writeln!(out, "                        has_dynamic_offset: false,")?;
+
+						if binding.block.size > 0 {
+							writeln!(
+								out,
+								"                        min_binding_size: Some(NonZero::new({}).expect(\"nonzero type\")),",
+								binding.block.size
+							)?;
+						} else {
+							writeln!(out, "                        min_binding_size: None,")?;
+						}
+						writeln!(out, "                    }},")?;
+					}
+
+					ReflectDescriptorType::Sampler | ReflectDescriptorType::CombinedImageSampler => {
+						//TODO: How do we ask what filtering type to use?
+						writeln!(
+							out,
+							"                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),"
+						)?;
+					}
+
+					//TODO: generate bindings for all of these
+					ReflectDescriptorType::Undefined
+					| ReflectDescriptorType::SampledImage
+					| ReflectDescriptorType::StorageImage
+					| ReflectDescriptorType::UniformTexelBuffer
+					| ReflectDescriptorType::StorageTexelBuffer
+					| ReflectDescriptorType::StorageBuffer
+					| ReflectDescriptorType::UniformBufferDynamic
+					| ReflectDescriptorType::StorageBufferDynamic
+					| ReflectDescriptorType::InputAttachment
+					| ReflectDescriptorType::AccelerationStructureKHR => {
+						writeln!(out, "///TODO: Unknown type {:?}", binding.descriptor_type)?;
+					}
+				}
+
+				writeln!(out, "                }},")?;
+			}
+		}
+		writeln!(out, "            ],")?;
+		writeln!(out, "            label: Some(\"{}::{}\")", filename, entrypoint.name)?;
+		writeln!(out, "        }})")?;
+		writeln!(out, "    }}")?;
+
+		if entrypoint
+			.shader_stage
+			.contains(spirv_reflect::types::ReflectShaderStageFlags::VERTEX)
+		{
+			writeln!(out)?;
+			writeln!(out, "    pub fn as_vertex_stage(&self) -> wgpu::VertexState {{")?;
+			writeln!(out, "        wgpu::VertexState {{")?;
+			writeln!(out, "            module: &self.{},", entrypoint.name)?;
+			writeln!(out, "            entry_point: Some(\"{}\"),", entrypoint.name)?;
+			writeln!(out, "            buffers: &[")?;
+
+			for (index, input) in entrypoint.input_variables.iter().enumerate() {
+				//TODO: This creates one buffer per input, since that matches
+				//how inox2d-opengl used its buffers.
+				//In the future we may want packed buffers???
+				let is_last = index == entrypoint.input_variables.len() - 1;
+
+				if let Some(typedesc) = &input.type_description {
+					let rust_type = spirv_to_rust_type(&typedesc)?;
+					let comma = if is_last { "" } else { "," };
+					let vertex_format = spirv_to_wgpu_vertex_format(&typedesc)?;
+
+					writeln!(out, "                wgpu::VertexBufferLayout {{")?;
+					writeln!(
+						out,
+						"                    array_stride: std::mem::size_of::<{}>() as wgpu::BufferAddress,",
+						rust_type
+					)?;
+					writeln!(out, "                    step_mode: wgpu::VertexStepMode::Vertex,")?;
+					writeln!(out, "                    attributes: &[")?;
+					writeln!(out, "                        wgpu::VertexAttribute {{")?;
+					writeln!(out, "                            offset: 0,")?;
+					writeln!(
+						out,
+						"                            shader_location: INPUT_LOCATION_{},",
+						input.name.to_uppercase()
+					)?;
+					writeln!(
+						out,
+						"                            format: wgpu::VertexFormat::{}",
+						vertex_format
+					)?;
+					writeln!(out, "                        }}")?;
+					writeln!(out, "                    ]")?;
+					writeln!(out, "                }}{}", comma)?;
+				} else {
+					writeln!(out, "/// ERROR! WHAT KIND OF BUFFER TYPE LACKS A DESCRIPTOR?!")?;
+				}
+			}
+
+			writeln!(out, "            ],")?;
+			writeln!(
+				out,
+				"            compilation_options: wgpu::PipelineCompilationOptions::default()"
+			)?;
+			writeln!(out, "        }}")?;
+			writeln!(out, "    }}")?;
+		}
+
+		if entrypoint
+			.shader_stage
+			.contains(spirv_reflect::types::ReflectShaderStageFlags::FRAGMENT)
+		{
+			writeln!(out)?;
+			writeln!(out, "    pub fn as_fragment_stage(&self) -> wgpu::FragmentState {{")?;
+			writeln!(out, "        wgpu::FragmentState {{")?;
+			writeln!(out, "            module: &self.{},", entrypoint.name)?;
+			writeln!(out, "            entry_point: Some(\"{}\"),", entrypoint.name)?;
+			writeln!(out, "            targets: &[],")?;
+			writeln!(
+				out,
+				"            compilation_options: wgpu::PipelineCompilationOptions::default()"
+			)?;
+			writeln!(out, "        }}")?;
+			writeln!(out, "    }}")?;
+		}
+
 		writeln!(out, "}}")?;
 	}
 
@@ -320,11 +528,6 @@ fn compile_dir(
 
 				let mut reflect_data = String::new();
 
-				writeln!(
-					&mut reflect_data,
-					"/// Automatically generated introspection data for {}",
-					item_filename.to_string_lossy()
-				)?;
 				let snake_case_name = filename_but_with_the_shaderkind.to_string_lossy();
 				writeln!(parent_module_rust_src, "pub mod {};", snake_case_name)?;
 
@@ -332,6 +535,7 @@ fn compile_dir(
 				introspect_spirv(
 					&mut reflect_data,
 					&snake_case_name,
+					&item_filename.to_string_lossy(),
 					&out_path.to_string_lossy(),
 					&reflection,
 				)?;
