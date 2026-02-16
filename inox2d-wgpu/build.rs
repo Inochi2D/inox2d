@@ -1,6 +1,8 @@
 use shaderc;
 use spirv_reflect;
-use spirv_reflect::types::{ReflectBlockVariable, ReflectDescriptorType, ReflectTypeDescription, ReflectTypeFlags};
+use spirv_reflect::types::{
+	ReflectBlockVariable, ReflectDescriptorType, ReflectEntryPoint, ReflectTypeDescription, ReflectTypeFlags,
+};
 
 use std::borrow::Cow;
 use std::error::Error;
@@ -142,6 +144,273 @@ fn describe_block_struct(
 	Ok(())
 }
 
+fn gen_shader_new(
+	out: &mut String,
+	snake_case_name: &str,
+	filename: &str,
+	entrypoint: &ReflectEntryPoint,
+) -> Result<(), Box<dyn Error>> {
+	//TODO: What about vert/frag visible uniform blocks?
+	let visibility = if entrypoint
+		.shader_stage
+		.contains(spirv_reflect::types::ReflectShaderStageFlags::VERTEX)
+	{
+		"wgpu::ShaderStages::VERTEX"
+	} else if entrypoint
+		.shader_stage
+		.contains(spirv_reflect::types::ReflectShaderStageFlags::FRAGMENT)
+	{
+		"wgpu::ShaderStages::FRAGMENT"
+	} else {
+		"wgpu::ShaderStages::NONE"
+	};
+
+	writeln!(out, "    pub fn new(device: &wgpu::Device) -> Self {{")?;
+	writeln!(out, "        Self {{")?;
+	writeln!(
+		out,
+		"            {}: device.create_shader_module({}),",
+		entrypoint.name, snake_case_name
+	)?;
+	writeln!(
+		out,
+		"            bindgroup_layout: device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {{"
+	)?;
+	writeln!(out, "                entries: &[")?;
+	for descriptor_set in &entrypoint.descriptor_sets {
+		writeln!(out, "                    // descriptor set {}", descriptor_set.set)?;
+		for binding in &descriptor_set.bindings {
+			writeln!(out, "                    wgpu::BindGroupLayoutEntry {{")?;
+			writeln!(
+				out,
+				"                        binding: BINDING_{},",
+				binding.name.to_uppercase()
+			)?;
+			writeln!(out, "                        count: None,")?; //TODO: Array support
+			writeln!(out, "                        visibility: {},", visibility)?;
+
+			match binding.descriptor_type {
+				ReflectDescriptorType::UniformBuffer => {
+					writeln!(out, "                        ty: wgpu::BindingType::Buffer {{")?;
+					writeln!(out, "                            ty: wgpu::BufferBindingType::Uniform,")?;
+					writeln!(out, "                            has_dynamic_offset: false,")?;
+
+					if binding.block.size > 0 {
+						writeln!(
+							out,
+							"                            min_binding_size: Some(NonZero::new({}).expect(\"nonzero type\")),",
+							binding.block.size
+						)?;
+					} else {
+						writeln!(out, "                            min_binding_size: None,")?;
+					}
+					writeln!(out, "                        }},")?;
+				}
+
+				ReflectDescriptorType::Sampler | ReflectDescriptorType::CombinedImageSampler => {
+					//TODO: How do we ask what filtering type to use?
+					writeln!(
+						out,
+						"                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),"
+					)?;
+				}
+
+				//TODO: generate bindings for all of these
+				ReflectDescriptorType::Undefined
+				| ReflectDescriptorType::SampledImage
+				| ReflectDescriptorType::StorageImage
+				| ReflectDescriptorType::UniformTexelBuffer
+				| ReflectDescriptorType::StorageTexelBuffer
+				| ReflectDescriptorType::StorageBuffer
+				| ReflectDescriptorType::UniformBufferDynamic
+				| ReflectDescriptorType::StorageBufferDynamic
+				| ReflectDescriptorType::InputAttachment
+				| ReflectDescriptorType::AccelerationStructureKHR => {
+					writeln!(out, "///TODO: Unknown type {:?}", binding.descriptor_type)?;
+				}
+			}
+
+			writeln!(out, "                    }},")?;
+		}
+	}
+	writeln!(out, "                ],")?;
+	writeln!(
+		out,
+		"                label: Some(\"{}::{}\")",
+		filename, entrypoint.name
+	)?;
+	writeln!(out, "            }})")?;
+	writeln!(out, "        }}")?;
+	writeln!(out, "    }}")?;
+
+	Ok(())
+}
+
+/// Generate the code to create a bindgroup for a given shader entrypoint.
+fn gen_shader_bind(out: &mut String, filename: &str, entrypoint: &ReflectEntryPoint) -> Result<(), Box<dyn Error>> {
+	let mut bind_params = String::new();
+	for descriptor_set in &entrypoint.descriptor_sets {
+		for binding in &descriptor_set.bindings {
+			match binding.descriptor_type {
+				ReflectDescriptorType::UniformBuffer => {
+					write!(&mut bind_params, ", {}: &wgpu::Buffer", binding.name)?;
+				}
+
+				ReflectDescriptorType::Sampler | ReflectDescriptorType::CombinedImageSampler => {
+					write!(&mut bind_params, ", {}: &wgpu::Sampler", binding.name)?;
+				}
+
+				//TODO: generate bindings for all of these
+				ReflectDescriptorType::Undefined
+				| ReflectDescriptorType::SampledImage
+				| ReflectDescriptorType::StorageImage
+				| ReflectDescriptorType::UniformTexelBuffer
+				| ReflectDescriptorType::StorageTexelBuffer
+				| ReflectDescriptorType::StorageBuffer
+				| ReflectDescriptorType::UniformBufferDynamic
+				| ReflectDescriptorType::StorageBufferDynamic
+				| ReflectDescriptorType::InputAttachment
+				| ReflectDescriptorType::AccelerationStructureKHR => {
+					writeln!(out, "///TODO: Unknown type {:?}", binding.descriptor_type)?;
+				}
+			}
+		}
+	}
+
+	writeln!(
+		out,
+		"    fn bind(self, device: &wgpu::Device{}) -> wgpu::BindGroup {{",
+		bind_params
+	)?;
+	writeln!(out, "        device.create_bind_group(&wgpu::BindGroupDescriptor {{")?;
+	writeln!(out, "            label: Some(\"{}::{}\"),", filename, entrypoint.name)?;
+	writeln!(out, "            layout: &self.bindgroup_layout,")?;
+	writeln!(out, "            entries: &[")?;
+
+	for descriptor_set in &entrypoint.descriptor_sets {
+		writeln!(out, "                // descriptor set {}", descriptor_set.set)?;
+		for binding in &descriptor_set.bindings {
+			writeln!(out, "                wgpu::BindGroupEntry {{")?;
+			writeln!(
+				out,
+				"                    binding: BINDING_{},",
+				binding.name.to_uppercase()
+			)?;
+			match binding.descriptor_type {
+				ReflectDescriptorType::UniformBuffer => {
+					writeln!(
+						out,
+						"                    resource: {}.as_entire_binding()",
+						binding.name
+					)?;
+				}
+
+				ReflectDescriptorType::Sampler | ReflectDescriptorType::CombinedImageSampler => {
+					writeln!(
+						out,
+						"                    resource: wgpu::BindingResource::Sampler({})",
+						binding.name
+					)?;
+				}
+
+				//TODO: generate bindings for all of these
+				ReflectDescriptorType::Undefined
+				| ReflectDescriptorType::SampledImage
+				| ReflectDescriptorType::StorageImage
+				| ReflectDescriptorType::UniformTexelBuffer
+				| ReflectDescriptorType::StorageTexelBuffer
+				| ReflectDescriptorType::StorageBuffer
+				| ReflectDescriptorType::UniformBufferDynamic
+				| ReflectDescriptorType::StorageBufferDynamic
+				| ReflectDescriptorType::InputAttachment
+				| ReflectDescriptorType::AccelerationStructureKHR => {
+					writeln!(out, "///TODO: Unknown type {:?}", binding.descriptor_type)?;
+				}
+			}
+			writeln!(out, "                }},")?;
+		}
+	}
+
+	writeln!(out, "            ]")?;
+	writeln!(out, "        }})")?;
+	writeln!(out, "    }}")?;
+
+	Ok(())
+}
+
+fn gen_shader_vertex_stage(out: &mut String, entrypoint: &ReflectEntryPoint) -> Result<(), Box<dyn Error>> {
+	writeln!(out, "    pub fn as_vertex_stage(&self) -> wgpu::VertexState {{")?;
+	writeln!(out, "        wgpu::VertexState {{")?;
+	writeln!(out, "            module: &self.{},", entrypoint.name)?;
+	writeln!(out, "            entry_point: Some(\"{}\"),", entrypoint.name)?;
+	writeln!(out, "            buffers: &[")?;
+
+	for (index, input) in entrypoint.input_variables.iter().enumerate() {
+		//TODO: This creates one buffer per input, since that matches
+		//how inox2d-opengl used its buffers.
+		//In the future we may want packed buffers???
+		let is_last = index == entrypoint.input_variables.len() - 1;
+
+		if let Some(typedesc) = &input.type_description {
+			let rust_type = spirv_to_rust_type(&typedesc)?;
+			let comma = if is_last { "" } else { "," };
+			let vertex_format = spirv_to_wgpu_vertex_format(&typedesc)?;
+
+			writeln!(out, "                wgpu::VertexBufferLayout {{")?;
+			writeln!(
+				out,
+				"                    array_stride: std::mem::size_of::<{}>() as wgpu::BufferAddress,",
+				rust_type
+			)?;
+			writeln!(out, "                    step_mode: wgpu::VertexStepMode::Vertex,")?;
+			writeln!(out, "                    attributes: &[")?;
+			writeln!(out, "                        wgpu::VertexAttribute {{")?;
+			writeln!(out, "                            offset: 0,")?;
+			writeln!(
+				out,
+				"                            shader_location: INPUT_LOCATION_{},",
+				input.name.to_uppercase()
+			)?;
+			writeln!(
+				out,
+				"                            format: wgpu::VertexFormat::{}",
+				vertex_format
+			)?;
+			writeln!(out, "                        }}")?;
+			writeln!(out, "                    ]")?;
+			writeln!(out, "                }}{}", comma)?;
+		} else {
+			writeln!(out, "/// ERROR! WHAT KIND OF BUFFER TYPE LACKS A DESCRIPTOR?!")?;
+		}
+	}
+
+	writeln!(out, "            ],")?;
+	writeln!(
+		out,
+		"            compilation_options: wgpu::PipelineCompilationOptions::default()"
+	)?;
+	writeln!(out, "        }}")?;
+	writeln!(out, "    }}")?;
+
+	Ok(())
+}
+
+fn gen_shader_fragment_stage(out: &mut String, entrypoint: &ReflectEntryPoint) -> Result<(), Box<dyn Error>> {
+	writeln!(out, "    pub fn as_fragment_stage(&self) -> wgpu::FragmentState {{")?;
+	writeln!(out, "        wgpu::FragmentState {{")?;
+	writeln!(out, "            module: &self.{},", entrypoint.name)?;
+	writeln!(out, "            entry_point: Some(\"{}\"),", entrypoint.name)?;
+	writeln!(out, "            targets: &[],")?;
+	writeln!(
+		out,
+		"            compilation_options: wgpu::PipelineCompilationOptions::default()"
+	)?;
+	writeln!(out, "        }}")?;
+	writeln!(out, "    }}")?;
+
+	Ok(())
+}
+
 fn introspect_spirv(
 	out: &mut String,
 	snake_case_name: &str,
@@ -189,7 +458,7 @@ fn introspect_spirv(
 			)?;
 		}
 
-		for var in entrypoint.output_variables {
+		for var in &entrypoint.output_variables {
 			writeln!(out, "/// output {}", var.name)?;
 			writeln!(out, "/// location {}", var.location)?;
 			writeln!(out, "/// semantic {}", var.semantic)?;
@@ -198,7 +467,7 @@ fn introspect_spirv(
 			writeln!(out, "/// Format: {:?}", var.format)?;
 			writeln!(out, "/// members:")?;
 
-			for var in var.members {
+			for var in &var.members {
 				writeln!(out, "    /// {}", var.name)?;
 				writeln!(out, "    /// location {}", var.location)?;
 				writeln!(out, "    /// semantic {}", var.semantic)?;
@@ -260,11 +529,11 @@ fn introspect_spirv(
 			}
 		}
 
-		for uniform_id in entrypoint.used_uniforms {
+		for uniform_id in &entrypoint.used_uniforms {
 			writeln!(out, "/// uniform ID {}", uniform_id)?;
 		}
 
-		for uniform_id in entrypoint.used_push_constants {
+		for uniform_id in &entrypoint.used_push_constants {
 			writeln!(out, "/// push constant ID {}", uniform_id)?;
 		}
 
@@ -277,159 +546,24 @@ fn introspect_spirv(
 		)?;
 		writeln!(out)?;
 		writeln!(out, "pub struct Shader {{")?;
-		writeln!(out, "    {}: wgpu::ShaderModule", entrypoint.name)?;
+		writeln!(out, "    {}: wgpu::ShaderModule,", entrypoint.name)?;
+		writeln!(out, "    bindgroup_layout: wgpu::BindGroupLayout")?;
 		writeln!(out, "}}")?;
 		writeln!(out)?;
 		writeln!(out, "impl Shader {{")?;
-		writeln!(out, "    pub fn new(device: &wgpu::Device) -> Self {{")?;
-		writeln!(out, "        Self {{")?;
-		writeln!(
-			out,
-			"            {}: device.create_shader_module({})",
-			entrypoint.name, snake_case_name
-		)?;
-		writeln!(out, "        }}")?;
-		writeln!(out, "    }}")?;
 
-		//TODO: What about vert/frag visible uniform blocks?
-		let visibility = if entrypoint
-			.shader_stage
-			.contains(spirv_reflect::types::ReflectShaderStageFlags::VERTEX)
-		{
-			"wgpu::ShaderStages::VERTEX"
-		} else if entrypoint
-			.shader_stage
-			.contains(spirv_reflect::types::ReflectShaderStageFlags::FRAGMENT)
-		{
-			"wgpu::ShaderStages::FRAGMENT"
-		} else {
-			"wgpu::ShaderStages::NONE"
-		};
+		gen_shader_new(out, snake_case_name, filename, &entrypoint)?;
 
 		writeln!(out)?;
-		writeln!(
-			out,
-			"    fn bind_group_layout(self, device: &wgpu::Device) -> wgpu::BindGroupLayout {{"
-		)?;
-		writeln!(
-			out,
-			"        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {{"
-		)?;
-		writeln!(out, "            entries: &[")?;
-		for descriptor_set in entrypoint.descriptor_sets {
-			writeln!(out, "                // descriptor set {}", descriptor_set.set)?;
-			for binding in descriptor_set.bindings {
-				writeln!(out, "                wgpu::BindGroupLayoutEntry {{")?;
-				writeln!(out, "                    binding: {},", binding.binding)?;
-				writeln!(out, "                    count: None,")?; //TODO: Array support
-				writeln!(out, "                    visibility: {},", visibility)?;
 
-				match binding.descriptor_type {
-					ReflectDescriptorType::UniformBuffer => {
-						writeln!(out, "                    ty: wgpu::BindingType::Buffer {{")?;
-						writeln!(out, "                        ty: wgpu::BufferBindingType::Uniform,")?;
-						writeln!(out, "                        has_dynamic_offset: false,")?;
-
-						if binding.block.size > 0 {
-							writeln!(
-								out,
-								"                        min_binding_size: Some(NonZero::new({}).expect(\"nonzero type\")),",
-								binding.block.size
-							)?;
-						} else {
-							writeln!(out, "                        min_binding_size: None,")?;
-						}
-						writeln!(out, "                    }},")?;
-					}
-
-					ReflectDescriptorType::Sampler | ReflectDescriptorType::CombinedImageSampler => {
-						//TODO: How do we ask what filtering type to use?
-						writeln!(
-							out,
-							"                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),"
-						)?;
-					}
-
-					//TODO: generate bindings for all of these
-					ReflectDescriptorType::Undefined
-					| ReflectDescriptorType::SampledImage
-					| ReflectDescriptorType::StorageImage
-					| ReflectDescriptorType::UniformTexelBuffer
-					| ReflectDescriptorType::StorageTexelBuffer
-					| ReflectDescriptorType::StorageBuffer
-					| ReflectDescriptorType::UniformBufferDynamic
-					| ReflectDescriptorType::StorageBufferDynamic
-					| ReflectDescriptorType::InputAttachment
-					| ReflectDescriptorType::AccelerationStructureKHR => {
-						writeln!(out, "///TODO: Unknown type {:?}", binding.descriptor_type)?;
-					}
-				}
-
-				writeln!(out, "                }},")?;
-			}
-		}
-		writeln!(out, "            ],")?;
-		writeln!(out, "            label: Some(\"{}::{}\")", filename, entrypoint.name)?;
-		writeln!(out, "        }})")?;
-		writeln!(out, "    }}")?;
+		gen_shader_bind(out, filename, &entrypoint)?;
 
 		if entrypoint
 			.shader_stage
 			.contains(spirv_reflect::types::ReflectShaderStageFlags::VERTEX)
 		{
 			writeln!(out)?;
-			writeln!(out, "    pub fn as_vertex_stage(&self) -> wgpu::VertexState {{")?;
-			writeln!(out, "        wgpu::VertexState {{")?;
-			writeln!(out, "            module: &self.{},", entrypoint.name)?;
-			writeln!(out, "            entry_point: Some(\"{}\"),", entrypoint.name)?;
-			writeln!(out, "            buffers: &[")?;
-
-			for (index, input) in entrypoint.input_variables.iter().enumerate() {
-				//TODO: This creates one buffer per input, since that matches
-				//how inox2d-opengl used its buffers.
-				//In the future we may want packed buffers???
-				let is_last = index == entrypoint.input_variables.len() - 1;
-
-				if let Some(typedesc) = &input.type_description {
-					let rust_type = spirv_to_rust_type(&typedesc)?;
-					let comma = if is_last { "" } else { "," };
-					let vertex_format = spirv_to_wgpu_vertex_format(&typedesc)?;
-
-					writeln!(out, "                wgpu::VertexBufferLayout {{")?;
-					writeln!(
-						out,
-						"                    array_stride: std::mem::size_of::<{}>() as wgpu::BufferAddress,",
-						rust_type
-					)?;
-					writeln!(out, "                    step_mode: wgpu::VertexStepMode::Vertex,")?;
-					writeln!(out, "                    attributes: &[")?;
-					writeln!(out, "                        wgpu::VertexAttribute {{")?;
-					writeln!(out, "                            offset: 0,")?;
-					writeln!(
-						out,
-						"                            shader_location: INPUT_LOCATION_{},",
-						input.name.to_uppercase()
-					)?;
-					writeln!(
-						out,
-						"                            format: wgpu::VertexFormat::{}",
-						vertex_format
-					)?;
-					writeln!(out, "                        }}")?;
-					writeln!(out, "                    ]")?;
-					writeln!(out, "                }}{}", comma)?;
-				} else {
-					writeln!(out, "/// ERROR! WHAT KIND OF BUFFER TYPE LACKS A DESCRIPTOR?!")?;
-				}
-			}
-
-			writeln!(out, "            ],")?;
-			writeln!(
-				out,
-				"            compilation_options: wgpu::PipelineCompilationOptions::default()"
-			)?;
-			writeln!(out, "        }}")?;
-			writeln!(out, "    }}")?;
+			gen_shader_vertex_stage(out, &entrypoint)?;
 		}
 
 		if entrypoint
@@ -437,17 +571,7 @@ fn introspect_spirv(
 			.contains(spirv_reflect::types::ReflectShaderStageFlags::FRAGMENT)
 		{
 			writeln!(out)?;
-			writeln!(out, "    pub fn as_fragment_stage(&self) -> wgpu::FragmentState {{")?;
-			writeln!(out, "        wgpu::FragmentState {{")?;
-			writeln!(out, "            module: &self.{},", entrypoint.name)?;
-			writeln!(out, "            entry_point: Some(\"{}\"),", entrypoint.name)?;
-			writeln!(out, "            targets: &[],")?;
-			writeln!(
-				out,
-				"            compilation_options: wgpu::PipelineCompilationOptions::default()"
-			)?;
-			writeln!(out, "        }}")?;
-			writeln!(out, "    }}")?;
+			gen_shader_fragment_stage(out, &entrypoint)?;
 		}
 
 		writeln!(out, "}}")?;
