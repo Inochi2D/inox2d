@@ -211,17 +211,36 @@ fn gen_shader_new(
 					writeln!(out, "                        }},")?;
 				}
 
-				ReflectDescriptorType::Sampler | ReflectDescriptorType::CombinedImageSampler => {
+				//NOTE: Combined image samplers are NOT supported by WGPU!
+				ReflectDescriptorType::CombinedImageSampler => {
+					writeln!(
+						out,
+						"                        ty: // Combined image samplers are NOT supported by WGPU. Please remove them from your shader.",
+					)?;
+				}
+				ReflectDescriptorType::Sampler => {
 					//TODO: How do we ask what filtering type to use?
 					writeln!(
 						out,
 						"                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),"
 					)?;
 				}
+				ReflectDescriptorType::SampledImage => {
+					writeln!(out, "                        ty: wgpu::BindingType::Texture {{")?;
+					writeln!(out, "                            multisampled: false,")?;
+					writeln!(
+						out,
+						"                            view_dimension: wgpu::TextureViewDimension::D2,"
+					)?; //TODO: Support 1D/3D textures
+					writeln!(
+						out,
+						"                            sample_type: wgpu::TextureSampleType::Float {{ filterable: true }},"
+					)?;
+					writeln!(out, "                        }},")?;
+				}
 
 				//TODO: generate bindings for all of these
 				ReflectDescriptorType::Undefined
-				| ReflectDescriptorType::SampledImage
 				| ReflectDescriptorType::StorageImage
 				| ReflectDescriptorType::UniformTexelBuffer
 				| ReflectDescriptorType::StorageTexelBuffer
@@ -263,10 +282,12 @@ fn gen_shader_bind(out: &mut String, filename: &str, entrypoint: &ReflectEntryPo
 				ReflectDescriptorType::Sampler | ReflectDescriptorType::CombinedImageSampler => {
 					write!(&mut bind_params, ", {}: &wgpu::Sampler", binding.name)?;
 				}
+				ReflectDescriptorType::SampledImage => {
+					write!(&mut bind_params, ", {}: &wgpu::TextureView", binding.name)?;
+				}
 
 				//TODO: generate bindings for all of these
 				ReflectDescriptorType::Undefined
-				| ReflectDescriptorType::SampledImage
 				| ReflectDescriptorType::StorageImage
 				| ReflectDescriptorType::UniformTexelBuffer
 				| ReflectDescriptorType::StorageTexelBuffer
@@ -316,10 +337,16 @@ fn gen_shader_bind(out: &mut String, filename: &str, entrypoint: &ReflectEntryPo
 						binding.name
 					)?;
 				}
+				ReflectDescriptorType::SampledImage => {
+					writeln!(
+						out,
+						"                    resource: wgpu::BindingResource::TextureView({})",
+						binding.name
+					)?;
+				}
 
 				//TODO: generate bindings for all of these
 				ReflectDescriptorType::Undefined
-				| ReflectDescriptorType::SampledImage
 				| ReflectDescriptorType::StorageImage
 				| ReflectDescriptorType::UniformTexelBuffer
 				| ReflectDescriptorType::StorageTexelBuffer

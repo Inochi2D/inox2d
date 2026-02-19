@@ -9,13 +9,14 @@
 layout(location = 0) in vec2 texUVs;
 layout(location = 0) out vec4 outColor;
 
-layout(set = 1, binding = 0) uniform sampler2D tex;
-layout(set = 1, binding = 1) uniform Input {
+layout(set = 1, binding = 0) uniform texture2D tex;
+layout(set = 1, binding = 1) uniform sampler samp;
+layout(set = 1, binding = 2) uniform Input {
   float threshold;
 } uni_in;
 
 void main() {
-  vec4 color = texture(tex, texUVs);
+  vec4 color = texture(sampler2D(tex, samp), texUVs);
   if (color.a <= uni_in.threshold)
     discard;
   outColor = vec4(1, 1, 1, 1);

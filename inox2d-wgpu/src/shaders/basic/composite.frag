@@ -11,11 +11,12 @@ layout(location = 0) out vec4 outAlbedo;
 layout(location = 1) out vec4 outEmissive;
 layout(location = 2) out vec4 outBump;
 
-layout(set = 1, binding = 0) uniform sampler2D albedo;
-layout(set = 1, binding = 1) uniform sampler2D emissive;
-layout(set = 1, binding = 2) uniform sampler2D bumpmap;
+layout(set = 1, binding = 0) uniform texture2D albedo_tex;
+layout(set = 1, binding = 1) uniform texture2D emissive_tex;
+layout(set = 1, binding = 2) uniform texture2D bumpmap_tex;
+layout(set = 1, binding = 3) uniform sampler samp;
 
-layout(set = 1, binding = 3) uniform Input {
+layout(set = 1, binding = 4) uniform Input {
     float opacity;
     vec3 multColor;
     vec3 screenColor;
@@ -23,7 +24,7 @@ layout(set = 1, binding = 3) uniform Input {
 
 void main() {
   // Sample texture
-  vec4 texColor = texture(albedo, texUVs);
+  vec4 texColor = texture(sampler2D(albedo_tex, samp), texUVs);
 
   // Screen color math
   vec3 screenOut = vec3(1.0) - ((vec3(1.0) - (texColor.xyz)) *
@@ -34,8 +35,8 @@ void main() {
       vec4(screenOut.xyz, texColor.a) * vec4(uni_in.multColor.xyz, 1) * uni_in.opacity;
 
   // Emissive
-  outEmissive = texture(emissive, texUVs) * outAlbedo.a;
+  outEmissive = texture(sampler2D(emissive_tex, samp), texUVs) * outAlbedo.a;
 
   // Bumpmap
-  outBump = texture(bumpmap, texUVs) * outAlbedo.a;
+  outBump = texture(sampler2D(bumpmap_tex, samp), texUVs) * outAlbedo.a;
 }
