@@ -10,7 +10,7 @@ mod shader;
 mod shaders;
 mod texture;
 
-use crate::texture::DeviceTexture;
+use crate::texture::{DeviceTexture, GBuffer};
 use shader::UniformBlock;
 use shaders::basic::{basic_frag, basic_mask_frag, basic_vert, composite_frag, composite_mask_frag, composite_vert};
 
@@ -24,6 +24,8 @@ pub enum WgpuRendererError {
 
 pub struct WgpuRenderer<'window> {
 	surface: wgpu::Surface<'window>,
+	config: wgpu::SurfaceConfiguration,
+	gbuffer: Option<GBuffer>,
 
 	part_shader_vert: basic_vert::Shader,
 	part_shader_frag: basic_frag::Shader,
@@ -65,6 +67,22 @@ impl<'window> WgpuRenderer<'window> {
 			.await?;
 		let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor::default()).await?;
 
+		// Find a suitable surface configuration.
+		let surface_caps = surface.get_capabilities(&adapter);
+		let surface_format = surface_caps.formats[0]; //TODO: SRGB?
+		let config = wgpu::SurfaceConfiguration {
+			usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+			format: surface_format,
+
+			//TODO: We don't know the size of our surface at init time.
+			width: 640,
+			height: 480,
+			present_mode: surface_caps.present_modes[0],
+			alpha_mode: surface_caps.alpha_modes[0],
+			view_formats: vec![],
+			desired_maximum_frame_latency: 2,
+		};
+
 		// Compile all our shaders now.
 		let part_shader_vert = basic_vert::Shader::new(&device);
 		let part_shader_frag = basic_frag::Shader::new(&device);
@@ -103,6 +121,8 @@ impl<'window> WgpuRenderer<'window> {
 
 		Ok(WgpuRenderer {
 			surface,
+			config,
+			gbuffer: None,
 			part_shader_vert,
 			part_shader_frag,
 			part_shader_mask_frag,
@@ -120,6 +140,15 @@ impl<'window> WgpuRenderer<'window> {
 			device,
 			queue,
 		})
+	}
+
+	pub fn resize(&mut self, width: u32, height: u32) {
+		if width > 0 && height > 0 {
+			self.config.width = width;
+			self.config.height = height;
+			self.surface.configure(&self.device, &self.config);
+			self.gbuffer = Some(GBuffer::new(&self.device, &self.queue, width, height));
+		}
 	}
 
 	fn textures_for_part(&self, part: &components::TexturedMesh) -> (&DeviceTexture, &DeviceTexture, &DeviceTexture) {

@@ -60,11 +60,198 @@ impl DeviceTexture {
 		Self { device_texture, view }
 	}
 
+	pub fn empty_render_target(
+		device: &wgpu::Device,
+		queue: &wgpu::Queue,
+		width: u32,
+		height: u32,
+		format: wgpu::TextureFormat,
+	) -> Self {
+		let size = wgpu::Extent3d {
+			width,
+			height,
+			depth_or_array_layers: 1,
+		};
+		let device_texture = device.create_texture(&wgpu::TextureDescriptor {
+			size,
+			mip_level_count: 1,
+			sample_count: 1,
+			dimension: wgpu::TextureDimension::D2,
+			format,
+			usage: wgpu::TextureUsages::TEXTURE_BINDING
+				| wgpu::TextureUsages::RENDER_ATTACHMENT
+				| wgpu::TextureUsages::COPY_DST,
+			label: Some("GBuffer"),
+			view_formats: &[],
+		});
+
+		let view = device_texture.create_view(&wgpu::TextureViewDescriptor::default());
+		let empty = Self { device_texture, view };
+
+		empty.clear(device, queue);
+		empty
+	}
+
+	// Clear the texture.
+	pub fn clear(&self, device: &wgpu::Device, queue: &wgpu::Queue) {
+		let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+			label: Some("Clear command encoder"),
+		});
+
+		let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+			label: Some("Clear RenderPass"),
+			color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+				view: self.view(),
+				resolve_target: None,
+				depth_slice: None,
+				ops: wgpu::Operations {
+					load: wgpu::LoadOp::Clear(wgpu::Color {
+						r: 0.0,
+						g: 0.0,
+						b: 0.0,
+						a: 0.0,
+					}),
+					store: wgpu::StoreOp::Store,
+				},
+			})],
+			depth_stencil_attachment: None,
+			occlusion_query_set: None,
+			timestamp_writes: None,
+			multiview_mask: None,
+		});
+
+		drop(render_pass);
+		queue.submit(std::iter::once(encoder.finish()));
+	}
+
 	pub fn texture(&self) -> &wgpu::Texture {
 		&self.device_texture
 	}
 
 	pub fn view(&self) -> &wgpu::TextureView {
 		&self.view
+	}
+}
+
+pub struct DepthStencilBuffer {
+	device_texture: wgpu::Texture,
+	view: wgpu::TextureView,
+}
+
+impl DepthStencilBuffer {
+	pub fn empty_render_target(
+		device: &wgpu::Device,
+		queue: &wgpu::Queue,
+		width: u32,
+		height: u32,
+		format: wgpu::TextureFormat,
+	) -> Self {
+		let size = wgpu::Extent3d {
+			width,
+			height,
+			depth_or_array_layers: 1,
+		};
+		let device_texture = device.create_texture(&wgpu::TextureDescriptor {
+			size,
+			mip_level_count: 1,
+			sample_count: 1,
+			dimension: wgpu::TextureDimension::D2,
+			format,
+			usage: wgpu::TextureUsages::TEXTURE_BINDING
+				| wgpu::TextureUsages::RENDER_ATTACHMENT
+				| wgpu::TextureUsages::COPY_DST,
+			label: Some("GBuffer"),
+			view_formats: &[],
+		});
+
+		let view = device_texture.create_view(&wgpu::TextureViewDescriptor::default());
+		let empty = Self { device_texture, view };
+
+		empty.clear(device, queue);
+		empty
+	}
+
+	// Clear the texture.
+	pub fn clear(&self, device: &wgpu::Device, queue: &wgpu::Queue) {
+		let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+			label: Some("Clear command encoder"),
+		});
+
+		let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+			label: Some("Clear RenderPass"),
+			color_attachments: &[],
+			depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+				view: &self.view,
+				depth_ops: Some(wgpu::Operations {
+					load: wgpu::LoadOp::Clear(0.0),
+					store: wgpu::StoreOp::Store,
+				}),
+				stencil_ops: Some(wgpu::Operations {
+					load: wgpu::LoadOp::Clear(0),
+					store: wgpu::StoreOp::Store,
+				}),
+			}),
+			occlusion_query_set: None,
+			timestamp_writes: None,
+			multiview_mask: None,
+		});
+
+		drop(render_pass);
+		queue.submit(std::iter::once(encoder.finish()));
+	}
+
+	pub fn texture(&self) -> &wgpu::Texture {
+		&self.device_texture
+	}
+
+	pub fn view(&self) -> &wgpu::TextureView {
+		&self.view
+	}
+}
+
+/// Structure that holds render targets for interim rendering results.
+pub struct GBuffer {
+	albedo: DeviceTexture,
+	emissive: DeviceTexture,
+	bump: DeviceTexture,
+	stencil: DepthStencilBuffer,
+}
+
+impl GBuffer {
+	pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, width: u32, height: u32) -> Self {
+		Self {
+			albedo: DeviceTexture::empty_render_target(device, queue, width, height, wgpu::TextureFormat::Rgba8Uint),
+			emissive: DeviceTexture::empty_render_target(
+				device,
+				queue,
+				width,
+				height,
+				wgpu::TextureFormat::Rgba32Float,
+			),
+			bump: DeviceTexture::empty_render_target(device, queue, width, height, wgpu::TextureFormat::Rgba8Uint),
+			stencil: DepthStencilBuffer::empty_render_target(
+				device,
+				queue,
+				width,
+				height,
+				wgpu::TextureFormat::Depth24PlusStencil8,
+			),
+		}
+	}
+
+	pub fn albedo(&self) -> &DeviceTexture {
+		&self.albedo
+	}
+
+	pub fn emissive(&self) -> &DeviceTexture {
+		&self.emissive
+	}
+
+	pub fn bump(&self) -> &DeviceTexture {
+		&self.bump
+	}
+
+	pub fn stencil(&self) -> &DepthStencilBuffer {
+		&self.stencil
 	}
 }
