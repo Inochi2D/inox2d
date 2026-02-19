@@ -1,7 +1,8 @@
 use shaderc;
 use spirv_reflect;
 use spirv_reflect::types::{
-	ReflectBlockVariable, ReflectDescriptorType, ReflectEntryPoint, ReflectTypeDescription, ReflectTypeFlags,
+	ReflectBlockVariable, ReflectDescriptorType, ReflectEntryPoint, ReflectFormat, ReflectTypeDescription,
+	ReflectTypeFlags,
 };
 
 use std::borrow::Cow;
@@ -442,7 +443,61 @@ fn gen_fragmentshader_trait_methods(
 	writeln!(out, "        wgpu::FragmentState {{")?;
 	writeln!(out, "            module: &self.{},", entrypoint.name)?;
 	writeln!(out, "            entry_point: Some(\"{}\"),", entrypoint.name)?;
-	writeln!(out, "            targets: &[],")?;
+	writeln!(out, "            targets: &[")?;
+	for var in &entrypoint.output_variables {
+		writeln!(out, "                Some(wgpu::ColorTargetState {{")?;
+		match var.format {
+			ReflectFormat::Undefined => {
+				writeln!(out, "                    format: //Unknown!")?;
+			}
+			ReflectFormat::R32_UINT => {
+				writeln!(out, "                    format: wgpu::TextureFormat::R32Uint,")?;
+			}
+			ReflectFormat::R32_SINT => {
+				writeln!(out, "                    format: wgpu::TextureFormat::R32Sint,")?;
+			}
+			ReflectFormat::R32_SFLOAT => {
+				writeln!(out, "                    format: wgpu::TextureFormat::R32Float,")?;
+			}
+			ReflectFormat::R32G32_UINT => {
+				writeln!(out, "                    format: wgpu::TextureFormat::Rg32Uint,")?;
+			}
+			ReflectFormat::R32G32_SINT => {
+				writeln!(out, "                    format: wgpu::TextureFormat::Rg32Sint,")?;
+			}
+			ReflectFormat::R32G32_SFLOAT => {
+				writeln!(out, "                    format: wgpu::TextureFormat::Rg32Float,")?;
+			}
+
+			// WARN: These don't actually exist in WGPU!
+			ReflectFormat::R32G32B32_UINT => {
+				writeln!(out, "                    format: //wgpu::TextureFormat::Rgb32Uint,")?;
+			}
+			ReflectFormat::R32G32B32_SINT => {
+				writeln!(out, "                    format: //wgpu::TextureFormat::Rgb32Sint,")?;
+			}
+			ReflectFormat::R32G32B32_SFLOAT => {
+				writeln!(out, "                    format: //wgpu::TextureFormat::Rgb32Float,")?;
+			}
+
+			ReflectFormat::R32G32B32A32_UINT => {
+				writeln!(out, "                    format: wgpu::TextureFormat::Rgba32Uint,")?;
+			}
+			ReflectFormat::R32G32B32A32_SINT => {
+				writeln!(out, "                    format: wgpu::TextureFormat::Rgba32Sint,")?;
+			}
+			ReflectFormat::R32G32B32A32_SFLOAT => {
+				writeln!(out, "                    format: wgpu::TextureFormat::Rgba32Float,")?;
+			}
+		}
+
+		//TODO: This method should have a blendstate param?
+		writeln!(out, "                    blend: None,")?;
+		writeln!(out, "                    write_mask: wgpu::ColorWrites::ALL,")?;
+
+		writeln!(out, "                }}),")?;
+	}
+	writeln!(out, "            ],")?;
 	writeln!(
 		out,
 		"            compilation_options: wgpu::PipelineCompilationOptions::default()"
