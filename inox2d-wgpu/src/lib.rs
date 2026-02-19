@@ -1,5 +1,5 @@
 use glam::Mat4;
-use inox2d::model::Model;
+use inox2d::model::{Model, ModelTexture};
 use inox2d::node::{InoxNodeUuid, components, drawables}; //hey wait a second that's just a u32 newtype! UUIDs are four of those!
 use inox2d::render::{self, InoxRenderer};
 use inox2d::texture::decode_model_textures;
@@ -43,6 +43,8 @@ pub struct WgpuRenderer<'window> {
 
 	model_textures: Vec<DeviceTexture>,
 	model_sampler: wgpu::Sampler,
+
+	last_mask_threshold: f32,
 
 	device: wgpu::Device,
 	queue: wgpu::Queue,
@@ -114,9 +116,18 @@ impl<'window> WgpuRenderer<'window> {
 			encoder: None,
 			model_textures: texture_handles,
 			model_sampler,
+			last_mask_threshold: 0.0,
 			device,
 			queue,
 		})
+	}
+
+	fn textures_for_part(&self, part: &components::TexturedMesh) -> (&DeviceTexture, &DeviceTexture, &DeviceTexture) {
+		(
+			&self.model_textures[part.tex_albedo.raw()],
+			&self.model_textures[part.tex_bumpmap.raw()],
+			&self.model_textures[part.tex_emissive.raw()],
+		)
 	}
 }
 
@@ -131,8 +142,10 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 		}));
 	}
 
-	fn on_begin_masks(&self, masks: &components::Masks) {
-		unimplemented!()
+	fn on_begin_masks(&mut self, masks: &components::Masks) {
+		self.last_mask_threshold = masks.threshold.clamp(0.0, 1.0);
+
+		//TODO: Enable stencilling on the render target.
 	}
 
 	fn on_begin_mask(&self, mask: &components::Mask) {
@@ -154,7 +167,8 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 		render_ctx: &render::TexturedMeshRenderCtx,
 		id: InoxNodeUuid,
 	) {
-		let encoder = self.encoder.as_mut().expect("encoder");
+		//NOTE: borrowck doesn't want us borrowing the encoder, so we .take() it instead.
+		let mut encoder = self.encoder.take().expect("encoder");
 		let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
 			label: Some("WgpuRenderer::draw_textured_mesh_content"),
 			color_attachments: &[],         //TODO: render target
@@ -164,26 +178,71 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 			multiview_mask: None,
 		});
 
+		let (albedo, bumpmap, emissive) = self.textures_for_part(components.texture);
+
+		//TODO: set blend mode
+		let uni_in_vert = basic_vert::Input {
+			// TODO: there is no provision for the renderer to learn the
+			// current camera/viewport matrix OpenGLRenderer just has a
+			// pub parameter for it which is dumb.
+			mvp: Mat4::IDENTITY.to_cols_array_2d(),
+			offset: [0.0; 2],
+		}
+		.into_buffer(&self.device);
+
 		if as_mask {
-			render_pass.set_pipeline(self.part_mask_pipeline.pipeline());
-			let uni_in = basic_vert::Input {
-				// TODO: there is no provision for the renderer to learn the
-				// current camera/viewport matrix OpenGLRenderer just has a
-				// pub parameter for it which is dumb.
-				mvp: Mat4::IDENTITY.to_cols_array_2d(),
-				offset: [0.0; 2],
+			let uni_in_frag = basic_mask_frag::Input {
+				threshold: self.last_mask_threshold,
 			}
 			.into_buffer(&self.device);
 
-			// TODO: We don't have good enough resource management to maintain
-			// one uniform buffer per object, so we have to create and dispose
-			// of them per frame.
-
+			self.part_mask_pipeline.bind_frag(
+				&mut render_pass,
+				Some(
+					&self
+						.part_shader_mask_frag
+						.bind(&self.device, albedo.view(), &self.model_sampler, &uni_in_frag),
+				),
+			);
 			self.part_mask_pipeline.bind_vertex(
 				&mut render_pass,
-				Some(&self.part_shader_vert.bind(&self.device, &uni_in)),
+				Some(&self.part_shader_vert.bind(&self.device, &uni_in_vert)),
 			);
+
+			render_pass.set_pipeline(self.part_mask_pipeline.pipeline());
+		} else {
+			//Regular parts
+			let uni_in_frag = basic_frag::Input {
+				opacity: components.drawable.blending.opacity,
+				multColor: components.drawable.blending.tint.into(),
+				screenColor: components.drawable.blending.screen_tint.into(),
+				emissionStrength: 1.0, //NOTE: OpenGL never sets this.
+			}
+			.into_buffer(&self.device);
+
+			self.part_pipeline.bind_frag(
+				&mut render_pass,
+				Some(&self.part_shader_frag.bind(
+					&self.device,
+					albedo.view(),
+					bumpmap.view(),
+					emissive.view(),
+					&self.model_sampler,
+					&uni_in_frag,
+				)),
+			);
+			self.part_pipeline.bind_vertex(
+				&mut render_pass,
+				Some(&self.part_shader_vert.bind(&self.device, &uni_in_vert)),
+			);
+
+			render_pass.set_pipeline(self.part_pipeline.pipeline());
 		}
+
+		//TODO: Actual draw elements call
+
+		drop(render_pass); //NOTE: borrowck also needs us to do this
+		self.encoder = Some(encoder);
 	}
 
 	fn begin_composite_content(
