@@ -166,6 +166,10 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 			panic!("Recursive rendering is not permitted.");
 		}
 
+		if self.gbuffer.is_none() {
+			panic!("Buffer is not yet set up.");
+		}
+
 		self.encoder = Some(self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
 			label: Some("Inox2DWGPU"),
 		}));
@@ -196,82 +200,85 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 		render_ctx: &render::TexturedMeshRenderCtx,
 		id: InoxNodeUuid,
 	) {
-		//NOTE: borrowck doesn't want us borrowing the encoder, so we .take() it instead.
-		let mut encoder = self.encoder.take().expect("encoder");
-		let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-			label: Some("WgpuRenderer::draw_textured_mesh_content"),
-			color_attachments: &[],         //TODO: render target
-			depth_stencil_attachment: None, //TODO: MASKS
-			occlusion_query_set: None,
-			timestamp_writes: None,
-			multiview_mask: None,
-		});
+		if let Some(gbuffer) = self.gbuffer.as_ref() {
+			//NOTE: borrowck doesn't want us borrowing the encoder, so we .take() it instead.
+			let mut encoder = self.encoder.take().expect("encoder");
+			let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+				label: Some("WgpuRenderer::draw_textured_mesh_content"),
+				color_attachments: &gbuffer.as_color_attachments(),
+				depth_stencil_attachment: gbuffer.as_depth_stencil_attachment(),
+				occlusion_query_set: None,
+				timestamp_writes: None,
+				multiview_mask: None,
+			});
 
-		let (albedo, bumpmap, emissive) = self.textures_for_part(components.texture);
+			let (albedo, bumpmap, emissive) = self.textures_for_part(components.texture);
 
-		//TODO: set blend mode
-		let uni_in_vert = basic_vert::Input {
-			// TODO: there is no provision for the renderer to learn the
-			// current camera/viewport matrix OpenGLRenderer just has a
-			// pub parameter for it which is dumb.
-			mvp: Mat4::IDENTITY.to_cols_array_2d(),
-			offset: [0.0; 2],
-		}
-		.into_buffer(&self.device);
-
-		if as_mask {
-			let uni_in_frag = basic_mask_frag::Input {
-				threshold: self.last_mask_threshold,
+			//TODO: set blend mode
+			let uni_in_vert = basic_vert::Input {
+				// TODO: there is no provision for the renderer to learn the
+				// current camera/viewport matrix OpenGLRenderer just has a
+				// pub parameter for it which is dumb.
+				mvp: Mat4::IDENTITY.to_cols_array_2d(),
+				offset: [0.0; 2],
 			}
 			.into_buffer(&self.device);
 
-			self.part_mask_pipeline.bind_frag(
-				&mut render_pass,
-				Some(
-					&self
-						.part_shader_mask_frag
-						.bind(&self.device, albedo.view(), &self.model_sampler, &uni_in_frag),
-				),
-			);
-			self.part_mask_pipeline.bind_vertex(
-				&mut render_pass,
-				Some(&self.part_shader_vert.bind(&self.device, &uni_in_vert)),
-			);
+			if as_mask {
+				let uni_in_frag = basic_mask_frag::Input {
+					threshold: self.last_mask_threshold,
+				}
+				.into_buffer(&self.device);
 
-			render_pass.set_pipeline(self.part_mask_pipeline.pipeline());
-		} else {
-			//Regular parts
-			let uni_in_frag = basic_frag::Input {
-				opacity: components.drawable.blending.opacity,
-				multColor: components.drawable.blending.tint.into(),
-				screenColor: components.drawable.blending.screen_tint.into(),
-				emissionStrength: 1.0, //NOTE: OpenGL never sets this.
+				self.part_mask_pipeline.bind_frag(
+					&mut render_pass,
+					Some(&self.part_shader_mask_frag.bind(
+						&self.device,
+						albedo.view(),
+						&self.model_sampler,
+						&uni_in_frag,
+					)),
+				);
+				self.part_mask_pipeline.bind_vertex(
+					&mut render_pass,
+					Some(&self.part_shader_vert.bind(&self.device, &uni_in_vert)),
+				);
+
+				render_pass.set_pipeline(self.part_mask_pipeline.pipeline());
+			} else {
+				//Regular parts
+				let uni_in_frag = basic_frag::Input {
+					opacity: components.drawable.blending.opacity,
+					multColor: components.drawable.blending.tint.into(),
+					screenColor: components.drawable.blending.screen_tint.into(),
+					emissionStrength: 1.0, //NOTE: OpenGL never sets this.
+				}
+				.into_buffer(&self.device);
+
+				self.part_pipeline.bind_frag(
+					&mut render_pass,
+					Some(&self.part_shader_frag.bind(
+						&self.device,
+						albedo.view(),
+						bumpmap.view(),
+						emissive.view(),
+						&self.model_sampler,
+						&uni_in_frag,
+					)),
+				);
+				self.part_pipeline.bind_vertex(
+					&mut render_pass,
+					Some(&self.part_shader_vert.bind(&self.device, &uni_in_vert)),
+				);
+
+				render_pass.set_pipeline(self.part_pipeline.pipeline());
 			}
-			.into_buffer(&self.device);
 
-			self.part_pipeline.bind_frag(
-				&mut render_pass,
-				Some(&self.part_shader_frag.bind(
-					&self.device,
-					albedo.view(),
-					bumpmap.view(),
-					emissive.view(),
-					&self.model_sampler,
-					&uni_in_frag,
-				)),
-			);
-			self.part_pipeline.bind_vertex(
-				&mut render_pass,
-				Some(&self.part_shader_vert.bind(&self.device, &uni_in_vert)),
-			);
+			//TODO: Actual draw elements call
 
-			render_pass.set_pipeline(self.part_pipeline.pipeline());
+			drop(render_pass); //NOTE: borrowck also needs us to do this
+			self.encoder = Some(encoder);
 		}
-
-		//TODO: Actual draw elements call
-
-		drop(render_pass); //NOTE: borrowck also needs us to do this
-		self.encoder = Some(encoder);
 	}
 
 	fn begin_composite_content(

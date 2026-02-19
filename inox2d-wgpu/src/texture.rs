@@ -131,6 +131,18 @@ impl DeviceTexture {
 	pub fn view(&self) -> &wgpu::TextureView {
 		&self.view
 	}
+
+	pub fn as_color_attachment(&self) -> wgpu::RenderPassColorAttachment<'_> {
+		wgpu::RenderPassColorAttachment {
+			view: &self.view,
+			resolve_target: None,
+			depth_slice: None,
+			ops: wgpu::Operations {
+				load: wgpu::LoadOp::Load,
+				store: wgpu::StoreOp::Store,
+			},
+		}
+	}
 }
 
 pub struct DepthStencilBuffer {
@@ -207,6 +219,20 @@ impl DepthStencilBuffer {
 	pub fn view(&self) -> &wgpu::TextureView {
 		&self.view
 	}
+
+	pub fn as_depth_stencil_attachment(&self) -> wgpu::RenderPassDepthStencilAttachment<'_> {
+		wgpu::RenderPassDepthStencilAttachment {
+			view: &self.view,
+			depth_ops: Some(wgpu::Operations {
+				load: wgpu::LoadOp::Load,
+				store: wgpu::StoreOp::Store,
+			}),
+			stencil_ops: Some(wgpu::Operations {
+				load: wgpu::LoadOp::Load,
+				store: wgpu::StoreOp::Store,
+			}),
+		}
+	}
 }
 
 /// Structure that holds render targets for interim rendering results.
@@ -253,5 +279,17 @@ impl GBuffer {
 
 	pub fn stencil(&self) -> &DepthStencilBuffer {
 		&self.stencil
+	}
+
+	pub fn as_color_attachments(&self) -> [Option<wgpu::RenderPassColorAttachment<'_>>; 3] {
+		[
+			Some(self.albedo.as_color_attachment()),
+			Some(self.emissive.as_color_attachment()),
+			Some(self.bump.as_color_attachment()),
+		]
+	}
+
+	pub fn as_depth_stencil_attachment(&self) -> Option<wgpu::RenderPassDepthStencilAttachment<'_>> {
+		Some(self.stencil.as_depth_stencil_attachment())
 	}
 }
