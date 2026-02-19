@@ -2,12 +2,15 @@ use glam::Mat4;
 use inox2d::model::Model;
 use inox2d::node::{InoxNodeUuid, components, drawables}; //hey wait a second that's just a u32 newtype! UUIDs are four of those!
 use inox2d::render::{self, InoxRenderer};
+use inox2d::texture::decode_model_textures;
 use wgpu;
 
 mod pipeline;
 mod shader;
 mod shaders;
+mod texture;
 
+use crate::texture::DeviceTexture;
 use shader::UniformBlock;
 use shaders::basic::{basic_frag, basic_mask_frag, basic_vert, composite_frag, composite_mask_frag, composite_vert};
 
@@ -37,6 +40,9 @@ pub struct WgpuRenderer<'window> {
 	composite_mask_pipeline: pipeline::Pipeline<composite_vert::Shader, composite_mask_frag::Shader>,
 
 	encoder: Option<wgpu::CommandEncoder>,
+
+	model_textures: Vec<DeviceTexture>,
+	model_sampler: wgpu::Sampler,
 
 	device: wgpu::Device,
 	queue: wgpu::Queue,
@@ -74,6 +80,24 @@ impl<'window> WgpuRenderer<'window> {
 			pipeline::Pipeline::new(&device, &composite_shader_vert, &composite_shader_mask_frag);
 
 		//TODO: Upload model textures, verts, uvs, deforms, indicies
+		let decoded_textures = decode_model_textures(model.textures.iter());
+		let mut texture_handles = vec![];
+		for (index, texture) in decoded_textures.iter().enumerate() {
+			texture_handles.push(DeviceTexture::new_from_model(&device, &queue, model, index, texture));
+		}
+
+		let model_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+			address_mode_u: wgpu::AddressMode::ClampToBorder,
+			address_mode_v: wgpu::AddressMode::ClampToBorder,
+			address_mode_w: wgpu::AddressMode::ClampToBorder,
+			mag_filter: wgpu::FilterMode::Linear,
+			min_filter: wgpu::FilterMode::Linear,
+			..Default::default()
+		});
+
+		// Flush all pending work.
+		// In wgpu, texture uploads etc will only execute at submit time
+		queue.submit([]);
 
 		Ok(WgpuRenderer {
 			surface,
@@ -88,6 +112,8 @@ impl<'window> WgpuRenderer<'window> {
 			composite_pipeline,
 			composite_mask_pipeline,
 			encoder: None,
+			model_textures: texture_handles,
+			model_sampler,
 			device,
 			queue,
 		})
