@@ -4,6 +4,7 @@ use inox2d::node::{InoxNodeUuid, components, drawables}; //hey wait a second tha
 use inox2d::render::{self, InoxRenderer};
 use inox2d::texture::decode_model_textures;
 use wgpu;
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 mod pipeline;
 mod shader;
@@ -14,18 +15,48 @@ use crate::texture::{DeviceTexture, GBuffer};
 use shader::UniformBlock;
 use shaders::basic::{basic_frag, basic_mask_frag, basic_vert, composite_frag, composite_mask_frag, composite_vert};
 
+/// Cast Vec2 to array.
+///
+/// SAFETY: This inherits the safety considerations of glam's own
+/// `upload_array_to_gl`. Specifically, we rely on the fact that it's own Vec2
+/// struct is plain-ol-data and we're only working with immutables.
+///
+/// NOTE: At some point, rewrite inox2D's vertex arrays to use bytemuck and a
+/// custom Vec2 struct.
+pub fn cast_vec2(array: &[glam::Vec2]) -> &[u8] {
+	unsafe { std::slice::from_raw_parts(array.as_ptr() as *const u8, std::mem::size_of_val(array)) }
+}
+
+/// Cast u16s to array.
+///
+/// SAFETY: This inherits the safety considerations of glam's own
+/// `upload_array_to_gl`.
+///
+/// NOTE: This probably can already be bytemucked
+pub fn cast_index(array: &[u16]) -> &[u8] {
+	unsafe { std::slice::from_raw_parts(array.as_ptr() as *const u8, std::mem::size_of_val(array)) }
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("Could not initialize wgpu renderer: {0}")]
 pub enum WgpuRendererError {
 	CreateSurfaceError(#[from] wgpu::CreateSurfaceError),
 	RequestAdapterError(#[from] wgpu::RequestAdapterError),
 	RequestDeviceError(#[from] wgpu::RequestDeviceError),
+
+	#[error("Model rendering not initialized")]
+	ModelRenderingNotInitialized,
 }
 
 pub struct WgpuRenderer<'window> {
 	surface: wgpu::Surface<'window>,
 	config: wgpu::SurfaceConfiguration,
 	gbuffer: Option<GBuffer>,
+
+	verts: wgpu::Buffer,
+	uvs: wgpu::Buffer,
+	deforms: wgpu::Buffer,
+	indices: wgpu::Buffer,
 
 	part_shader_vert: basic_vert::Shader,
 	part_shader_frag: basic_frag::Shader,
@@ -99,7 +130,45 @@ impl<'window> WgpuRenderer<'window> {
 		let composite_mask_pipeline =
 			pipeline::Pipeline::new(&device, &composite_shader_vert, &composite_shader_mask_frag);
 
-		//TODO: Upload model textures, verts, uvs, deforms, indicies
+		let inox_buffers = model
+			.puppet
+			.render_ctx
+			.as_ref()
+			.ok_or(WgpuRendererError::ModelRenderingNotInitialized)?;
+		//TODO: Change inox2d upstream to use a bytemuck-able array
+		let verts = device.create_buffer_init(&BufferInitDescriptor {
+			label: Some(&format!(
+				"Inox2D {}::Verts",
+				model.puppet.meta.name.as_deref().unwrap_or("<NAME NOT SPECIFIED>")
+			)),
+			contents: cast_vec2(inox_buffers.vertex_buffers.verts.as_slice()),
+			usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+		});
+		let uvs = device.create_buffer_init(&BufferInitDescriptor {
+			label: Some(&format!(
+				"Inox2D {}::Verts",
+				model.puppet.meta.name.as_deref().unwrap_or("<NAME NOT SPECIFIED>")
+			)),
+			contents: cast_vec2(inox_buffers.vertex_buffers.uvs.as_slice()),
+			usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+		});
+		let deforms = device.create_buffer_init(&BufferInitDescriptor {
+			label: Some(&format!(
+				"Inox2D {}::Verts",
+				model.puppet.meta.name.as_deref().unwrap_or("<NAME NOT SPECIFIED>")
+			)),
+			contents: cast_vec2(inox_buffers.vertex_buffers.deforms.as_slice()),
+			usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+		});
+		let indices = device.create_buffer_init(&BufferInitDescriptor {
+			label: Some(&format!(
+				"Inox2D {}::Verts",
+				model.puppet.meta.name.as_deref().unwrap_or("<NAME NOT SPECIFIED>")
+			)),
+			contents: cast_index(inox_buffers.vertex_buffers.indices.as_slice()),
+			usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+		});
+
 		let decoded_textures = decode_model_textures(model.textures.iter());
 		let mut texture_handles = vec![];
 		for (index, texture) in decoded_textures.iter().enumerate() {
@@ -123,6 +192,10 @@ impl<'window> WgpuRenderer<'window> {
 			surface,
 			config,
 			gbuffer: None,
+			verts,
+			uvs,
+			deforms,
+			indices,
 			part_shader_vert,
 			part_shader_frag,
 			part_shader_mask_frag,
