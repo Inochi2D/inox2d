@@ -297,6 +297,11 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 			}
 			.into_buffer(&self.device);
 
+			render_pass.set_vertex_buffer(basic_vert::INPUT_LOCATION_VERTS, self.verts.slice(..));
+			render_pass.set_vertex_buffer(basic_vert::INPUT_LOCATION_UVS, self.uvs.slice(..));
+			render_pass.set_vertex_buffer(basic_vert::INPUT_LOCATION_DEFORM, self.deforms.slice(..));
+			render_pass.set_index_buffer(self.indices.slice(..), wgpu::IndexFormat::Uint16);
+
 			if as_mask {
 				let uni_in_frag = basic_mask_frag::Input {
 					threshold: self.last_mask_threshold,
@@ -347,7 +352,7 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 				render_pass.set_pipeline(self.part_pipeline.pipeline());
 			}
 
-			//TODO: Actual draw elements call
+			render_pass.draw_indexed(0..render_ctx.index_len as u32, render_ctx.index_offset as i32, 0..1);
 
 			drop(render_pass); //NOTE: borrowck also needs us to do this
 			self.encoder = Some(encoder);
