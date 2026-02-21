@@ -558,7 +558,7 @@ fn introspect_spirv(
 			writeln!(out, "/// END members:")?;
 			writeln!(
 				out,
-				"const INPUT_LOCATION_{}: u32 = {};",
+				"pub const INPUT_LOCATION_{}: u32 = {};",
 				var.name.to_uppercase(),
 				var.location
 			)?;
@@ -582,12 +582,17 @@ fn introspect_spirv(
 				writeln!(out, "    /// Format: {:?}", var.format)?;
 			}
 			writeln!(out, "/// END members:")?;
-			writeln!(
-				out,
-				"const OUTPUT_LOCATION_{}: u32 = {};",
-				var.name.to_uppercase(),
-				var.location
-			)?;
+
+			if var.name != "" {
+				writeln!(
+					out,
+					"pub const OUTPUT_LOCATION_{}: u32 = {};",
+					var.name.to_uppercase(),
+					var.location
+				)?;
+			} else {
+				writeln!(out, "/// Declaration elided")?;
+			}
 		}
 
 		for descriptor_set in &entrypoint.descriptor_sets {
