@@ -18,7 +18,7 @@ where
 	V: VertexShader,
 	F: FragmentShader,
 {
-	pub fn new(device: &wgpu::Device, vert: &V, frag: &F) -> Self {
+	pub fn new(device: &wgpu::Device, vert: &V, frag: &F, depth_stencil: Option<wgpu::DepthStencilState>) -> Self {
 		let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
 			label: Some("Pipeline"),
 
@@ -40,7 +40,7 @@ where
 					cull_mode: Some(wgpu::Face::Back), //TODO: I'm pretty sure the GL renderer doesn't do this
 					..Default::default()
 				},
-				depth_stencil: None,
+				depth_stencil,
 				multisample: wgpu::MultisampleState::default(),
 				multiview_mask: None,
 				cache: None,

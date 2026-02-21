@@ -63,6 +63,7 @@ pub struct WgpuRenderer<'window> {
 	part_shader_mask_frag: basic_mask_frag::Shader,
 
 	part_pipeline: pipeline::Pipeline<basic_vert::Shader, basic_frag::Shader>,
+	part_pipeline_masked: pipeline::Pipeline<basic_vert::Shader, basic_frag::Shader>,
 	part_mask_pipeline: pipeline::Pipeline<basic_vert::Shader, basic_mask_frag::Shader>,
 
 	composite_shader_vert: composite_vert::Shader,
@@ -70,6 +71,7 @@ pub struct WgpuRenderer<'window> {
 	composite_shader_mask_frag: composite_mask_frag::Shader,
 
 	composite_pipeline: pipeline::Pipeline<composite_vert::Shader, composite_frag::Shader>,
+	composite_pipeline_masked: pipeline::Pipeline<composite_vert::Shader, composite_frag::Shader>,
 	composite_mask_pipeline: pipeline::Pipeline<composite_vert::Shader, composite_mask_frag::Shader>,
 
 	encoder: Option<wgpu::CommandEncoder>,
@@ -78,6 +80,8 @@ pub struct WgpuRenderer<'window> {
 	model_sampler: wgpu::Sampler,
 
 	last_mask_threshold: f32,
+	is_in_mask: bool,
+	stencil_reference_value: u32,
 
 	device: wgpu::Device,
 	queue: wgpu::Queue,
@@ -119,16 +123,73 @@ impl<'window> WgpuRenderer<'window> {
 		let part_shader_frag = basic_frag::Shader::new(&device);
 		let part_shader_mask_frag = basic_mask_frag::Shader::new(&device);
 
-		let part_pipeline = pipeline::Pipeline::new(&device, &part_shader_vert, &part_shader_frag);
-		let part_mask_pipeline = pipeline::Pipeline::new(&device, &part_shader_vert, &part_shader_mask_frag);
+		let masked_depthstencil = wgpu::DepthStencilState {
+			format: wgpu::TextureFormat::Depth24PlusStencil8,
+			depth_write_enabled: false,
+			depth_compare: wgpu::CompareFunction::Always,
+			stencil: wgpu::StencilState {
+				front: wgpu::StencilFaceState::IGNORE,
+				back: wgpu::StencilFaceState::IGNORE,
+				read_mask: 0xFF,
+				write_mask: 0x00,
+			},
+			bias: wgpu::DepthBiasState::default(),
+		};
+
+		let mask_depthstencil = wgpu::DepthStencilState {
+			format: wgpu::TextureFormat::Depth24PlusStencil8,
+			depth_write_enabled: false,
+			depth_compare: wgpu::CompareFunction::Always,
+			stencil: wgpu::StencilState {
+				front: wgpu::StencilFaceState {
+					compare: wgpu::CompareFunction::Always,
+					fail_op: wgpu::StencilOperation::Keep,
+					depth_fail_op: wgpu::StencilOperation::Keep,
+					pass_op: wgpu::StencilOperation::Replace,
+				},
+				back: wgpu::StencilFaceState {
+					compare: wgpu::CompareFunction::Always,
+					fail_op: wgpu::StencilOperation::Keep,
+					depth_fail_op: wgpu::StencilOperation::Keep,
+					pass_op: wgpu::StencilOperation::Replace,
+				},
+				read_mask: 0xFF,
+				write_mask: 0xFF,
+			},
+			bias: wgpu::DepthBiasState::default(),
+		};
+
+		let part_pipeline = pipeline::Pipeline::new(&device, &part_shader_vert, &part_shader_frag, None);
+		let part_pipeline_masked = pipeline::Pipeline::new(
+			&device,
+			&part_shader_vert,
+			&part_shader_frag,
+			Some(masked_depthstencil.clone()),
+		);
+		let part_mask_pipeline = pipeline::Pipeline::new(
+			&device,
+			&part_shader_vert,
+			&part_shader_mask_frag,
+			Some(mask_depthstencil.clone()),
+		);
 
 		let composite_shader_vert = composite_vert::Shader::new(&device);
 		let composite_shader_frag = composite_frag::Shader::new(&device);
 		let composite_shader_mask_frag = composite_mask_frag::Shader::new(&device);
 
-		let composite_pipeline = pipeline::Pipeline::new(&device, &composite_shader_vert, &composite_shader_frag);
-		let composite_mask_pipeline =
-			pipeline::Pipeline::new(&device, &composite_shader_vert, &composite_shader_mask_frag);
+		let composite_pipeline = pipeline::Pipeline::new(&device, &composite_shader_vert, &composite_shader_frag, None);
+		let composite_pipeline_masked = pipeline::Pipeline::new(
+			&device,
+			&composite_shader_vert,
+			&composite_shader_frag,
+			Some(masked_depthstencil),
+		);
+		let composite_mask_pipeline = pipeline::Pipeline::new(
+			&device,
+			&composite_shader_vert,
+			&composite_shader_mask_frag,
+			Some(mask_depthstencil),
+		);
 
 		let inox_buffers = model
 			.puppet
@@ -200,16 +261,20 @@ impl<'window> WgpuRenderer<'window> {
 			part_shader_frag,
 			part_shader_mask_frag,
 			part_pipeline,
+			part_pipeline_masked,
 			part_mask_pipeline,
 			composite_shader_vert,
 			composite_shader_frag,
 			composite_shader_mask_frag,
 			composite_pipeline,
+			composite_pipeline_masked,
 			composite_mask_pipeline,
 			encoder: None,
 			model_textures: texture_handles,
 			model_sampler,
 			last_mask_threshold: 0.0,
+			is_in_mask: false,
+			stencil_reference_value: 1,
 			device,
 			queue,
 		})
@@ -220,7 +285,14 @@ impl<'window> WgpuRenderer<'window> {
 			self.config.width = width;
 			self.config.height = height;
 			self.surface.configure(&self.device, &self.config);
-			self.gbuffer = Some(GBuffer::new(&self.device, &self.queue, width, height));
+			self.gbuffer = Some(GBuffer::new(
+				&self.device,
+				&self.queue,
+				width,
+				height,
+				wgpu::TextureFormat::Rgba32Float,
+				wgpu::TextureFormat::Depth24PlusStencil8,
+			));
 		}
 	}
 
@@ -246,24 +318,29 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 		self.encoder = Some(self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
 			label: Some("Inox2DWGPU"),
 		}));
+
+		//TODO: read & translate OpenGLRenderer's `on_begin_draw` / `on_end_draw`
 	}
 
 	fn on_begin_masks(&mut self, masks: &components::Masks) {
 		self.last_mask_threshold = masks.threshold.clamp(0.0, 1.0);
 
+		//TODO: Erase the stencil buffer.
 		//TODO: Enable stencilling on the render target.
+
+		self.is_in_mask = true;
 	}
 
-	fn on_begin_mask(&self, mask: &components::Mask) {
-		unimplemented!()
+	fn on_begin_mask(&mut self, mask: &components::Mask) {
+		self.stencil_reference_value = (mask.mode == components::MaskMode::Mask) as u32;
 	}
 
 	fn on_begin_masked_content(&self) {
 		unimplemented!()
 	}
 
-	fn on_end_mask(&self) {
-		unimplemented!()
+	fn on_end_mask(&mut self) {
+		self.is_in_mask = false;
 	}
 
 	fn draw_textured_mesh_content(
@@ -271,15 +348,23 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 		as_mask: bool,
 		components: &drawables::TexturedMeshComponents,
 		render_ctx: &render::TexturedMeshRenderCtx,
-		id: InoxNodeUuid,
+		_id: InoxNodeUuid,
 	) {
 		if let Some(gbuffer) = self.gbuffer.as_ref() {
+			let depth_stencil_attachment = if as_mask {
+				Some(gbuffer.stencil().as_depth_stencil_attachment_rw())
+			} else if self.is_in_mask {
+				Some(gbuffer.stencil().as_depth_stencil_attachment_ro())
+			} else {
+				None
+			};
+
 			//NOTE: borrowck doesn't want us borrowing the encoder, so we .take() it instead.
 			let mut encoder = self.encoder.take().expect("encoder");
 			let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
 				label: Some("WgpuRenderer::draw_textured_mesh_content"),
 				color_attachments: &gbuffer.as_color_attachments(),
-				depth_stencil_attachment: gbuffer.as_depth_stencil_attachment(),
+				depth_stencil_attachment,
 				occlusion_query_set: None,
 				timestamp_writes: None,
 				multiview_mask: None,
@@ -322,8 +407,15 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 					Some(&self.part_shader_vert.bind(&self.device, &uni_in_vert)),
 				);
 
+				render_pass.set_stencil_reference(self.stencil_reference_value);
 				render_pass.set_pipeline(self.part_mask_pipeline.pipeline());
 			} else {
+				let pipeline = if self.is_in_mask {
+					&self.part_pipeline_masked
+				} else {
+					&self.part_pipeline
+				};
+
 				//Regular parts
 				let uni_in_frag = basic_frag::Input {
 					opacity: components.drawable.blending.opacity,
@@ -333,7 +425,7 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 				}
 				.into_buffer(&self.device);
 
-				self.part_pipeline.bind_frag(
+				pipeline.bind_frag(
 					&mut render_pass,
 					Some(&self.part_shader_frag.bind(
 						&self.device,
@@ -344,12 +436,13 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 						&uni_in_frag,
 					)),
 				);
-				self.part_pipeline.bind_vertex(
+				pipeline.bind_vertex(
 					&mut render_pass,
 					Some(&self.part_shader_vert.bind(&self.device, &uni_in_vert)),
 				);
 
-				render_pass.set_pipeline(self.part_pipeline.pipeline());
+				render_pass.set_stencil_reference(1);
+				render_pass.set_pipeline(pipeline.pipeline());
 			}
 
 			render_pass.draw_indexed(0..render_ctx.index_len as u32, render_ctx.index_offset as i32, 0..1);

@@ -148,6 +148,7 @@ impl DeviceTexture {
 pub struct DepthStencilBuffer {
 	device_texture: wgpu::Texture,
 	view: wgpu::TextureView,
+	format: wgpu::TextureFormat,
 }
 
 impl DepthStencilBuffer {
@@ -177,7 +178,11 @@ impl DepthStencilBuffer {
 		});
 
 		let view = device_texture.create_view(&wgpu::TextureViewDescriptor::default());
-		let empty = Self { device_texture, view };
+		let empty = Self {
+			device_texture,
+			view,
+			format,
+		};
 
 		empty.clear(device, queue);
 		empty
@@ -220,15 +225,38 @@ impl DepthStencilBuffer {
 		&self.view
 	}
 
-	pub fn as_depth_stencil_attachment(&self) -> wgpu::RenderPassDepthStencilAttachment<'_> {
+	pub fn format(&self) -> wgpu::TextureFormat {
+		self.format
+	}
+
+	pub fn as_depth_stencil_attachment_rw(&self) -> wgpu::RenderPassDepthStencilAttachment<'_> {
 		wgpu::RenderPassDepthStencilAttachment {
 			view: &self.view,
-			depth_ops: Some(wgpu::Operations {
+			depth_ops: None,
+			stencil_ops: Some(wgpu::Operations {
 				load: wgpu::LoadOp::Load,
 				store: wgpu::StoreOp::Store,
 			}),
+		}
+	}
+
+	pub fn as_depth_stencil_attachment_ro(&self) -> wgpu::RenderPassDepthStencilAttachment<'_> {
+		wgpu::RenderPassDepthStencilAttachment {
+			view: &self.view,
+			depth_ops: None,
 			stencil_ops: Some(wgpu::Operations {
 				load: wgpu::LoadOp::Load,
+				store: wgpu::StoreOp::Discard,
+			}),
+		}
+	}
+
+	pub fn as_depth_stencil_attachment_clear(&self, clear_value: u32) -> wgpu::RenderPassDepthStencilAttachment<'_> {
+		wgpu::RenderPassDepthStencilAttachment {
+			view: &self.view,
+			depth_ops: None,
+			stencil_ops: Some(wgpu::Operations {
+				load: wgpu::LoadOp::Clear(clear_value),
 				store: wgpu::StoreOp::Store,
 			}),
 		}
@@ -244,24 +272,19 @@ pub struct GBuffer {
 }
 
 impl GBuffer {
-	pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, width: u32, height: u32) -> Self {
+	pub fn new(
+		device: &wgpu::Device,
+		queue: &wgpu::Queue,
+		width: u32,
+		height: u32,
+		format: wgpu::TextureFormat,
+		depth_format: wgpu::TextureFormat,
+	) -> Self {
 		Self {
 			albedo: DeviceTexture::empty_render_target(device, queue, width, height, wgpu::TextureFormat::Rgba8Uint),
-			emissive: DeviceTexture::empty_render_target(
-				device,
-				queue,
-				width,
-				height,
-				wgpu::TextureFormat::Rgba32Float,
-			),
+			emissive: DeviceTexture::empty_render_target(device, queue, width, height, format),
 			bump: DeviceTexture::empty_render_target(device, queue, width, height, wgpu::TextureFormat::Rgba8Uint),
-			stencil: DepthStencilBuffer::empty_render_target(
-				device,
-				queue,
-				width,
-				height,
-				wgpu::TextureFormat::Depth24PlusStencil8,
-			),
+			stencil: DepthStencilBuffer::empty_render_target(device, queue, width, height, depth_format),
 		}
 	}
 
@@ -287,9 +310,5 @@ impl GBuffer {
 			Some(self.emissive.as_color_attachment()),
 			Some(self.bump.as_color_attachment()),
 		]
-	}
-
-	pub fn as_depth_stencil_attachment(&self) -> Option<wgpu::RenderPassDepthStencilAttachment<'_>> {
-		Some(self.stencil.as_depth_stencil_attachment())
 	}
 }
