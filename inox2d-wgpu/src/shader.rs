@@ -9,7 +9,12 @@ pub trait VertexShader: Shader {
 	fn as_vertex_state(&self) -> wgpu::VertexState;
 }
 
-pub trait FragmentShader: Shader {
+pub trait FragmentShader: Shader
+where
+	Self::BlendStates: IntoIterator<Item = Option<wgpu::BlendState>> + Eq + Hash + Clone,
+{
+	type BlendStates;
+
 	fn as_fragment_state(&self) -> wgpu::FragmentState;
 }
 

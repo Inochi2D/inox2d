@@ -439,6 +439,12 @@ fn gen_fragmentshader_trait_methods(
 	struct_name: &str,
 ) -> Result<(), Box<dyn Error>> {
 	writeln!(out, "impl shader::FragmentShader for {} {{", struct_name)?;
+	writeln!(
+		out,
+		"    type BlendStates = [Option<wgpu::BlendState>; {}];",
+		entrypoint.output_variables.len()
+	)?;
+	writeln!(out)?;
 	writeln!(out, "    fn as_fragment_state(&self) -> wgpu::FragmentState {{")?;
 	writeln!(out, "        wgpu::FragmentState {{")?;
 	writeln!(out, "            module: &self.{},", entrypoint.name)?;
@@ -491,7 +497,9 @@ fn gen_fragmentshader_trait_methods(
 			}
 		}
 
-		//TODO: This method should have a blendstate param?
+		// NOTE: This method CANNOT have a blendstate param as self-borrowed
+		// values are one of Rust's inconceivable types.
+		// See: https://blog.polybdenum.com/2024/06/07/the-inconceivable-types-of-rust-how-to-make-self-borrows-safe.html
 		writeln!(out, "                    blend: None,")?;
 		writeln!(out, "                    write_mask: wgpu::ColorWrites::ALL,")?;
 
@@ -666,6 +674,7 @@ fn introspect_spirv(
 		writeln!(out, "/// Entry point {}", entrypoint.name)?;
 		writeln!(out, "/// Execution model {:?}", entrypoint.spirv_execution_model)?;
 		writeln!(out, "/// Shader stage {:?}", entrypoint.shader_stage)?;
+		writeln!(out, "#[derive(Clone)]")?;
 		writeln!(out, "pub struct {} {{", struct_name)?;
 		writeln!(out, "    {}: wgpu::ShaderModule,", entrypoint.name)?;
 		writeln!(out, "    bindgroup_layout: wgpu::BindGroupLayout")?;
