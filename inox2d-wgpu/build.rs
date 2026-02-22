@@ -11,7 +11,7 @@ use std::ffi::OsString;
 use std::fmt::Write;
 use std::{fs, path};
 
-fn spirv_to_rust_type(typemember: &ReflectTypeDescription) -> Result<Cow<str>, Box<dyn Error>> {
+fn spirv_to_rust_type<'a>(typemember: &'a ReflectTypeDescription) -> Result<Cow<'a, str>, Box<dyn Error>> {
 	let base_type = if typemember.type_flags.contains(ReflectTypeFlags::FLOAT) {
 		match typemember.traits.numeric.scalar.width {
 			32 => "f32",
@@ -49,7 +49,7 @@ fn spirv_to_rust_type(typemember: &ReflectTypeDescription) -> Result<Cow<str>, B
 	}
 }
 
-fn spirv_to_wgpu_vertex_format(typemember: &ReflectTypeDescription) -> Result<Cow<str>, Box<dyn Error>> {
+fn spirv_to_wgpu_vertex_format<'a>(typemember: &'a ReflectTypeDescription) -> Result<Cow<'a, str>, Box<dyn Error>> {
 	let base_type = if typemember.type_flags.contains(ReflectTypeFlags::FLOAT) {
 		match typemember.traits.numeric.scalar.width {
 			32 => "Float32",
@@ -203,7 +203,7 @@ fn gen_shader_new(
 					if binding.block.size > 0 {
 						writeln!(
 							out,
-							"                            min_binding_size: Some(NonZero::new({}).expect(\"nonzero type\")),",
+							"                            min_binding_size: Some(std::num::NonZero::new({}).expect(\"nonzero type\")),",
 							binding.block.size
 						)?;
 					} else {
@@ -530,8 +530,6 @@ fn introspect_spirv(
 
 	writeln!(out, "use wgpu;")?;
 	writeln!(out, "use wgpu::include_spirv;")?;
-	writeln!(out)?;
-	writeln!(out, "use std::num::NonZero;")?;
 	writeln!(out)?;
 	writeln!(out, "use crate::shader;")?;
 
