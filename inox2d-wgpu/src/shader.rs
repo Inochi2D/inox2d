@@ -1,7 +1,9 @@
 use wgpu;
 use wgpu::util::DeviceExt;
 
-pub trait Shader {
+use std::hash::Hash;
+
+pub trait Shader: Clone {
 	fn bindgroup_layout(&self) -> &wgpu::BindGroupLayout;
 }
 

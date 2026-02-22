@@ -1,5 +1,5 @@
 use glam::Mat4;
-use inox2d::model::{Model, ModelTexture};
+use inox2d::model::Model;
 use inox2d::node::{InoxNodeUuid, components, drawables}; //hey wait a second that's just a u32 newtype! UUIDs are four of those!
 use inox2d::render::{self, InoxRenderer};
 use inox2d::texture::decode_model_textures;
@@ -62,17 +62,18 @@ pub struct WgpuRenderer<'window> {
 	part_shader_frag: basic_frag::Shader,
 	part_shader_mask_frag: basic_mask_frag::Shader,
 
-	part_pipeline: pipeline::Pipeline<basic_vert::Shader, basic_frag::Shader>,
-	part_pipeline_masked: pipeline::Pipeline<basic_vert::Shader, basic_frag::Shader>,
-	part_mask_pipeline: pipeline::Pipeline<basic_vert::Shader, basic_mask_frag::Shader>,
+	masked_depthstencil: wgpu::DepthStencilState,
+	mask_depthstencil: wgpu::DepthStencilState,
+
+	part_pipeline: pipeline::PipelineGroup<basic_vert::Shader, basic_frag::Shader>,
+	part_mask_pipeline: pipeline::PipelineGroup<basic_vert::Shader, basic_mask_frag::Shader>,
 
 	composite_shader_vert: composite_vert::Shader,
 	composite_shader_frag: composite_frag::Shader,
 	composite_shader_mask_frag: composite_mask_frag::Shader,
 
-	composite_pipeline: pipeline::Pipeline<composite_vert::Shader, composite_frag::Shader>,
-	composite_pipeline_masked: pipeline::Pipeline<composite_vert::Shader, composite_frag::Shader>,
-	composite_mask_pipeline: pipeline::Pipeline<composite_vert::Shader, composite_mask_frag::Shader>,
+	composite_pipeline: pipeline::PipelineGroup<composite_vert::Shader, composite_frag::Shader>,
+	composite_mask_pipeline: pipeline::PipelineGroup<composite_vert::Shader, composite_mask_frag::Shader>,
 
 	encoder: Option<wgpu::CommandEncoder>,
 
@@ -159,37 +160,20 @@ impl<'window> WgpuRenderer<'window> {
 			bias: wgpu::DepthBiasState::default(),
 		};
 
-		let part_pipeline = pipeline::Pipeline::new(&device, &part_shader_vert, &part_shader_frag, None);
-		let part_pipeline_masked = pipeline::Pipeline::new(
-			&device,
-			&part_shader_vert,
-			&part_shader_frag,
-			Some(masked_depthstencil.clone()),
-		);
-		let part_mask_pipeline = pipeline::Pipeline::new(
-			&device,
-			&part_shader_vert,
-			&part_shader_mask_frag,
-			Some(mask_depthstencil.clone()),
-		);
+		//TODO: We need a pipeline per Inochi blending mode
+		//(or some kind of ubershader blending)
+
+		let part_pipeline = pipeline::PipelineGroup::new(part_shader_vert.clone(), part_shader_frag.clone());
+		let part_mask_pipeline = pipeline::PipelineGroup::new(part_shader_vert.clone(), part_shader_mask_frag.clone());
 
 		let composite_shader_vert = composite_vert::Shader::new(&device);
 		let composite_shader_frag = composite_frag::Shader::new(&device);
 		let composite_shader_mask_frag = composite_mask_frag::Shader::new(&device);
 
-		let composite_pipeline = pipeline::Pipeline::new(&device, &composite_shader_vert, &composite_shader_frag, None);
-		let composite_pipeline_masked = pipeline::Pipeline::new(
-			&device,
-			&composite_shader_vert,
-			&composite_shader_frag,
-			Some(masked_depthstencil),
-		);
-		let composite_mask_pipeline = pipeline::Pipeline::new(
-			&device,
-			&composite_shader_vert,
-			&composite_shader_mask_frag,
-			Some(mask_depthstencil),
-		);
+		let composite_pipeline =
+			pipeline::PipelineGroup::new(composite_shader_vert.clone(), composite_shader_frag.clone());
+		let composite_mask_pipeline =
+			pipeline::PipelineGroup::new(composite_shader_vert.clone(), composite_shader_mask_frag.clone());
 
 		let inox_buffers = model
 			.puppet
@@ -260,14 +244,14 @@ impl<'window> WgpuRenderer<'window> {
 			part_shader_vert,
 			part_shader_frag,
 			part_shader_mask_frag,
+			mask_depthstencil,
+			masked_depthstencil,
 			part_pipeline,
-			part_pipeline_masked,
 			part_mask_pipeline,
 			composite_shader_vert,
 			composite_shader_frag,
 			composite_shader_mask_frag,
 			composite_pipeline,
-			composite_pipeline_masked,
 			composite_mask_pipeline,
 			encoder: None,
 			model_textures: texture_handles,
@@ -302,6 +286,51 @@ impl<'window> WgpuRenderer<'window> {
 			&self.model_textures[part.tex_bumpmap.raw()],
 			&self.model_textures[part.tex_emissive.raw()],
 		)
+	}
+
+	fn blend_mode_to_state(state: components::BlendMode) -> wgpu::BlendState {
+		let component = match state {
+			components::BlendMode::Normal => wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::One,
+				dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+				operation: wgpu::BlendOperation::Add,
+			},
+			components::BlendMode::Multiply => wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::Dst,
+				dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+				operation: wgpu::BlendOperation::Add,
+			},
+			components::BlendMode::ColorDodge => wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::Dst,
+				dst_factor: wgpu::BlendFactor::One,
+				operation: wgpu::BlendOperation::Add,
+			},
+			components::BlendMode::LinearDodge => wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::One,
+				dst_factor: wgpu::BlendFactor::One,
+				operation: wgpu::BlendOperation::Add,
+			},
+			components::BlendMode::Screen => wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::One,
+				dst_factor: wgpu::BlendFactor::OneMinusSrc,
+				operation: wgpu::BlendOperation::Add,
+			},
+			components::BlendMode::ClipToLower => wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::DstAlpha,
+				dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+				operation: wgpu::BlendOperation::Add,
+			},
+			components::BlendMode::SliceFromLower => wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::OneMinusDstAlpha,
+				dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+				operation: wgpu::BlendOperation::Subtract,
+			},
+		};
+
+		wgpu::BlendState {
+			color: component,
+			alpha: component,
+		}
 	}
 }
 
@@ -359,6 +388,9 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 				None
 			};
 
+			//TODO: Do we even want blending on in Normal mode?
+			let blend = Some(Self::blend_mode_to_state(components.drawable.blending.mode));
+
 			//NOTE: borrowck doesn't want us borrowing the encoder, so we .take() it instead.
 			let mut encoder = self.encoder.take().expect("encoder");
 			let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -371,6 +403,7 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 			});
 
 			let (albedo, bumpmap, emissive) = self.textures_for_part(components.texture);
+			let (albedo, bumpmap, emissive) = (albedo.clone(), bumpmap.clone(), emissive.clone());
 
 			//TODO: set blend mode
 			let uni_in_vert = basic_vert::Input {
@@ -388,12 +421,19 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 			render_pass.set_index_buffer(self.indices.slice(..), wgpu::IndexFormat::Uint16);
 
 			if as_mask {
+				//TODO: What happens if a mask is also masked?
+				let pipeline = self.part_mask_pipeline.with_configuration(
+					&self.device,
+					[blend],
+					Some(self.mask_depthstencil.clone()),
+				);
 				let uni_in_frag = basic_mask_frag::Input {
 					threshold: self.last_mask_threshold,
 				}
 				.into_buffer(&self.device);
 
-				self.part_mask_pipeline.bind_frag(
+				render_pass.set_pipeline(pipeline.pipeline());
+				pipeline.bind_frag(
 					&mut render_pass,
 					Some(&self.part_shader_mask_frag.bind(
 						&self.device,
@@ -402,21 +442,25 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 						&uni_in_frag,
 					)),
 				);
-				self.part_mask_pipeline.bind_vertex(
+				pipeline.bind_vertex(
 					&mut render_pass,
 					Some(&self.part_shader_vert.bind(&self.device, &uni_in_vert)),
 				);
 
 				render_pass.set_stencil_reference(self.stencil_reference_value);
-				render_pass.set_pipeline(self.part_mask_pipeline.pipeline());
 			} else {
+				//Regular parts
 				let pipeline = if self.is_in_mask {
-					&self.part_pipeline_masked
+					self.part_pipeline.with_configuration(
+						&self.device,
+						[blend, blend, blend],
+						Some(self.masked_depthstencil.clone()),
+					)
 				} else {
-					&self.part_pipeline
+					self.part_pipeline
+						.with_configuration(&self.device, [blend, blend, blend], None)
 				};
 
-				//Regular parts
 				let uni_in_frag = basic_frag::Input {
 					opacity: components.drawable.blending.opacity,
 					multColor: components.drawable.blending.tint.into(),
@@ -425,6 +469,7 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 				}
 				.into_buffer(&self.device);
 
+				render_pass.set_pipeline(pipeline.pipeline());
 				pipeline.bind_frag(
 					&mut render_pass,
 					Some(&self.part_shader_frag.bind(

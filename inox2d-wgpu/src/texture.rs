@@ -3,6 +3,7 @@ use wgpu;
 use inox2d::model::Model;
 use inox2d::texture::ShallowTexture;
 
+#[derive(Clone)]
 pub struct DeviceTexture {
 	device_texture: wgpu::Texture,
 	view: wgpu::TextureView,

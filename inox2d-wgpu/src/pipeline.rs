@@ -1,6 +1,7 @@
 use wgpu;
 
 use crate::shader::{FragmentShader, VertexShader};
+use std::collections::HashMap;
 use std::marker::PhantomData;
 
 pub struct Pipeline<V, F>
@@ -18,7 +19,13 @@ where
 	V: VertexShader,
 	F: FragmentShader,
 {
-	pub fn new(device: &wgpu::Device, vert: &V, frag: &F, depth_stencil: Option<wgpu::DepthStencilState>) -> Self {
+	pub fn new(
+		device: &wgpu::Device,
+		vert: &V,
+		frag: &F,
+		blend: F::BlendStates,
+		depth_stencil: Option<wgpu::DepthStencilState>,
+	) -> Self {
 		let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
 			label: Some("Pipeline"),
 
@@ -27,12 +34,22 @@ where
 			immediate_size: 0,
 		});
 
+		let mut fragment = frag.as_fragment_state();
+		let mut fragment_targets = fragment.targets.to_owned();
+		for (index, blend) in blend.into_iter().enumerate() {
+			fragment_targets[index]
+				.as_mut()
+				.expect("FragmentShader should require as many blend states as it creates targets")
+				.blend = blend;
+		}
+		fragment.targets = &fragment_targets;
+
 		Self {
 			pipeline: device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
 				label: Some("Pipeline"),
 				layout: Some(&layout),
 				vertex: vert.as_vertex_state(),
-				fragment: Some(frag.as_fragment_state()),
+				fragment: Some(fragment),
 				primitive: wgpu::PrimitiveState {
 					topology: wgpu::PrimitiveTopology::TriangleList,
 					strip_index_format: None,
@@ -66,5 +83,45 @@ where
 
 	pub fn pipeline(&self) -> &wgpu::RenderPipeline {
 		&self.pipeline
+	}
+}
+
+/// Cache for different pipelines with the same shader program.
+///
+/// Necessary as certain configurations cannot be changed dynamically in WGPU.
+pub struct PipelineGroup<V, F>
+where
+	V: VertexShader,
+	F: FragmentShader,
+{
+	vert: V,
+	frag: F,
+	cache: HashMap<(F::BlendStates, Option<wgpu::DepthStencilState>), Pipeline<V, F>>,
+}
+
+impl<V, F> PipelineGroup<V, F>
+where
+	V: VertexShader,
+	F: FragmentShader,
+{
+	pub fn new(vert: V, frag: F) -> Self {
+		Self {
+			vert,
+			frag,
+			cache: HashMap::new(),
+		}
+	}
+
+	pub fn with_configuration(
+		&mut self,
+		device: &wgpu::Device,
+		blend: F::BlendStates,
+		depth_stencil: Option<wgpu::DepthStencilState>,
+	) -> &Pipeline<V, F> {
+		self.cache
+			.entry((blend, depth_stencil))
+			.or_insert_with_key(|(blend, depth_stencil)| {
+				Pipeline::new(device, &self.vert, &self.frag, blend.clone(), depth_stencil.clone())
+			})
 	}
 }
