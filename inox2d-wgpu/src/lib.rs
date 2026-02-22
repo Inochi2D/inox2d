@@ -3,6 +3,7 @@ use inox2d::model::Model;
 use inox2d::node::{InoxNodeUuid, components, drawables}; //hey wait a second that's just a u32 newtype! UUIDs are four of those!
 use inox2d::render::{self, InoxRenderer};
 use inox2d::texture::decode_model_textures;
+use std::error::Error;
 use wgpu;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
@@ -11,7 +12,7 @@ mod shader;
 mod shaders;
 mod texture;
 
-use crate::texture::{DeviceTexture, GBuffer};
+use crate::texture::{DepthStencilTexture, DeviceTexture, GBuffer};
 use shader::UniformBlock;
 use shaders::basic::{basic_frag, basic_mask_frag, basic_vert, composite_frag, composite_mask_frag, composite_vert};
 
@@ -43,15 +44,25 @@ pub enum WgpuRendererError {
 	CreateSurfaceError(#[from] wgpu::CreateSurfaceError),
 	RequestAdapterError(#[from] wgpu::RequestAdapterError),
 	RequestDeviceError(#[from] wgpu::RequestDeviceError),
+	SurfaceError(#[from] wgpu::SurfaceError),
 
 	#[error("Model rendering not initialized")]
 	ModelRenderingNotInitialized,
+
+	#[error("Size cannot be zero")]
+	SizeCannotBeZero,
 }
 
 pub struct WgpuRenderer<'window> {
 	surface: wgpu::Surface<'window>,
 	config: wgpu::SurfaceConfiguration,
-	gbuffer: Option<GBuffer>,
+
+	/// All textures used as render targets, excluding the surface color
+	/// buffer.
+	///
+	/// GBuffer is used solely for composite rendering, where rendered pixels
+	/// are used for a deferred shading pass.
+	render_targets: Option<(GBuffer, DepthStencilTexture)>,
 
 	verts: wgpu::Buffer,
 	uvs: wgpu::Buffer,
@@ -76,12 +87,14 @@ pub struct WgpuRenderer<'window> {
 	composite_mask_pipeline: pipeline::PipelineGroup<composite_vert::Shader, composite_mask_frag::Shader>,
 
 	encoder: Option<wgpu::CommandEncoder>,
+	surface_texture: Option<(wgpu::SurfaceTexture, wgpu::TextureView)>,
 
 	model_textures: Vec<DeviceTexture>,
 	model_sampler: wgpu::Sampler,
 
 	last_mask_threshold: f32,
 	is_in_mask: bool,
+	is_in_composite: bool,
 	stencil_reference_value: u32,
 
 	device: wgpu::Device,
@@ -236,7 +249,7 @@ impl<'window> WgpuRenderer<'window> {
 		Ok(WgpuRenderer {
 			surface,
 			config,
-			gbuffer: None,
+			render_targets: None,
 			verts,
 			uvs,
 			deforms,
@@ -254,17 +267,19 @@ impl<'window> WgpuRenderer<'window> {
 			composite_pipeline,
 			composite_mask_pipeline,
 			encoder: None,
+			surface_texture: None,
 			model_textures: texture_handles,
 			model_sampler,
 			last_mask_threshold: 0.0,
 			is_in_mask: false,
+			is_in_composite: false,
 			stencil_reference_value: 1,
 			device,
 			queue,
 		})
 	}
 
-	pub fn resize(&mut self, width: u32, height: u32) {
+	pub fn resize(&mut self, width: u32, height: u32) -> Result<(), WgpuRendererError> {
 		if width > 0 && height > 0 {
 			let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
 				label: Some("Inox2D texture resizes"),
@@ -273,16 +288,28 @@ impl<'window> WgpuRenderer<'window> {
 			self.config.width = width;
 			self.config.height = height;
 			self.surface.configure(&self.device, &self.config);
-			self.gbuffer = Some(GBuffer::new(
-				&self.device,
-				&mut encoder,
-				width,
-				height,
-				wgpu::TextureFormat::Rgba32Float,
-				wgpu::TextureFormat::Depth24PlusStencil8,
+			self.render_targets = Some((
+				GBuffer::new(
+					&self.device,
+					&mut encoder,
+					width,
+					height,
+					wgpu::TextureFormat::Rgba32Float,
+					wgpu::TextureFormat::Depth24PlusStencil8,
+				),
+				DepthStencilTexture::empty_render_target(
+					&self.device,
+					&mut encoder,
+					width,
+					height,
+					wgpu::TextureFormat::Depth24PlusStencil8,
+				),
 			));
 
 			self.queue.submit(std::iter::once(encoder.finish()));
+			Ok(())
+		} else {
+			Err(WgpuRendererError::SizeCannotBeZero)
 		}
 	}
 
@@ -341,27 +368,41 @@ impl<'window> WgpuRenderer<'window> {
 }
 
 impl<'window> InoxRenderer for WgpuRenderer<'window> {
-	fn begin_render(&mut self) {
+	fn begin_render(&mut self) -> Result<(), Box<dyn Error>> {
 		if self.encoder.is_some() {
 			panic!("Recursive rendering is not permitted.");
 		}
 
-		if self.gbuffer.is_none() {
+		if self.render_targets.is_none() {
 			panic!("Buffer is not yet set up.");
 		}
 
 		self.encoder = Some(self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
 			label: Some("Inox2DWGPU"),
 		}));
+		let surface_texture = self.surface.get_current_texture()?;
+		let texview = surface_texture
+			.texture
+			.create_view(&wgpu::TextureViewDescriptor::default());
+		self.surface_texture = Some((surface_texture, texview));
 
 		//TODO: read & translate OpenGLRenderer's `on_begin_draw` / `on_end_draw`
+
+		Ok(())
 	}
 
 	fn on_begin_masks(&mut self, masks: &components::Masks) {
 		self.last_mask_threshold = masks.threshold.clamp(0.0, 1.0);
-
-		//TODO: Erase the stencil buffer.
 		//TODO: Enable stencilling on the render target.
+
+		if let Some((composite, surface_stencil)) = self.render_targets.as_ref() {
+			let mut encoder = self.encoder.take().expect("encoder should not be held across calls");
+
+			composite.stencil().clear(&mut encoder);
+			surface_stencil.clear(&mut encoder);
+
+			self.encoder = Some(encoder);
+		}
 	}
 
 	fn on_begin_mask(&mut self, mask: &components::Mask) {
@@ -378,16 +419,49 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 
 	fn draw_textured_mesh_content(
 		&mut self,
-		as_mask: bool,
+		render_mask: bool,
 		components: &drawables::TexturedMeshComponents,
 		render_ctx: &render::TexturedMeshRenderCtx,
 		_id: InoxNodeUuid,
 	) {
-		if let Some(gbuffer) = self.gbuffer.as_ref() {
-			let depth_stencil_attachment = if as_mask {
-				Some(gbuffer.stencil().as_depth_stencil_attachment_rw())
+		if let Some((composite, surface_stencil)) = self.render_targets.as_ref() {
+			let gbuffer_color = composite.as_color_attachments();
+			let surface_color_view = &self.surface_texture.as_ref().expect("surface").1;
+			let surface_color_attach = Some(wgpu::RenderPassColorAttachment {
+				view: &surface_color_view,
+				depth_slice: None,
+				resolve_target: None,
+				ops: wgpu::Operations {
+					load: wgpu::LoadOp::Load,
+					store: wgpu::StoreOp::Store,
+				},
+			});
+			let masked_attach = [surface_color_attach.clone()];
+			let unmasked_attach = [surface_color_attach, None, None];
+
+			let color_attachments = if self.is_in_composite {
+				if render_mask {
+					&[gbuffer_color[0].clone()]
+				} else {
+					gbuffer_color.as_slice()
+				}
+			} else {
+				if render_mask {
+					masked_attach.as_slice()
+				} else {
+					unmasked_attach.as_slice()
+				}
+			};
+			let stencil_texture = if self.is_in_composite {
+				composite.stencil()
+			} else {
+				surface_stencil
+			};
+
+			let depth_stencil_attachment = if render_mask {
+				Some(stencil_texture.as_depth_stencil_attachment_rw())
 			} else if self.is_in_mask {
-				Some(gbuffer.stencil().as_depth_stencil_attachment_ro())
+				Some(stencil_texture.as_depth_stencil_attachment_ro())
 			} else {
 				None
 			};
@@ -399,7 +473,7 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 			let mut encoder = self.encoder.take().expect("encoder");
 			let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
 				label: Some("WgpuRenderer::draw_textured_mesh_content"),
-				color_attachments: &gbuffer.as_color_attachments(),
+				color_attachments,
 				depth_stencil_attachment,
 				occlusion_query_set: None,
 				timestamp_writes: None,
@@ -424,7 +498,7 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 			render_pass.set_vertex_buffer(basic_vert::INPUT_LOCATION_DEFORM, self.deforms.slice(..));
 			render_pass.set_index_buffer(self.indices.slice(..), wgpu::IndexFormat::Uint16);
 
-			if as_mask {
+			if render_mask {
 				//TODO: What happens if a mask is also masked?
 				let pipeline = self.part_mask_pipeline.with_configuration(
 					&self.device,
@@ -505,21 +579,26 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 	}
 
 	fn begin_composite_content(
-		&self,
+		&mut self,
 		as_mask: bool,
 		components: &drawables::CompositeComponents,
 		render_ctx: &render::CompositeRenderCtx,
 		id: InoxNodeUuid,
 	) {
+		self.is_in_composite = true;
+		//TODO: Clear gbuffer
 	}
 
 	fn finish_composite_content(
-		&self,
+		&mut self,
 		as_mask: bool,
 		components: &drawables::CompositeComponents,
 		render_ctx: &render::CompositeRenderCtx,
 		id: InoxNodeUuid,
 	) {
+		assert!(self.is_in_composite);
+		self.is_in_composite = false;
+		//TODO: Run deferred composite pass
 	}
 
 	fn end_render_and_flush(&mut self) {
