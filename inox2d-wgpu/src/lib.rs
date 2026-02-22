@@ -266,17 +266,23 @@ impl<'window> WgpuRenderer<'window> {
 
 	pub fn resize(&mut self, width: u32, height: u32) {
 		if width > 0 && height > 0 {
+			let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+				label: Some("Inox2D texture resizes"),
+			});
+
 			self.config.width = width;
 			self.config.height = height;
 			self.surface.configure(&self.device, &self.config);
 			self.gbuffer = Some(GBuffer::new(
 				&self.device,
-				&self.queue,
+				&mut encoder,
 				width,
 				height,
 				wgpu::TextureFormat::Rgba32Float,
 				wgpu::TextureFormat::Depth24PlusStencil8,
 			));
+
+			self.queue.submit(std::iter::once(encoder.finish()));
 		}
 	}
 
