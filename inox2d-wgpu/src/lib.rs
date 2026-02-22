@@ -423,6 +423,7 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 				let pipeline = self.part_mask_pipeline.with_configuration(
 					&self.device,
 					[blend],
+					[wgpu::ColorWrites::empty()],
 					Some(self.mask_depthstencil.clone()),
 				);
 				let uni_in_frag = basic_mask_frag::Input {
@@ -447,16 +448,18 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 
 				render_pass.set_stencil_reference(self.stencil_reference_value);
 			} else {
+				let all = wgpu::ColorWrites::ALL;
 				//Regular parts
 				let pipeline = if self.is_in_mask {
 					self.part_pipeline.with_configuration(
 						&self.device,
 						[blend, blend, blend],
+						[all, all, all],
 						Some(self.masked_depthstencil.clone()),
 					)
 				} else {
 					self.part_pipeline
-						.with_configuration(&self.device, [blend, blend, blend], None)
+						.with_configuration(&self.device, [blend, blend, blend], [all, all, all], None)
 				};
 
 				let uni_in_frag = basic_frag::Input {

@@ -23,7 +23,8 @@ where
 		device: &wgpu::Device,
 		vert: &V,
 		frag: &F,
-		blend: F::BlendStates,
+		blend: F::TargetArray<Option<wgpu::BlendState>>,
+		write_mask: F::TargetArray<wgpu::ColorWrites>,
 		depth_stencil: Option<wgpu::DepthStencilState>,
 	) -> Self {
 		let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -36,11 +37,15 @@ where
 
 		let mut fragment = frag.as_fragment_state();
 		let mut fragment_targets = fragment.targets.to_owned();
-		for (index, blend) in blend.into_iter().enumerate() {
+		for (index, (blend, write_mask)) in blend.into_iter().zip(write_mask.into_iter()).enumerate() {
 			fragment_targets[index]
 				.as_mut()
 				.expect("FragmentShader should require as many blend states as it creates targets")
 				.blend = blend;
+			fragment_targets[index]
+				.as_mut()
+				.expect("FragmentShader should require as many blend states as it creates targets")
+				.write_mask = write_mask;
 		}
 		fragment.targets = &fragment_targets;
 
@@ -96,7 +101,14 @@ where
 {
 	vert: V,
 	frag: F,
-	cache: HashMap<(F::BlendStates, Option<wgpu::DepthStencilState>), Pipeline<V, F>>,
+	cache: HashMap<
+		(
+			F::TargetArray<Option<wgpu::BlendState>>,
+			F::TargetArray<wgpu::ColorWrites>,
+			Option<wgpu::DepthStencilState>,
+		),
+		Pipeline<V, F>,
+	>,
 }
 
 impl<V, F> PipelineGroup<V, F>
@@ -115,13 +127,21 @@ where
 	pub fn with_configuration(
 		&mut self,
 		device: &wgpu::Device,
-		blend: F::BlendStates,
+		blend: F::TargetArray<Option<wgpu::BlendState>>,
+		write_mask: F::TargetArray<wgpu::ColorWrites>,
 		depth_stencil: Option<wgpu::DepthStencilState>,
 	) -> &Pipeline<V, F> {
 		self.cache
-			.entry((blend, depth_stencil))
-			.or_insert_with_key(|(blend, depth_stencil)| {
-				Pipeline::new(device, &self.vert, &self.frag, blend.clone(), depth_stencil.clone())
+			.entry((blend, write_mask, depth_stencil))
+			.or_insert_with_key(|(blend, write_mask, depth_stencil)| {
+				Pipeline::new(
+					device,
+					&self.vert,
+					&self.frag,
+					blend.clone(),
+					write_mask.clone(),
+					depth_stencil.clone(),
+				)
 			})
 	}
 }

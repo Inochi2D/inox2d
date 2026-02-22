@@ -441,7 +441,7 @@ fn gen_fragmentshader_trait_methods(
 	writeln!(out, "impl shader::FragmentShader for {} {{", struct_name)?;
 	writeln!(
 		out,
-		"    type BlendStates = [Option<wgpu::BlendState>; {}];",
+		"    type TargetArray<T: Eq + std::hash::Hash + Clone> = [T; {}];",
 		entrypoint.output_variables.len()
 	)?;
 	writeln!(out)?;
