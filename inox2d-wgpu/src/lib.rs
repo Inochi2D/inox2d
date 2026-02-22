@@ -586,19 +586,111 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 		id: InoxNodeUuid,
 	) {
 		self.is_in_composite = true;
-		//TODO: Clear gbuffer
+
+		let mut encoder = self.encoder.take().expect("encoder");
+
+		if let Some((composite, _surface_stencil)) = self.render_targets.as_ref() {
+			composite.clear(&mut encoder);
+		}
+
+		self.encoder = Some(encoder);
 	}
 
 	fn finish_composite_content(
 		&mut self,
-		as_mask: bool,
+		render_mask: bool,
 		components: &drawables::CompositeComponents,
 		render_ctx: &render::CompositeRenderCtx,
 		id: InoxNodeUuid,
 	) {
 		assert!(self.is_in_composite);
 		self.is_in_composite = false;
-		//TODO: Run deferred composite pass
+
+		let mut encoder = self.encoder.take().expect("encoder");
+
+		if let Some((composite, surface_stencil)) = self.render_targets.as_ref() {
+			let surface_color_view = &self.surface_texture.as_ref().expect("surface").1;
+			let depth_stencil_attachment = if render_mask {
+				Some(surface_stencil.as_depth_stencil_attachment_rw())
+			} else if self.is_in_mask {
+				Some(surface_stencil.as_depth_stencil_attachment_ro())
+			} else {
+				None
+			};
+
+			//TODO: Do we even want blending on in Normal mode?
+			let blend = Some(Self::blend_mode_to_state(components.drawable.blending.mode));
+
+			let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+				label: Some("WgpuRenderer Composite deferred pass"),
+				color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+					view: &surface_color_view,
+					depth_slice: None,
+					resolve_target: None,
+					ops: wgpu::Operations {
+						load: wgpu::LoadOp::Load,
+						store: wgpu::StoreOp::Store,
+					},
+				})],
+				depth_stencil_attachment,
+				occlusion_query_set: None,
+				timestamp_writes: None,
+				multiview_mask: None,
+			});
+
+			if render_mask {
+				// LOL, the OpenGL renderer didn't handle the "mask by composite" case.
+				// I may want to see what Inochi2D's D library does.
+				todo!();
+			} else {
+				let all = wgpu::ColorWrites::ALL;
+				let depth_stencil = if self.is_in_mask {
+					Some(self.masked_depthstencil.clone())
+				} else {
+					None
+				};
+				let pipeline = self.composite_pipeline.with_configuration(
+					&self.device,
+					[blend, blend, blend],
+					[all, all, all],
+					depth_stencil,
+				);
+
+				let uni_in_frag = composite_frag::Input {
+					opacity: components.drawable.blending.opacity.clamp(0.0, 1.0),
+					multColor: components
+						.drawable
+						.blending
+						.tint
+						.clamp(glam::Vec3::ZERO, glam::Vec3::ONE)
+						.into(),
+					screenColor: components
+						.drawable
+						.blending
+						.screen_tint
+						.clamp(glam::Vec3::ZERO, glam::Vec3::ONE)
+						.into(),
+				}
+				.into_buffer(&self.device);
+
+				render_pass.set_pipeline(pipeline.pipeline());
+				pipeline.bind_frag(
+					&mut render_pass,
+					Some(&self.composite_shader_frag.bind(
+						&self.device,
+						composite.albedo().view(),
+						composite.emissive().view(),
+						composite.bump().view(),
+						&self.model_sampler,
+						&uni_in_frag,
+					)),
+				);
+				pipeline.bind_vertex(&mut render_pass, Some(&self.composite_shader_vert.bind(&self.device)));
+				render_pass.draw_indexed(0..6, 0, 0..1); //TODO: Where do these vertices come from!?!?
+			}
+		}
+
+		self.encoder = Some(encoder);
 	}
 
 	fn end_render_and_flush(&mut self) {
