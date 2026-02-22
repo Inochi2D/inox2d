@@ -128,13 +128,13 @@ impl DeviceTexture {
 	}
 }
 
-pub struct DepthStencilBuffer {
+pub struct DepthStencilTexture {
 	device_texture: wgpu::Texture,
 	view: wgpu::TextureView,
 	format: wgpu::TextureFormat,
 }
 
-impl DepthStencilBuffer {
+impl DepthStencilTexture {
 	pub fn empty_render_target(
 		device: &wgpu::Device,
 		encoder: &mut wgpu::CommandEncoder,
@@ -236,7 +236,7 @@ pub struct GBuffer {
 	albedo: DeviceTexture,
 	emissive: DeviceTexture,
 	bump: DeviceTexture,
-	stencil: DepthStencilBuffer,
+	stencil: DepthStencilTexture,
 }
 
 impl GBuffer {
@@ -252,7 +252,7 @@ impl GBuffer {
 			albedo: DeviceTexture::empty_render_target(device, encoder, width, height, wgpu::TextureFormat::Rgba8Uint),
 			emissive: DeviceTexture::empty_render_target(device, encoder, width, height, format),
 			bump: DeviceTexture::empty_render_target(device, encoder, width, height, wgpu::TextureFormat::Rgba8Uint),
-			stencil: DepthStencilBuffer::empty_render_target(device, encoder, width, height, depth_format),
+			stencil: DepthStencilTexture::empty_render_target(device, encoder, width, height, depth_format),
 		}
 	}
 
@@ -268,7 +268,7 @@ impl GBuffer {
 		&self.bump
 	}
 
-	pub fn stencil(&self) -> &DepthStencilBuffer {
+	pub fn stencil(&self) -> &DepthStencilTexture {
 		&self.stencil
 	}
 
