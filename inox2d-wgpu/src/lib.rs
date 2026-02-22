@@ -356,16 +356,14 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 
 		//TODO: Erase the stencil buffer.
 		//TODO: Enable stencilling on the render target.
-
-		self.is_in_mask = true;
 	}
 
 	fn on_begin_mask(&mut self, mask: &components::Mask) {
 		self.stencil_reference_value = (mask.mode == components::MaskMode::Mask) as u32;
 	}
 
-	fn on_begin_masked_content(&self) {
-		unimplemented!()
+	fn on_begin_masked_content(&mut self) {
+		self.is_in_mask = true;
 	}
 
 	fn on_end_mask(&mut self) {
