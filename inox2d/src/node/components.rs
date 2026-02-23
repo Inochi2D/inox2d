@@ -193,7 +193,7 @@ pub struct Mesh {
 	/// Base UVs.
 	pub uvs: Vec<Vec2>,
 	/// Indices in the mesh.
-	pub indices: Vec<u16>,
+	pub indices: Vec<u32>,
 	/// Origin of the mesh.
 	pub origin: Vec2,
 }

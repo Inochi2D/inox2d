@@ -20,8 +20,8 @@ pub use vertex_buffers::VertexBuffers;
 ///
 /// inside `puppet.render_ctx_vertex_buffers`.
 pub struct TexturedMeshRenderCtx {
-	pub index_offset: u16,
-	pub vert_offset: u16,
+	pub index_offset: u32,
+	pub vert_offset: u32,
 	pub index_len: usize,
 	pub vert_len: usize,
 }
