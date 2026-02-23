@@ -696,5 +696,9 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 	fn on_end_draw(&mut self, puppet: &inox2d::puppet::Puppet) {
 		let end = self.encoder.take().expect("encoder").finish();
 		self.queue.submit(std::iter::once(end));
+
+		if let Some((surface_texture, _)) = self.surface_texture.take() {
+			surface_texture.present();
+		}
 	}
 }
