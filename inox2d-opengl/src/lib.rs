@@ -6,6 +6,7 @@ pub mod texture;
 use std::cell::RefCell;
 use std::mem;
 use std::ops::Deref;
+use std::error::Error;
 
 use glam::{uvec2, UVec2, Vec3};
 use glow::HasContext;
@@ -410,6 +411,39 @@ impl OpenglRenderer {
 }
 
 impl InoxRenderer for OpenglRenderer {
+	/// Update the renderer with latest puppet data.
+	fn on_begin_draw(&mut self, puppet: &Puppet) -> Result<(), Box<dyn Error>> {
+		self.push_debug_group("inox2d - begin draw");
+
+		let gl = &self.gl;
+
+		// TODO: calculate this matrix only once per draw pass.
+		// let matrix = self.camera.matrix(self.viewport.as_vec2());
+
+		unsafe {
+			gl.bind_vertex_array(Some(self.vao));
+			upload_deforms_to_gl(
+				gl,
+				puppet
+					.render_ctx
+					.as_ref()
+					.expect("Rendering for a puppet must be initialized by now.")
+					.vertex_buffers
+					.deforms
+					.as_slice(),
+				self.deform_buffer,
+			);
+			gl.enable(glow::BLEND);
+			gl.disable(glow::DEPTH_TEST);
+		}
+
+		self.pop_debug_group();
+
+		self.push_debug_group("inox2d - draw");
+
+		Ok(())
+	}
+
 	fn on_begin_masks(&mut self, masks: &Masks) {
 		self.push_debug_group("inox2d - begin masks");
 
@@ -621,42 +655,9 @@ impl InoxRenderer for OpenglRenderer {
 
 		self.pop_debug_group();
 	}
-}
-
-impl OpenglRenderer {
-	/// Update the renderer with latest puppet data.
-	pub fn on_begin_draw(&self, puppet: &Puppet) {
-		self.push_debug_group("inox2d - begin draw");
-
-		let gl = &self.gl;
-
-		// TODO: calculate this matrix only once per draw pass.
-		// let matrix = self.camera.matrix(self.viewport.as_vec2());
-
-		unsafe {
-			gl.bind_vertex_array(Some(self.vao));
-			upload_deforms_to_gl(
-				gl,
-				puppet
-					.render_ctx
-					.as_ref()
-					.expect("Rendering for a puppet must be initialized by now.")
-					.vertex_buffers
-					.deforms
-					.as_slice(),
-				self.deform_buffer,
-			);
-			gl.enable(glow::BLEND);
-			gl.disable(glow::DEPTH_TEST);
-		}
-
-		self.pop_debug_group();
-
-		self.push_debug_group("inox2d - draw");
-	}
 
 	/// Renderer cleaning up after one frame.
-	pub fn on_end_draw(&self, _puppet: &Puppet) {
+	fn on_end_draw(&mut self, _puppet: &Puppet) {
 		self.pop_debug_group();
 
 		self.push_debug_group("inox2d - end draw");

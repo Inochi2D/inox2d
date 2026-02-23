@@ -218,11 +218,9 @@ impl RenderCtx {
 pub trait InoxRenderer {
 	/// Begin rendering a whole puppet.
 	/// 
-	/// Calls to `begin_render()` and `end_render_and_flush()` must be
+	/// Calls to `on_begin_draw()` and `on_end_draw()` must be
 	/// balanced. Failure to balance these calls will result in a panic.
-	fn begin_render(&mut self) -> Result<(), Box<dyn Error>> {
-		Ok(())
-	}
+	fn on_begin_draw(&mut self, puppet: &Puppet) -> Result<(), Box<dyn Error>>;
 
 	/// Begin masking.
 	///
@@ -272,7 +270,7 @@ pub trait InoxRenderer {
 
 	/// Finish rendering, flush any pending operations, and present the puppet
 	/// to the given display.
-	fn end_render_and_flush(&mut self) {}
+	fn on_end_draw(&mut self, puppet: &Puppet);
 }
 
 pub trait InoxRendererExt {
@@ -286,7 +284,7 @@ pub trait InoxRendererExt {
 	/// and make draw calls correspondingly.
 	///
 	/// This effectively draws the complete puppet.
-	fn draw(&mut self, puppet: &Puppet);
+	fn draw(&mut self, puppet: &Puppet) -> Result<(), Box<dyn Error>>;
 }
 
 impl<T: InoxRenderer> InoxRendererExt for T {
@@ -354,8 +352,8 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 	/// For example, maybe the caller still need to transfer content from a texture buffer to the screen surface buffer.
 	/// - The provided `InoxRender` implementation is wrong.
 	/// - `puppet` here does not belong to the `model` this `renderer` is initialized with. This will likely result in panics for non-existent node uuids.
-	fn draw(&mut self, puppet: &Puppet) {
-		self.begin_render();
+	fn draw(&mut self, puppet: &Puppet) -> Result<(), Box<dyn Error>> {
+		self.on_begin_draw(puppet)?;
 
 		for uuid in &puppet
 			.render_ctx
@@ -366,6 +364,8 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 			self.draw_drawable(false, &puppet.node_comps, *uuid);
 		}
 
-		self.end_render_and_flush();
+		self.on_end_draw(puppet);
+
+		Ok(())
 	}
 }
