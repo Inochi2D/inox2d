@@ -524,8 +524,8 @@ impl InoxRenderer for OpenglRenderer {
 			gl.draw_elements(
 				glow::TRIANGLES,
 				render_ctx.index_len as i32,
-				glow::UNSIGNED_SHORT,
-				render_ctx.index_offset as i32 * mem::size_of::<u16>() as i32,
+				glow::UNSIGNED_INT,
+				render_ctx.index_offset as i32 * mem::size_of::<u32>() as i32,
 			);
 		}
 
@@ -616,7 +616,7 @@ impl InoxRenderer for OpenglRenderer {
 		}
 
 		unsafe {
-			gl.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_SHORT, 0);
+			gl.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_INT, 0);
 		}
 
 		self.pop_debug_group();

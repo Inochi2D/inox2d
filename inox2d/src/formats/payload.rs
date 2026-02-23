@@ -219,7 +219,7 @@ fn deserialize_mesh(obj: JsonObject) -> InoxParseResult<Mesh> {
 		indices: obj
 			.get_list("indices")?
 			.iter()
-			.map_while(JsonValue::as_u16)
+			.map_while(JsonValue::as_u32)
 			.collect::<Vec<_>>(),
 		origin: obj.get_vec2("origin").unwrap_or_default(),
 	})

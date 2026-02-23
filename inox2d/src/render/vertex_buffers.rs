@@ -5,7 +5,7 @@ use crate::node::components::Mesh;
 pub struct VertexBuffers {
 	pub verts: Vec<Vec2>,
 	pub uvs: Vec<Vec2>,
-	pub indices: Vec<u16>,
+	pub indices: Vec<u32>,
 	pub deforms: Vec<Vec2>,
 }
 
@@ -48,9 +48,9 @@ impl Default for VertexBuffers {
 
 impl VertexBuffers {
 	/// Adds the mesh's vertices and UVs to the buffers and returns its index and vertex offset.
-	pub fn push(&mut self, mesh: &Mesh) -> (u16, u16) {
-		let index_offset = self.indices.len() as u16;
-		let vert_offset = self.verts.len() as u16;
+	pub fn push(&mut self, mesh: &Mesh) -> (u32, u32) {
+		let index_offset = self.indices.len() as u32;
+		let vert_offset = self.verts.len() as u32;
 
 		self.verts.extend_from_slice(&mesh.vertices);
 		self.uvs.extend_from_slice(&mesh.uvs);
