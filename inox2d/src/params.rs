@@ -35,8 +35,7 @@ pub enum BindingValues {
 	ScreenTintR(Matrix2d<f32>),
 	ScreenTintG(Matrix2d<f32>),
 	ScreenTintB(Matrix2d<f32>),
-	// TODO
-	Opacity,
+	Opacity(Matrix2d<f32>),
 }
 
 #[derive(Debug, Clone)]
@@ -249,8 +248,12 @@ impl Param {
 					comps.get_mut::<Drawable>(binding.node).unwrap().blending.screen_tint.z +=
 						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
-				// TODO
-				BindingValues::Opacity => {}
+				BindingValues::Opacity(ref matrix) => {
+					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
+
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.opacity +=
+						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+				}
 			}
 		}
 	}

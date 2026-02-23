@@ -467,8 +467,7 @@ fn deserialize_binding_values(param_name: &str, values: &[JsonValue]) -> InoxPar
 		"screenTint.r" => BindingValues::ScreenTintR(deserialize_inner_binding_values(values)?),
 		"screenTint.g" => BindingValues::ScreenTintG(deserialize_inner_binding_values(values)?),
 		"screenTint.b" => BindingValues::ScreenTintB(deserialize_inner_binding_values(values)?),
-		// TODO
-		"opacity" => BindingValues::Opacity,
+		"opacity" => BindingValues::Opacity(deserialize_inner_binding_values(values)?),
 		param_name => return Err(InoxParseError::UnknownParamName(param_name.to_owned())),
 	})
 }
