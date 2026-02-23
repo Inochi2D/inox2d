@@ -7,6 +7,7 @@ use std::cell::RefCell;
 use std::error::Error;
 use std::mem;
 use std::ops::Deref;
+use std::error::Error;
 
 use glam::{uvec2, UVec2, Vec3};
 use glow::HasContext;

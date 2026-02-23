@@ -368,7 +368,7 @@ impl<'window> WgpuRenderer<'window> {
 }
 
 impl<'window> InoxRenderer for WgpuRenderer<'window> {
-	fn begin_render(&mut self) -> Result<(), Box<dyn Error>> {
+	fn on_begin_draw(&mut self, puppet: &inox2d::puppet::Puppet) -> Result<(), Box<dyn Error>> {
 		if self.encoder.is_some() {
 			panic!("Recursive rendering is not permitted.");
 		}
@@ -693,7 +693,7 @@ impl<'window> InoxRenderer for WgpuRenderer<'window> {
 		self.encoder = Some(encoder);
 	}
 
-	fn end_render_and_flush(&mut self) {
+	fn on_end_draw(&mut self, puppet: &inox2d::puppet::Puppet) {
 		let end = self.encoder.take().expect("encoder").finish();
 		self.queue.submit(std::iter::once(end));
 	}
