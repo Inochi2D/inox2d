@@ -1,0 +1,14 @@
+[package]
+name = "render-wgpu"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+common = { path = "../common" }
+inox2d = { path = "../../inox2d" }
+inox2d-wgpu = { path = "../../inox2d-wgpu"}
+winit = "0.29"
+env_logger = "0.11.9"
+log = "0.4.29"
+clap = { version = "4.1.8", features = ["derive"] }
+pollster = "0.4.0"
