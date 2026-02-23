@@ -281,10 +281,17 @@ pub trait DrawSession<'a> {
 
 pub trait DrawSessionExt {
 	/// Draw a Drawable, which is potentially masked.
-	fn draw_drawable(&mut self, as_mask: bool, comps: &World, id: InoxNodeUuid);
+	fn draw_drawable(&mut self, puppet: &Puppet, as_mask: bool, comps: &World, id: InoxNodeUuid);
 
 	/// Draw one composite. `components` must be referencing `comps`.
-	fn draw_composite(&mut self, as_mask: bool, comps: &World, components: &CompositeComponents, id: InoxNodeUuid);
+	fn draw_composite(
+		&mut self,
+		puppet: &Puppet,
+		as_mask: bool,
+		comps: &World,
+		components: &CompositeComponents,
+		id: InoxNodeUuid,
+	);
 }
 
 pub trait InoxRendererExt {
@@ -296,7 +303,7 @@ pub trait InoxRendererExt {
 }
 
 impl<'a, T: DrawSession<'a>> DrawSessionExt for T {
-	fn draw_drawable(&mut self, as_mask: bool, comps: &World, id: InoxNodeUuid) {
+	fn draw_drawable(&mut self, puppet: &Puppet, as_mask: bool, comps: &World, id: InoxNodeUuid) {
 		let drawable_kind = DrawableKind::new(id, comps, false).expect("Node must be a Drawable.");
 		let masks = match drawable_kind {
 			DrawableKind::TexturedMesh(ref components) => &components.drawable.masks,
@@ -310,7 +317,7 @@ impl<'a, T: DrawSession<'a>> DrawSessionExt for T {
 			for mask in &masks.masks {
 				self.on_begin_mask(mask);
 
-				self.draw_drawable(true, comps, mask.source);
+				self.draw_drawable(puppet, true, comps, mask.source);
 			}
 			self.on_begin_masked_content();
 		}
@@ -319,7 +326,7 @@ impl<'a, T: DrawSession<'a>> DrawSessionExt for T {
 			DrawableKind::TexturedMesh(ref components) => {
 				self.draw_textured_mesh_content(as_mask, components, comps.get(id).unwrap(), id)
 			}
-			DrawableKind::Composite(ref components) => self.draw_composite(as_mask, comps, components, id),
+			DrawableKind::Composite(ref components) => self.draw_composite(puppet, as_mask, comps, components, id),
 		}
 
 		if has_masks {
@@ -327,10 +334,23 @@ impl<'a, T: DrawSession<'a>> DrawSessionExt for T {
 		}
 	}
 
-	fn draw_composite(&mut self, as_mask: bool, comps: &World, components: &CompositeComponents, id: InoxNodeUuid) {
+	fn draw_composite(
+		&mut self,
+		puppet: &Puppet,
+		as_mask: bool,
+		comps: &World,
+		components: &CompositeComponents,
+		id: InoxNodeUuid,
+	) {
 		let render_ctx = comps.get::<CompositeRenderCtx>(id).unwrap();
 		if render_ctx.zsorted_children_list.is_empty() {
 			// Optimization: Nothing to be drawn, skip context switching
+			return;
+		}
+
+		let is_enabled = puppet.nodes.get_node(id).unwrap().enabled;
+		if !is_enabled && !as_mask {
+			// Disabled nodes don't render, but they can still be used as masks.
 			return;
 		}
 
@@ -371,7 +391,7 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 			.expect("RenderCtx of puppet must be initialized before calling draw().")
 			.root_drawables_zsorted
 		{
-			draw.draw_drawable(false, &puppet.node_comps, *uuid);
+			draw.draw_drawable(puppet, false, &puppet.node_comps, *uuid);
 		}
 
 		draw.on_end_draw(puppet);
