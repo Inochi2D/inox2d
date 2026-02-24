@@ -4,7 +4,6 @@ mod vertex_buffers;
 use std::collections::HashSet;
 use std::error::Error;
 use std::mem::swap;
-use std::error::Error;
 
 use crate::node::{
 	components::{DeformStack, Mask, Masks, ZSort},
