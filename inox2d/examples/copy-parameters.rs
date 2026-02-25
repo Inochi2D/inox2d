@@ -4,8 +4,9 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use inox2d::formats::inp::{parse_inp_parts, serialize_parts};
-
-const BINDINGS_KEY: &str = "com.inochi2d.inochi-session.bindings";
+use inox2d::formats::vendors::{SessionBinding, SESSION_BINDINGS_KEY};
+use inox2d::puppet::Puppet;
+use std::collections::HashSet;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -31,7 +32,7 @@ fn main() {
 	let (_in_puppet, _in_textures, in_vendors) = match parse_inp_parts(indata.as_slice()) {
 		Ok(m) => m,
 		Err(e) => {
-			println!("Error when reading input puppet: {e}");
+			eprintln!("Error when reading input puppet: {e}");
 			return;
 		}
 	};
@@ -47,15 +48,15 @@ fn main() {
 	let (out_puppet, out_textures, mut out_vendors) = match parse_inp_parts(outdata.as_slice()) {
 		Ok(m) => m,
 		Err(e) => {
-			println!("Error when reading input puppet: {e}");
+			eprintln!("Error when reading input puppet: {e}");
 			return;
 		}
 	};
 
-	//Bindings are treated as "vendor data" for some reason
+	// Bindings are treated as "vendor data" for some reason
 	let mut in_bindings = None;
 	for (index, item) in in_vendors.iter().enumerate() {
-		if item.name == BINDINGS_KEY {
+		if item.name == SESSION_BINDINGS_KEY {
 			in_bindings = Some(index);
 		}
 	}
@@ -66,19 +67,34 @@ fn main() {
 
 	let mut out_bindings = None;
 	for (index, item) in out_vendors.iter().enumerate() {
-		if item.name == BINDINGS_KEY {
+		if item.name == SESSION_BINDINGS_KEY {
 			out_bindings = Some(index);
 		}
 	}
 
 	if out_bindings.is_some() {
-		println!("Output puppet already has bindings data! Refusing to continue.");
+		eprintln!("Output puppet already has bindings data! Refusing to continue.");
 		return;
 	}
 
-	// TODO: Validate that the bindings still make sense when copied in this
-	// way. We're sort of relying on the user to only copy bindings between
-	// two versions of the same puppet.
+	// Validate that all params mentioned in in_bindings exists in out_puppet.
+	let out_puppet_data = Puppet::new_from_json(&out_puppet).expect("valid puppet JSON");
+	let mut good_bindings = HashSet::new();
+	for (_param_name, param) in out_puppet_data.params {
+		good_bindings.insert(param.uuid);
+	}
+
+	let in_bindings_data = SessionBinding::new_from_json_list(&in_bindings.payload).expect("valid bindings data");
+	for binding_block in in_bindings_data {
+		if !good_bindings.contains(&binding_block.param) {
+			eprintln!(
+				"Binding name {} refers to nonexistent param {:?}.",
+				binding_block.name, binding_block.param
+			);
+			eprintln!("These puppets do not have compatible bindings and cannot have bindings copied.");
+			return;
+		}
+	}
 
 	out_vendors.push(in_bindings.clone());
 

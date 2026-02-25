@@ -1,6 +1,7 @@
 pub mod inp;
 mod json;
 mod payload;
+pub mod vendors;
 
 use glam::Vec2;
 
