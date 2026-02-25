@@ -32,6 +32,9 @@ pub enum BindingValues {
 	TransformRY(Matrix2d<f32>),
 	TransformRZ(Matrix2d<f32>),
 	Deform(Matrix2d<Vec<Vec2>>),
+	TintR(Matrix2d<f32>),
+	TintG(Matrix2d<f32>),
+	TintB(Matrix2d<f32>),
 	ScreenTintR(Matrix2d<f32>),
 	ScreenTintG(Matrix2d<f32>),
 	ScreenTintB(Matrix2d<f32>),
@@ -229,6 +232,24 @@ impl Param {
 						.get_mut::<DeformStack>(binding.node)
 						.expect("Nodes being deformed must have a DeformStack component.")
 						.push(DeformSource::Param(self.uuid), Deform::Direct(direct_deform));
+				}
+				BindingValues::TintR(ref matrix) => {
+					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
+
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.tint.x +=
+						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+				}
+				BindingValues::TintG(ref matrix) => {
+					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
+
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.tint.y +=
+						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+				}
+				BindingValues::TintB(ref matrix) => {
+					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
+
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.tint.z +=
+						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::ScreenTintR(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);

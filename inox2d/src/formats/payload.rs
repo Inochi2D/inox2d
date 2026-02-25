@@ -464,6 +464,9 @@ fn deserialize_binding_values(param_name: &str, values: &[JsonValue]) -> InoxPar
 
 			BindingValues::Deform(Matrix2d::from_slice_vecs(&parsed, true)?)
 		}
+		"tint.r" => BindingValues::TintR(deserialize_inner_binding_values(values)?),
+		"tint.g" => BindingValues::TintG(deserialize_inner_binding_values(values)?),
+		"tint.b" => BindingValues::TintB(deserialize_inner_binding_values(values)?),
 		"screenTint.r" => BindingValues::ScreenTintR(deserialize_inner_binding_values(values)?),
 		"screenTint.g" => BindingValues::ScreenTintG(deserialize_inner_binding_values(values)?),
 		"screenTint.b" => BindingValues::ScreenTintB(deserialize_inner_binding_values(values)?),
