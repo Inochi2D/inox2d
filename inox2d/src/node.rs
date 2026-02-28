@@ -3,9 +3,15 @@ pub mod drawables;
 
 use crate::math::transform::TransformOffset;
 
-#[derive(Clone, Copy, Hash, Eq, PartialEq)]
+#[derive(Clone, Copy, Hash, Eq, PartialEq, Debug)]
 #[repr(transparent)]
 pub struct InoxNodeUuid(pub(crate) u32);
+
+impl Into<u32> for InoxNodeUuid {
+	fn into(self) -> u32 {
+		self.0
+	}
+}
 
 pub struct InoxNode {
 	pub uuid: InoxNodeUuid,
