@@ -167,4 +167,8 @@ impl Puppet {
 			render_ctx.update(&self.nodes, &mut self.node_comps);
 		}
 	}
+
+	pub fn nodes(&self) -> &InoxNodeTree {
+		&self.nodes
+	}
 }
