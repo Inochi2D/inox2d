@@ -168,6 +168,10 @@ impl Puppet {
 		}
 	}
 
+	pub fn physics(&self) -> &PuppetPhysics {
+		&self.physics
+	}
+
 	pub fn nodes(&self) -> &InoxNodeTree {
 		&self.nodes
 	}
