@@ -175,4 +175,8 @@ impl Puppet {
 	pub fn nodes(&self) -> &InoxNodeTree {
 		&self.nodes
 	}
+
+	pub fn params(&self) -> &HashMap<String, Param> {
+		&self.params
+	}
 }
