@@ -236,6 +236,14 @@ impl OpenglRenderer {
 		}
 	}
 
+	pub fn context(&self) -> &glow::Context {
+		&self.gl;
+	}
+
+	pub fn set_surface_framebuffer(&mut self, surface_framebuffer: Option<glow::Framebuffer>) {
+		self.surface_framebuffer = surface_framebuffer;
+	}
+
 	/// Pushes an OpenGL debug group.
 	/// This is very useful to debug OpenGL calls per node with `apitrace`, as it will nest calls inside of labels,
 	/// making it trivial to know which calls correspond to which nodes.
