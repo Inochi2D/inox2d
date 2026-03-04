@@ -26,6 +26,7 @@ pub enum BindingValues {
 	ZSort(Matrix2d<f32>),
 	TransformTX(Matrix2d<f32>),
 	TransformTY(Matrix2d<f32>),
+	TransformTZ(Matrix2d<f32>),
 	TransformSX(Matrix2d<f32>),
 	TransformSY(Matrix2d<f32>),
 	TransformRX(Matrix2d<f32>),
@@ -146,6 +147,16 @@ impl Param {
 						.relative
 						.translation
 						.y += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+				}
+				BindingValues::TransformTZ(ref matrix) => {
+					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
+
+					comps
+						.get_mut::<TransformStore>(binding.node)
+						.unwrap()
+						.relative
+						.translation
+						.z += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformSX(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);

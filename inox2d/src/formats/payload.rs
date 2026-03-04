@@ -446,6 +446,7 @@ fn deserialize_binding_values(param_name: &str, values: &[JsonValue]) -> InoxPar
 		"zSort" => BindingValues::ZSort(deserialize_inner_binding_values(values)?),
 		"transform.t.x" => BindingValues::TransformTX(deserialize_inner_binding_values(values)?),
 		"transform.t.y" => BindingValues::TransformTY(deserialize_inner_binding_values(values)?),
+		"transform.t.z" => BindingValues::TransformTZ(deserialize_inner_binding_values(values)?),
 		"transform.s.x" => BindingValues::TransformSX(deserialize_inner_binding_values(values)?),
 		"transform.s.y" => BindingValues::TransformSY(deserialize_inner_binding_values(values)?),
 		"transform.r.x" => BindingValues::TransformRX(deserialize_inner_binding_values(values)?),
