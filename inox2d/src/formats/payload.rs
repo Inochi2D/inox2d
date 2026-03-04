@@ -214,11 +214,14 @@ fn deserialize_drawable(obj: JsonObject) -> InoxParseResult<Drawable> {
 fn deserialize_mesh(obj: JsonObject) -> InoxParseResult<Mesh> {
 	let vertices = deserialize_vec2s_flat(obj.get_list("verts")?)?;
 	let uvs: InoxParseResult<Vec<Vec2>> = (|| Ok(deserialize_vec2s_flat(obj.get_list("uvs")?)?))();
-	let indices = obj
-		.get_list("indices")?
-		.iter()
-		.map_while(JsonValue::as_u16)
-		.collect::<Vec<_>>();
+
+	let indices = if let Ok(indices) = obj.get_list("indices") {
+		indices.iter().map_while(JsonValue::as_u16).collect::<Vec<_>>()
+	} else {
+		//Some meshes have null/undefined indices instead of an empty list
+		vec![]
+	};
+
 	let origin = obj.get_vec2("origin").unwrap_or_default();
 
 	let uvs = match uvs {
