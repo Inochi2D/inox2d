@@ -212,15 +212,25 @@ fn deserialize_drawable(obj: JsonObject) -> InoxParseResult<Drawable> {
 }
 
 fn deserialize_mesh(obj: JsonObject) -> InoxParseResult<Mesh> {
+	let vertices = deserialize_vec2s_flat(obj.get_list("verts")?)?;
+	let uvs: InoxParseResult<Vec<Vec2>> = (|| Ok(deserialize_vec2s_flat(obj.get_list("uvs")?)?))();
+	let indices = obj
+		.get_list("indices")?
+		.iter()
+		.map_while(JsonValue::as_u16)
+		.collect::<Vec<_>>();
+	let origin = obj.get_vec2("origin").unwrap_or_default();
+
+	let uvs = match uvs {
+		Ok(uvs) => uvs,
+		Err(e) => vec![],
+	};
+
 	Ok(Mesh {
-		vertices: deserialize_vec2s_flat(obj.get_list("verts")?)?,
-		uvs: deserialize_vec2s_flat(obj.get_list("uvs")?)?,
-		indices: obj
-			.get_list("indices")?
-			.iter()
-			.map_while(JsonValue::as_u16)
-			.collect::<Vec<_>>(),
-		origin: obj.get_vec2("origin").unwrap_or_default(),
+		vertices,
+		uvs,
+		indices,
+		origin,
 	})
 }
 
