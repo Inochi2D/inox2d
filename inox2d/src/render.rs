@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::mem::swap;
 
 use crate::node::{
-	components::{DeformStack, Mask, Masks, ZSort},
+	components::{DeformStack, Drawable, Mask, Masks, ZSort},
 	drawables::{CompositeComponents, DrawableKind, TexturedMeshComponents},
 	InoxNodeUuid,
 };
