@@ -176,8 +176,8 @@ fn deserialize_simple_physics(obj: JsonObject) -> InoxParseResult<SimplePhysics>
 }
 
 fn deserialize_drawable(obj: JsonObject) -> InoxParseResult<Drawable> {
-	Ok(Drawable {
-		blending: Blending {
+	Ok(Drawable::new(
+		Blending {
 			mode: match obj.get_str("blend_mode")? {
 				"Normal" => BlendMode::Normal,
 				"Multiply" => BlendMode::Multiply,
@@ -192,7 +192,7 @@ fn deserialize_drawable(obj: JsonObject) -> InoxParseResult<Drawable> {
 			screen_tint: obj.get_vec3("screenTint").unwrap_or(vec3(0.0, 0.0, 0.0)),
 			opacity: obj.get_f32("opacity").unwrap_or(1.0),
 		},
-		masks: {
+		{
 			if let Ok(masks) = obj.get_list("masks") {
 				Some(Masks {
 					threshold: obj.get_f32("mask_threshold").unwrap_or(0.5),
@@ -209,7 +209,7 @@ fn deserialize_drawable(obj: JsonObject) -> InoxParseResult<Drawable> {
 				None
 			}
 		},
-	})
+	))
 }
 
 fn deserialize_mesh(obj: JsonObject) -> InoxParseResult<Mesh> {

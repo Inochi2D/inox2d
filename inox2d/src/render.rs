@@ -129,6 +129,10 @@ impl RenderCtx {
 			if let Some(deform_stack) = comps.get_mut::<DeformStack>(node.uuid) {
 				deform_stack.reset();
 			}
+
+			if let Some(drawable) = comps.get_mut::<Drawable>(node.uuid) {
+				drawable.reset();
+			}
 		}
 	}
 
