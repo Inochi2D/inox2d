@@ -110,17 +110,17 @@ impl RenderCtx {
 						);
 					}
 				};
+			}
 
-				// MeshGroup isn't drawable, but we still need to make sure it
-				// gets a deform stack
-				if comps.get::<MeshGroup>(node.uuid).is_some() {
-					if let Some(mesh) = comps.get::<Mesh>(node.uuid) {
-						// This is not actually drawable, but we need to give
-						// it the same components...
-						let vert_count = mesh.vertices.len();
+			// MeshGroup isn't drawable, but we still need to make sure it
+			// gets a deform stack
+			if comps.get::<MeshGroup>(node.uuid).is_some() {
+				if let Some(mesh) = comps.get::<Mesh>(node.uuid) {
+					// This is not actually drawable, but we need to give
+					// it the same components...
+					let vert_count = mesh.vertices.len();
 
-						comps.add(node.uuid, DeformStack::new(vert_count));
-					}
+					comps.add(node.uuid, DeformStack::new(vert_count));
 				}
 			}
 		}
