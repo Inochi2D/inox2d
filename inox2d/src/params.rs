@@ -247,43 +247,43 @@ impl Param {
 				BindingValues::TintR(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					comps.get_mut::<Drawable>(binding.node).unwrap().blending.tint.x +=
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.tint.x *=
 						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TintG(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					comps.get_mut::<Drawable>(binding.node).unwrap().blending.tint.y +=
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.tint.y *=
 						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TintB(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					comps.get_mut::<Drawable>(binding.node).unwrap().blending.tint.z +=
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.tint.z *=
 						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::ScreenTintR(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					comps.get_mut::<Drawable>(binding.node).unwrap().blending.screen_tint.x +=
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.screen_tint.x *=
 						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::ScreenTintG(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					comps.get_mut::<Drawable>(binding.node).unwrap().blending.screen_tint.y +=
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.screen_tint.y *=
 						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::ScreenTintB(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					comps.get_mut::<Drawable>(binding.node).unwrap().blending.screen_tint.z +=
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.screen_tint.z *=
 						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::Opacity(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
 
-					comps.get_mut::<Drawable>(binding.node).unwrap().blending.opacity +=
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.opacity *=
 						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 			}
