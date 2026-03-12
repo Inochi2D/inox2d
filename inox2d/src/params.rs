@@ -320,6 +320,14 @@ impl ParamCtx {
 		}
 	}
 
+	pub fn get(&self, param_name: &str) -> Result<Vec2, SetParamError> {
+		if let Some(value) = self.values.get(param_name) {
+			Ok(*value)
+		} else {
+			Err(SetParamError::NoParameterNamed(param_name.to_string()))
+		}
+	}
+
 	/// Modify components as specified by all params. Must be called ONCE per frame.
 	pub(crate) fn apply(&self, params: &HashMap<String, Param>, nodes: &InoxNodeTree, comps: &mut World) {
 		// a correct implementation should not care about the order of `.apply()`
