@@ -11,7 +11,7 @@ use crate::node::{
 	components::{DeformSource, DeformStack, Mesh, TransformStore, ZSort},
 	InoxNodeUuid,
 };
-use crate::puppet::{Puppet, World};
+use crate::puppet::{InoxNodeTree, Puppet, World};
 
 /// Parameter binding to a node. This allows to animate a node based on the value of the parameter that owns it.
 pub struct Binding {
@@ -75,7 +75,7 @@ impl Param {
 	///
 	/// End users may repeatedly apply a same parameter for multiple times in between frames,
 	/// but other facilities should be present to make sure this `apply()` is only called once per parameter.
-	pub(crate) fn apply(&self, val: Vec2, comps: &mut World) {
+	pub(crate) fn apply(&self, val: Vec2, nodes: &InoxNodeTree, comps: &mut World) {
 		let val = val.clamp(self.min, self.max);
 		let val_normed = (val - self.min) / (self.max - self.min);
 
@@ -196,12 +196,16 @@ impl Param {
 
 					// deform specified by a parameter must be direct, i.e., in the form of displacements of all vertices
 					let direct_deform = {
-						let mesh = comps.get::<Mesh>(binding.node).unwrap_or_else(|| {
-							panic!(
-								"Deform param target must have an associated Mesh. (Binding Node ID: {:?})",
+						let Some(mesh) = comps.get::<Mesh>(binding.node) else {
+							let target_name = nodes.get_node(binding.node).map(|n| n.name.as_str());
+							tracing::error!(
+								"Deform param target must have an associated Mesh. (Param: {}, Binding Node: {} ({:?}))",
+								self.name,
+								target_name.unwrap_or("<NO NAME>"),
 								binding.node.0
-							)
-						});
+							);
+							continue;
+						};
 
 						let vert_len = mesh.vertices.len();
 						let mut direct_deform: Vec<Vec2> = Vec::with_capacity(vert_len);
@@ -261,12 +265,12 @@ impl ParamCtx {
 	}
 
 	/// Modify components as specified by all params. Must be called ONCE per frame.
-	pub(crate) fn apply(&self, params: &HashMap<String, Param>, comps: &mut World) {
+	pub(crate) fn apply(&self, params: &HashMap<String, Param>, nodes: &InoxNodeTree, comps: &mut World) {
 		// a correct implementation should not care about the order of `.apply()`
 		for (param_name, val) in self.values.iter() {
 			// TODO: a correct implementation should not fail on param value (0, 0)
 			if *val != Vec2::ZERO {
-				params.get(param_name).unwrap().apply(*val, comps);
+				params.get(param_name).unwrap().apply(*val, nodes, comps);
 			}
 		}
 	}
