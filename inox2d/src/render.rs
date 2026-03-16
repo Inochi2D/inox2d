@@ -291,8 +291,7 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 			DrawableKind::Composite(ref components) => &components.drawable.masks,
 		};
 
-		let is_enabled = puppet.nodes.get_node(id).unwrap().enabled;
-		if !is_enabled && !as_mask {
+		if !as_mask && !puppet.nodes.is_node_enabled(id) {
 			// Disabled nodes don't render, but they can still be used as masks.
 			return;
 		}
@@ -335,8 +334,7 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 			return;
 		}
 
-		let is_enabled = puppet.nodes.get_node(id).unwrap().enabled;
-		if !is_enabled && !as_mask {
+		if !as_mask && !puppet.nodes.is_node_enabled(id) {
 			// Disabled nodes don't render, but they can still be used as masks.
 			return;
 		}
