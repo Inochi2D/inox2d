@@ -4,8 +4,8 @@ use inox2d::node::{InoxNodeUuid, components, drawables}; //hey wait a second tha
 use inox2d::render::{self, DrawSession, InoxRenderer};
 use inox2d::texture::decode_model_textures;
 use std::error::Error;
-use wgpu;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
+use wgpu::{self, FeaturesWGPU};
 
 mod pipeline;
 mod shader;
@@ -111,7 +111,12 @@ impl<'window> WgpuRenderer<'window> {
 				..Default::default()
 			})
 			.await?;
-		let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor::default()).await?;
+		let (device, queue) = adapter
+			.request_device(&wgpu::DeviceDescriptor {
+				required_features: wgpu::Features::ADDRESS_MODE_CLAMP_TO_BORDER | wgpu::Features::CLEAR_TEXTURE,
+				..Default::default()
+			})
+			.await?;
 
 		// Find a suitable surface configuration.
 		let surface_caps = surface.get_capabilities(&adapter);
