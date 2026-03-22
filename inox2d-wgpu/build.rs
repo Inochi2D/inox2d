@@ -517,10 +517,13 @@ fn gen_fragmentshader_trait_methods(
 	Ok(())
 }
 
-fn gen_shader_trait_methods(out: &mut String, struct_name: &str) -> Result<(), Box<dyn Error>> {
+fn gen_shader_trait_methods(out: &mut String, struct_name: &str, label: &str) -> Result<(), Box<dyn Error>> {
 	writeln!(out, "impl shader::Shader for {} {{", struct_name)?;
 	writeln!(out, "    fn bindgroup_layout(&self) -> &wgpu::BindGroupLayout {{")?;
 	writeln!(out, "        &self.bindgroup_layout")?;
+	writeln!(out, "    }}")?;
+	writeln!(out, "    fn label(&self) -> &str {{")?;
+	writeln!(out, "        \"{}\"", label)?;
 	writeln!(out, "    }}")?;
 	writeln!(out, "}}")?;
 
@@ -688,7 +691,7 @@ fn introspect_spirv(
 		writeln!(out, "}}")?;
 
 		writeln!(out)?;
-		gen_shader_trait_methods(out, &struct_name)?;
+		gen_shader_trait_methods(out, &struct_name, &format!("{}::{}", filename, entrypoint.name))?;
 
 		if entrypoint
 			.shader_stage

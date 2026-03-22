@@ -27,8 +27,9 @@ where
 		write_mask: F::TargetArray<wgpu::ColorWrites>,
 		depth_stencil: Option<wgpu::DepthStencilState>,
 	) -> Self {
+		let name = format!("Pipeline of {} + {}", vert.label(), frag.label());
 		let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-			label: Some("Pipeline"),
+			label: Some(&name),
 
 			// NOTE: This assumes vertex shaders always use set 0 and fragment shaders always use set 1.
 			bind_group_layouts: &[vert.bindgroup_layout(), frag.bindgroup_layout()],
@@ -51,7 +52,7 @@ where
 
 		Self {
 			pipeline: device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-				label: Some("Pipeline"),
+				label: Some(&name),
 				layout: Some(&layout),
 				vertex: vert.as_vertex_state(),
 				fragment: Some(fragment),

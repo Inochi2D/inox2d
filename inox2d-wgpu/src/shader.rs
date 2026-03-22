@@ -5,6 +5,8 @@ use std::hash::Hash;
 
 pub trait Shader: Clone {
 	fn bindgroup_layout(&self) -> &wgpu::BindGroupLayout;
+
+	fn label(&self) -> &str;
 }
 
 pub trait VertexShader: Shader {
