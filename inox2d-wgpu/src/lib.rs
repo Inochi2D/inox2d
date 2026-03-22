@@ -116,6 +116,10 @@ impl<'window> WgpuRenderer<'window> {
 				required_features: wgpu::Features::ADDRESS_MODE_CLAMP_TO_BORDER
 					| wgpu::Features::CLEAR_TEXTURE
 					| wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
+				required_limits: wgpu::Limits {
+					max_color_attachment_bytes_per_sample: 48,
+					..Default::default()
+				},
 				..Default::default()
 			})
 			.await?;
