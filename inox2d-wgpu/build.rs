@@ -1,8 +1,8 @@
 use shaderc;
 use spirv_reflect;
 use spirv_reflect::types::{
-	ReflectBlockVariable, ReflectDescriptorType, ReflectEntryPoint, ReflectFormat, ReflectTypeDescription,
-	ReflectTypeFlags,
+	ReflectBlockVariable, ReflectDescriptorType, ReflectEntryPoint, ReflectFormat, ReflectImageFormat,
+	ReflectTypeDescription, ReflectTypeFlags,
 };
 
 use std::borrow::Cow;
@@ -233,10 +233,65 @@ fn gen_shader_new(
 						out,
 						"                            view_dimension: wgpu::TextureViewDimension::D2,"
 					)?; //TODO: Support 1D/3D textures
-					writeln!(
-						out,
-						"                            sample_type: wgpu::TextureSampleType::Float {{ filterable: true }},"
-					)?;
+					match binding.image.image_format {
+						ReflectImageFormat::RGBA32_FLOAT |
+						ReflectImageFormat::RGBA16_FLOAT |
+						ReflectImageFormat::R32_FLOAT |
+						ReflectImageFormat::RG32_FLOAT |
+						ReflectImageFormat::RG16_FLOAT |
+						ReflectImageFormat::R11G11B10_FLOAT |
+						ReflectImageFormat::R16_FLOAT => {
+							// TODO: filtering on float textures is actually not permitted by WebGPU
+							// so we need a mode to ask the generated shader code to turn this off
+							writeln!(
+								out,
+								"                            sample_type: wgpu::TextureSampleType::Float {{ filterable: true }},"
+							)?;
+						}
+						ReflectImageFormat::RGBA8 |   //TODO: Any documentation as to what this does?
+						ReflectImageFormat::RGBA16 |  //I asked Al and he said this is UNORM, but Al
+						ReflectImageFormat::RGB10A2 | //likes to make things up a lot.
+						ReflectImageFormat::RG16 |
+						ReflectImageFormat::RG8 |
+						ReflectImageFormat::R16 |
+						ReflectImageFormat::R8 |
+						ReflectImageFormat::RGBA32_UINT |
+						ReflectImageFormat::RGBA16_UINT |
+						ReflectImageFormat::RGBA8_UINT |
+						ReflectImageFormat::R32_UINT |
+						ReflectImageFormat::RGB10A2_UINT |
+						ReflectImageFormat::RG32_UINT |
+						ReflectImageFormat::RG16_UINT |
+						ReflectImageFormat::RG8_UINT |
+						ReflectImageFormat::R16_UINT |
+						ReflectImageFormat::R8_UINT => {
+							writeln!(
+								out,
+								"                            sample_type: wgpu::TextureSampleType::Uint,"
+							)?;
+						}
+						ReflectImageFormat::Undefined |    //NOTE: To be clear, "Undefined" makes no sense.
+						ReflectImageFormat::RGBA8_SNORM |
+						ReflectImageFormat::RGBA16_SNORM |
+						ReflectImageFormat::RG16_SNORM |
+						ReflectImageFormat::RG8_SNORM |
+						ReflectImageFormat::R16_SNORM |
+						ReflectImageFormat::R8_SNORM |
+						ReflectImageFormat::RGBA32_INT |
+						ReflectImageFormat::RGBA16_INT |
+						ReflectImageFormat::RGBA8_INT |
+						ReflectImageFormat::R32_INT |
+						ReflectImageFormat::RG32_INT |
+						ReflectImageFormat::RG16_INT |
+						ReflectImageFormat::RG8_INT |
+						ReflectImageFormat::R16_INT |
+						ReflectImageFormat::R8_INT => {
+							writeln!(
+								out,
+								"                            sample_type: wgpu::TextureSampleType::Sint,"
+							)?;
+						}
+					}
 					writeln!(out, "                        }},")?;
 				}
 
