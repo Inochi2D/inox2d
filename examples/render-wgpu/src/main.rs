@@ -45,6 +45,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 	model.puppet.init_params();
 	model.puppet.init_physics();
 
+	model.puppet.begin_frame();
+	model.puppet.end_frame(0.01);
+
 	let window = Arc::new(WindowBuilder::new().build(&event_loop).expect("valid window"));
 	let mut renderer = block_on(WgpuRenderer::new(window.clone(), &model)).expect("valid renderer");
 	let mut scene_controller = ExampleSceneController::new(&Camera::default(), 0.5);
