@@ -6,7 +6,7 @@ mod world;
 use std::collections::HashMap;
 
 use crate::math::rect::Rect;
-use crate::node::drawables::TexturedMeshComponents;
+use crate::node::components::{Mesh, TransformStore};
 use crate::node::{InoxNode, InoxNodeUuid};
 use crate::params::{Param, ParamCtx};
 use crate::physics::{PhysicsCtx, PuppetPhysics};
@@ -175,11 +175,11 @@ impl Puppet {
 	pub fn bounds(&self) -> Option<Rect> {
 		let mut out = None;
 		for node in self.nodes.iter() {
-			if let Some(tmc) = self.node_comps.get::<TexturedMeshComponents>(node.uuid) {
-				let mvp = tmc.transform;
+			if let (Some(transform), Some(mesh)) = (self.node_comps.get::<TransformStore>(node.uuid), self.node_comps.get::<Mesh>(node.uuid)) {
+				let mvp = transform.absolute;
 
-				for index in &tmc.mesh.indices {
-					if let Some(vert) = tmc.mesh.vertices.get(*index as usize) {
+				for index in &mesh.indices {
+					if let Some(vert) = mesh.vertices.get(*index as usize) {
 						let vert = mvp.mul_vec4(glam::Vec4::new(vert.x, vert.y, 0.0, 0.0)).xy();
 						out = match out {
 							None => Some(Rect::from_point(vert)),
