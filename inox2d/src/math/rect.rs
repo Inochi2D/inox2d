@@ -31,4 +31,20 @@ impl Rect {
 
 		child
 	}
+
+	pub fn width(&self) -> f32 {
+		self.bottom_right.x - self.top_left.x
+	}
+
+	pub fn height(&self) -> f32 {
+		self.bottom_right.y - self.top_left.y
+	}
+
+	pub fn top_left_point(&self) -> Vec2 {
+		self.top_left
+	}
+
+	pub fn bottom_right_point(&self) -> Vec2 {
+		self.bottom_right
+	}
 }
