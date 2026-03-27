@@ -19,13 +19,13 @@ impl Rect {
 
 		if point.x < child.top_left.x {
 			child.top_left.x = point.x;
-		} else if child.bottom_right.x > point.x {
+		} else if point.x > child.bottom_right.x {
 			child.bottom_right.x = point.x;
 		}
 
 		if point.y < child.top_left.y {
 			child.top_left.y = point.y;
-		} else if child.bottom_right.y > point.y {
+		} else if point.y > child.bottom_right.y {
 			child.bottom_right.y = point.y;
 		}
 
