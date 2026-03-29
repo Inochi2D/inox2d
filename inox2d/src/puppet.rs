@@ -175,12 +175,15 @@ impl Puppet {
 	pub fn bounds(&self) -> Option<Rect> {
 		let mut out = None;
 		for node in self.nodes.iter() {
-			if let (Some(transform), Some(mesh)) = (self.node_comps.get::<TransformStore>(node.uuid), self.node_comps.get::<Mesh>(node.uuid)) {
+			if let (Some(transform), Some(mesh)) = (
+				self.node_comps.get::<TransformStore>(node.uuid),
+				self.node_comps.get::<Mesh>(node.uuid),
+			) {
 				let mvp = transform.absolute;
 
 				for index in &mesh.indices {
 					if let Some(vert) = mesh.vertices.get(*index as usize) {
-						let vert = mvp.mul_vec4(glam::Vec4::new(vert.x, vert.y, 0.0, 0.0)).xy();
+						let vert = mvp.mul_vec4(glam::Vec4::new(vert.x, vert.y, 0.0, 1.0)).xy();
 						out = match out {
 							None => Some(Rect::from_point(vert)),
 							Some(rect) => Some(rect.with_union_point(vert)),
