@@ -206,9 +206,6 @@ impl RenderCtx {
 						}
 					}
 				}
-
-				//TODO: Meshgroups aren't drawable, but we still need to
-				//deform them, and apply their deforms to child nodes?
 			}
 		}
 
