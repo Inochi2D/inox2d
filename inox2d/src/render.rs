@@ -204,6 +204,15 @@ impl RenderCtx {
 			.zip(root_drawable_uuid_zsort_vec.iter())
 			.for_each(|(old, new)| *old = new.0);
 	}
+
+	/// Retrieve the list of root drawables for this render context.
+	///
+	/// A "root drawable" consists of any node that directly contributes to the
+	/// render output. Masks and composite children, notably, are not
+	/// considered root drawable.
+	pub fn root_drawables_zsorted(&self) -> &[InoxNodeUuid] {
+		self.root_drawables_zsorted.as_slice()
+	}
 }
 
 /// Same as the reference Inochi2D implementation, Inox2D also aims for a "bring your own rendering backend" design.
