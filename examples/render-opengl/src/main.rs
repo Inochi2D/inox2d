@@ -135,9 +135,7 @@ impl App for Inox2dOpenglExampleApp {
 		// Just that physics simulation will run for the provided time, which may be big and causes a startup delay.
 		puppet.end_frame(scene_ctrl.dt());
 
-		renderer.on_begin_draw(puppet);
-		renderer.draw(puppet);
-		renderer.on_end_draw(puppet);
+		renderer.draw(puppet).expect("successful draw");
 	}
 
 	fn handle_window_event(&mut self, event: WindowEvent, elwt: &EventLoopWindowTarget<()>) {

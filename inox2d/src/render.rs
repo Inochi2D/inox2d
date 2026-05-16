@@ -2,6 +2,7 @@ mod deform_stack;
 mod vertex_buffers;
 
 use std::collections::HashSet;
+use std::error::Error;
 use std::mem::swap;
 
 use crate::node::{
@@ -203,6 +204,15 @@ impl RenderCtx {
 			.zip(root_drawable_uuid_zsort_vec.iter())
 			.for_each(|(old, new)| *old = new.0);
 	}
+
+	/// Retrieve the list of root drawables for this render context.
+	///
+	/// A "root drawable" consists of any node that directly contributes to the
+	/// render output. Masks and composite children, notably, are not
+	/// considered root drawable.
+	pub fn root_drawables_zsorted(&self) -> &[InoxNodeUuid] {
+		self.root_drawables_zsorted.as_slice()
+	}
 }
 
 /// Same as the reference Inochi2D implementation, Inox2D also aims for a "bring your own rendering backend" design.
@@ -215,25 +225,37 @@ impl RenderCtx {
 ///
 /// Either way, the point is Inox2D will implement a `draw()` method for any `impl InoxRenderer`, dispatching calls based on puppet structure according to Inochi2D standard.
 pub trait InoxRenderer {
+	type Draw<'a>: DrawSession<'a>
+	where
+		Self: 'a;
+
+	/// Begin rendering a whole puppet.
+	///
+	/// Calls to `on_begin_draw()` and `on_end_draw()` must be
+	/// balanced. Failure to balance these calls will result in a panic.
+	fn on_begin_draw<'a>(&'a mut self, puppet: &Puppet) -> Result<Self::Draw<'a>, Box<dyn Error>>;
+}
+
+pub trait DrawSession<'a> {
 	/// Begin masking.
 	///
 	/// Ref impl: Clear and start writing to the stencil buffer, lock the color buffer.
-	fn on_begin_masks(&self, masks: &Masks);
+	fn on_begin_masks(&mut self, masks: &Masks);
 	/// Get prepared for rendering a singular Mask.
-	fn on_begin_mask(&self, mask: &Mask);
+	fn on_begin_mask(&mut self, mask: &Mask);
 	/// Get prepared for rendering masked content.
 	///
 	/// Ref impl: Read only from the stencil buffer, unlock the color buffer.
-	fn on_begin_masked_content(&self);
+	fn on_begin_masked_content(&mut self);
 	/// End masking.
 	///
 	/// Ref impl: Disable the stencil buffer.
-	fn on_end_mask(&self);
+	fn on_end_mask(&mut self);
 
 	/// Draw TexturedMesh content.
 	// TODO: TexturedMesh without any texture (usually for mesh masks)?
 	fn draw_textured_mesh_content(
-		&self,
+		&mut self,
 		as_mask: bool,
 		components: &TexturedMeshComponents,
 		render_ctx: &TexturedMeshRenderCtx,
@@ -244,7 +266,7 @@ pub trait InoxRenderer {
 	///
 	/// Ref impl: Prepare composite buffers.
 	fn begin_composite_content(
-		&self,
+		&mut self,
 		as_mask: bool,
 		components: &CompositeComponents,
 		render_ctx: &CompositeRenderCtx,
@@ -254,30 +276,43 @@ pub trait InoxRenderer {
 	///
 	/// Ref impl: Transfer content from composite buffers to normal buffers.
 	fn finish_composite_content(
-		&self,
+		&mut self,
 		as_mask: bool,
 		components: &CompositeComponents,
 		render_ctx: &CompositeRenderCtx,
 		id: InoxNodeUuid,
 	);
+
+	/// Finish rendering, flush any pending operations, and present the puppet
+	/// to the given display.
+	fn on_end_draw(self, puppet: &Puppet);
+}
+
+pub trait DrawSessionExt {
+	/// Draw a Drawable, which is potentially masked.
+	fn draw_drawable(&mut self, puppet: &Puppet, as_mask: bool, comps: &World, id: InoxNodeUuid);
+
+	/// Draw one composite. `components` must be referencing `comps`.
+	fn draw_composite(
+		&mut self,
+		puppet: &Puppet,
+		as_mask: bool,
+		comps: &World,
+		components: &CompositeComponents,
+		id: InoxNodeUuid,
+	);
 }
 
 pub trait InoxRendererExt {
-	/// Draw a Drawable, which is potentially masked.
-	fn draw_drawable(&self, as_mask: bool, comps: &World, id: InoxNodeUuid);
-
-	/// Draw one composite. `components` must be referencing `comps`.
-	fn draw_composite(&self, as_mask: bool, comps: &World, components: &CompositeComponents, id: InoxNodeUuid);
-
 	/// Iterate over top-level drawables (excluding masks) in zsort order,
 	/// and make draw calls correspondingly.
 	///
 	/// This effectively draws the complete puppet.
-	fn draw(&self, puppet: &Puppet);
+	fn draw(&mut self, puppet: &Puppet) -> Result<(), Box<dyn Error>>;
 }
 
-impl<T: InoxRenderer> InoxRendererExt for T {
-	fn draw_drawable(&self, as_mask: bool, comps: &World, id: InoxNodeUuid) {
+impl<'a, T: DrawSession<'a>> DrawSessionExt for T {
+	fn draw_drawable(&mut self, puppet: &Puppet, as_mask: bool, comps: &World, id: InoxNodeUuid) {
 		let drawable_kind = DrawableKind::new(id, comps, false).expect("Node must be a Drawable.");
 		let masks = match drawable_kind {
 			DrawableKind::TexturedMesh(ref components) => &components.drawable.masks,
@@ -291,7 +326,7 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 			for mask in &masks.masks {
 				self.on_begin_mask(mask);
 
-				self.draw_drawable(true, comps, mask.source);
+				self.draw_drawable(puppet, true, comps, mask.source);
 			}
 			self.on_begin_masked_content();
 		}
@@ -300,7 +335,7 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 			DrawableKind::TexturedMesh(ref components) => {
 				self.draw_textured_mesh_content(as_mask, components, comps.get(id).unwrap(), id)
 			}
-			DrawableKind::Composite(ref components) => self.draw_composite(as_mask, comps, components, id),
+			DrawableKind::Composite(ref components) => self.draw_composite(puppet, as_mask, comps, components, id),
 		}
 
 		if has_masks {
@@ -308,10 +343,23 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 		}
 	}
 
-	fn draw_composite(&self, as_mask: bool, comps: &World, components: &CompositeComponents, id: InoxNodeUuid) {
+	fn draw_composite(
+		&mut self,
+		puppet: &Puppet,
+		as_mask: bool,
+		comps: &World,
+		components: &CompositeComponents,
+		id: InoxNodeUuid,
+	) {
 		let render_ctx = comps.get::<CompositeRenderCtx>(id).unwrap();
 		if render_ctx.zsorted_children_list.is_empty() {
 			// Optimization: Nothing to be drawn, skip context switching
+			return;
+		}
+
+		let is_enabled = puppet.nodes.get_node(id).unwrap().enabled;
+		if !is_enabled && !as_mask {
+			// Disabled nodes don't render, but they can still be used as masks.
 			return;
 		}
 
@@ -330,25 +378,33 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 
 		self.finish_composite_content(as_mask, components, render_ctx, id);
 	}
+}
 
+impl<T: InoxRenderer> InoxRendererExt for T {
 	/// Dispatches draw calls for all nodes of `puppet`
 	/// - with provided renderer implementation,
 	/// - in Inochi2D standard defined order.
 	///
 	/// This does not guarantee the display of a puppet on screen due to these possible reasons:
 	/// - Only provided `InoxRenderer` method implementations are called.
-	/// 
+	///
 	/// For example, maybe the caller still need to transfer content from a texture buffer to the screen surface buffer.
 	/// - The provided `InoxRender` implementation is wrong.
 	/// - `puppet` here does not belong to the `model` this `renderer` is initialized with. This will likely result in panics for non-existent node uuids.
-	fn draw(&self, puppet: &Puppet) {
+	fn draw(&mut self, puppet: &Puppet) -> Result<(), Box<dyn Error>> {
+		let mut draw = self.on_begin_draw(puppet)?;
+
 		for uuid in &puppet
 			.render_ctx
 			.as_ref()
 			.expect("RenderCtx of puppet must be initialized before calling draw().")
 			.root_drawables_zsorted
 		{
-			self.draw_drawable(false, &puppet.node_comps, *uuid);
+			draw.draw_drawable(puppet, false, &puppet.node_comps, *uuid);
 		}
+
+		draw.on_end_draw(puppet);
+
+		Ok(())
 	}
 }

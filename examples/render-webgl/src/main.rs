@@ -137,9 +137,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 				// Just that physics simulation will run for the provided time, which may be big and causes a startup delay.
 				puppet.end_frame(scene_ctrl.borrow().dt());
 
-				renderer.borrow().on_begin_draw(&puppet);
-				renderer.borrow().draw(&puppet);
-				renderer.borrow().on_end_draw(&puppet);
+				renderer.borrow_mut().draw(&puppet);
 			}
 
 			request_animation_frame(anim_loop_f.borrow().as_ref().unwrap());
