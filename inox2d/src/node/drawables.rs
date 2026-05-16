@@ -11,7 +11,7 @@ use crate::puppet::World;
 /// Future spec extensions go here.
 /// For user-defined custom nodes that can be rendered, as long as a subset of their components matches one of these variants,
 /// they will be picked up and enter the regular rendering pipeline.
-pub(crate) enum DrawableKind<'comps> {
+pub enum DrawableKind<'comps> {
 	TexturedMesh(TexturedMeshComponents<'comps>),
 	Composite(CompositeComponents<'comps>),
 }
