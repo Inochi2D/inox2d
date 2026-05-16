@@ -167,4 +167,20 @@ impl Puppet {
 			render_ctx.update(&self.nodes, &mut self.node_comps);
 		}
 	}
+
+	pub fn physics(&self) -> &PuppetPhysics {
+		&self.physics
+	}
+
+	pub fn nodes(&self) -> &InoxNodeTree {
+		&self.nodes
+	}
+
+	pub fn world(&self) -> &World {
+		&self.node_comps
+	}
+
+	pub fn params(&self) -> &HashMap<String, Param> {
+		&self.params
+	}
 }
