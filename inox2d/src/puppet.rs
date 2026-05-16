@@ -176,6 +176,10 @@ impl Puppet {
 		&self.nodes
 	}
 
+	pub fn world(&self) -> &World {
+		&self.node_comps
+	}
+
 	pub fn params(&self) -> &HashMap<String, Param> {
 		&self.params
 	}
