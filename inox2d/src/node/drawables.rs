@@ -38,7 +38,7 @@ impl<'comps> DrawableKind<'comps> {
 	/// `None` if node not renderable.
 	///
 	/// If `check`, will send a warning to `tracing` if component combination non-standard for a supposed-to-be Drawable node.
-	pub(crate) fn new(id: InoxNodeUuid, comps: &'comps World, check: bool) -> Option<Self> {
+	pub fn new(id: InoxNodeUuid, comps: &'comps World, check: bool) -> Option<Self> {
 		let drawable = match comps.get::<Drawable>(id) {
 			Some(drawable) => drawable,
 			None => return None,
