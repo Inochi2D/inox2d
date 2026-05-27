@@ -1,6 +1,12 @@
 use std::any::TypeId;
-use std::collections::HashMap;
+use std::cell::UnsafeCell;
+use std::cmp::max;
+use std::collections::{HashMap, HashSet};
+use std::hash::RandomState;
 use std::mem::{size_of, transmute, ManuallyDrop, MaybeUninit};
+
+use rayon::current_num_threads;
+use rayon::prelude::*;
 
 use super::InoxNodeUuid;
 
@@ -27,11 +33,11 @@ impl Drop for AnyVec {
 impl AnyVec {
 	// Self is inherently Send + Sync as a pack of bytes regardless of inner type, which is bad
 	pub fn new<T: 'static + Send + Sync>() -> Self {
-		let vec = ManuallyDrop::new(Vec::<T>::new());
+		let vec = ManuallyDrop::new(Vec::<UnsafeCell<T>>::new());
 		Self {
 			// SAFETY: ManuallyDrop guaranteed to have same bit layout as inner, and inner is a proper Vec
 			// provenance considerations present, see comment for VecBytes
-			vec_bytes: unsafe { transmute::<ManuallyDrop<std::vec::Vec<T>>, VecBytes>(vec) },
+			vec_bytes: unsafe { transmute::<ManuallyDrop<std::vec::Vec<UnsafeCell<T>>>, VecBytes>(vec) },
 			// SAFETY: only to be called once at end of lifetime, and vec_bytes contain a valid Vec throughout self lifetime
 			drop: |vec_bytes| unsafe {
 				let vec: Vec<T> = transmute(*vec_bytes);
@@ -42,12 +48,12 @@ impl AnyVec {
 	}
 
 	/// T MUST be the same as in new::<T>() for a same instance
-	pub unsafe fn downcast_unchecked<T>(&self) -> &Vec<T> {
+	pub unsafe fn downcast_unchecked<T>(&self) -> &Vec<UnsafeCell<T>> {
 		transmute(&self.vec_bytes)
 	}
 
 	/// T MUST be the same as in new::<T>() for a same instance
-	pub unsafe fn downcast_mut_unchecked<T>(&mut self) -> &mut Vec<T> {
+	pub unsafe fn downcast_mut_unchecked<T>(&mut self) -> &mut Vec<UnsafeCell<T>> {
 		transmute(&mut self.vec_bytes)
 	}
 }
@@ -80,7 +86,7 @@ impl World {
 
 		debug_assert!(!pair.1.contains_key(&node),);
 		pair.1.insert(node, column.len());
-		column.push(v);
+		column.push(UnsafeCell::new(v));
 	}
 
 	pub fn get<T: Component>(&self, node: InoxNodeUuid) -> Option<&T> {
@@ -97,7 +103,7 @@ impl World {
 		};
 		debug_assert!(index < column.len());
 		// SAFETY: what has been inserted into pair.1 should be a valid index
-		Some(unsafe { column.get_unchecked(index) })
+		Some(unsafe { &*column.get_unchecked(index).get() })
 	}
 
 	pub fn get_mut<T: Component>(&mut self, node: InoxNodeUuid) -> Option<&mut T> {
@@ -114,7 +120,31 @@ impl World {
 		};
 		debug_assert!(index < column.len());
 		// SAFETY: what has been inserted into pair.1 should be a valid index
-		Some(unsafe { column.get_unchecked_mut(index) })
+		// SAFETY: since we own a &mut self, no other &mut references can exist
+		// to any other world cell
+		Some(unsafe { &mut *column.get_unchecked_mut(index).get() })
+	}
+
+	/// # Safety
+	///
+	/// All safety requirements of `UnsafeCell` apply. Caller must ensure no
+	/// two aliasing mutable references to the same (node, T) pair exist at the
+	/// same time.
+	pub unsafe fn get_interior_mut<T: Component>(&self, node: InoxNodeUuid) -> Option<&mut T> {
+		let pair = match self.columns.get(&TypeId::of::<T>()) {
+			Some(c) => c,
+			None => return None,
+		};
+		// SAFETY: AnyVec in pair must be of type T, enforced by hashing
+		let column = unsafe { pair.0.downcast_unchecked() };
+
+		let index = match pair.1.get(&node) {
+			Some(i) => *i,
+			None => return None,
+		};
+		debug_assert!(index < column.len());
+		// SAFETY: what has been inserted into pair.1 should be a valid index
+		Some(unsafe { &mut *column.get_unchecked(index).get() })
 	}
 
 	/// # Safety
@@ -124,7 +154,7 @@ impl World {
 		let pair = self.columns.get(&TypeId::of::<T>()).unwrap_unchecked();
 		let index = *pair.1.get(&node).unwrap_unchecked();
 
-		pair.0.downcast_unchecked().get_unchecked(index)
+		&*pair.0.downcast_unchecked().get_unchecked(index).get()
 	}
 
 	/// # Safety
@@ -134,7 +164,27 @@ impl World {
 		let pair = self.columns.get_mut(&TypeId::of::<T>()).unwrap_unchecked();
 		let index = *pair.1.get(&node).unwrap_unchecked();
 
-		pair.0.downcast_mut_unchecked().get_unchecked_mut(index)
+		&mut *pair.0.downcast_mut_unchecked().get_unchecked_mut(index).get()
+	}
+
+	pub fn par_iter<F>(&mut self, nodes: &[InoxNodeUuid], your_fn: F)
+	where
+		F: for<'a> Fn(Partition<'a>) + Sync,
+	{
+		// SAFETY: We must filter duplicates from `nodes` to ensure disjoint
+		// partitions.
+		//
+		// NOTE: For some reason type inference fails and we have to manually
+		// tell Rust to use the standard state type.
+		let nodes_set: HashSet<InoxNodeUuid, RandomState> = HashSet::from_iter(nodes.iter().map(|n| *n));
+		let nodes_count = nodes_set.len();
+		let batch_size = max(nodes_count / current_num_threads(), 1);
+
+		let nodes_clean: Vec<_> = nodes_set.into_iter().collect();
+
+		nodes_clean
+			.par_chunks(batch_size)
+			.for_each(|nodes| your_fn(unsafe { Partition::new_unchecked(nodes, &self) }))
 	}
 }
 
@@ -144,10 +194,58 @@ impl Default for World {
 	}
 }
 
+/// A subset of the World that is partitioned by node UUID.
+///
+/// Partitions will allow access to the specific UUIDs only, with all other
+/// access to nodes failing. This is intended as a way to partition
+/// multithreaded writes to the ECS world by node.
+pub struct Partition<'a> {
+	nodes: &'a [InoxNodeUuid],
+	data: &'a World,
+}
+
+impl<'a> Partition<'a> {
+	/// Create a new world partition.
+	///
+	/// SAFETY: Callers must ensure that all live partitions of the given World
+	/// reference disjoint node IDs before handing them to safe code.
+	pub unsafe fn new_unchecked(nodes: &'a [InoxNodeUuid], data: &'a World) -> Self {
+		Self { nodes, data }
+	}
+
+	pub fn get<T: Component>(&self, node: InoxNodeUuid) -> Option<&T> {
+		// Note: the node scan is still necessary as some other partition may
+		// be handing out &mut Ts
+		if self.contains(node) {
+			self.data.get(node)
+		} else {
+			None
+		}
+	}
+
+	pub fn get_mut<T: Component>(&self, node: InoxNodeUuid) -> Option<&mut T> {
+		if self.contains(node) {
+			unsafe { self.data.get_interior_mut(node) }
+		} else {
+			None
+		}
+	}
+
+	/// Retrieve the list of nodes present in the partition.
+	pub fn nodes(&self) -> impl Iterator<Item = InoxNodeUuid> + use<'_> {
+		self.nodes.iter().copied()
+	}
+
+	pub fn contains(&self, node: InoxNodeUuid) -> bool {
+		self.nodes.iter().find(|n| **n == node).is_some()
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	mod any_vec {
 		use super::super::AnyVec;
+		use std::cell::UnsafeCell;
 
 		#[test]
 		fn new_and_drop_empty() {
@@ -180,16 +278,22 @@ mod tests {
 			let mut any_vec = AnyVec::new::<Data>();
 
 			unsafe {
-				any_vec.downcast_mut_unchecked().push(Data { int: 0, c: b'A' });
-				any_vec.downcast_mut_unchecked().push(Data { int: 1, c: b'B' });
-				any_vec.downcast_mut_unchecked().push(Data { int: 2, c: b'C' });
+				any_vec
+					.downcast_mut_unchecked()
+					.push(UnsafeCell::new(Data { int: 0, c: b'A' }));
+				any_vec
+					.downcast_mut_unchecked()
+					.push(UnsafeCell::new(Data { int: 1, c: b'B' }));
+				any_vec
+					.downcast_mut_unchecked()
+					.push(UnsafeCell::new(Data { int: 2, c: b'C' }));
 
-				assert_eq!(any_vec.downcast_unchecked::<Data>()[0], Data { int: 0, c: b'A' });
-				assert_eq!(any_vec.downcast_unchecked::<Data>()[1], Data { int: 1, c: b'B' });
+				assert_eq!(*any_vec.downcast_unchecked::<Data>()[0].get(), Data { int: 0, c: b'A' });
+				assert_eq!(*any_vec.downcast_unchecked::<Data>()[1].get(), Data { int: 1, c: b'B' });
 
-				any_vec.downcast_mut_unchecked::<Data>()[2].c = b'D';
+				(*any_vec.downcast_mut_unchecked::<Data>()[2].get()).c = b'D';
 
-				assert_eq!(any_vec.downcast_unchecked::<Data>()[2], Data { int: 2, c: b'D' });
+				assert_eq!(*any_vec.downcast_unchecked::<Data>()[2].get(), Data { int: 2, c: b'D' });
 			}
 		}
 	}
