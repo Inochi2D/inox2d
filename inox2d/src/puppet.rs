@@ -13,7 +13,7 @@ use crate::render::RenderCtx;
 use meta::PuppetMeta;
 use transforms::TransformCtx;
 pub use tree::InoxNodeTree;
-pub use world::World;
+pub use world::{Partition, World};
 
 /// Inochi2D puppet.
 pub struct Puppet {

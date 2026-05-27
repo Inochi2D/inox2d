@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use glam::{vec2, Vec2};
 
@@ -11,7 +11,7 @@ use crate::node::{
 	components::{DeformSource, DeformStack, Drawable, Mesh, TransformStore, ZSort},
 	InoxNodeUuid,
 };
-use crate::puppet::{InoxNodeTree, Puppet, World};
+use crate::puppet::{InoxNodeTree, Partition, Puppet, World};
 
 /// Parameter binding to a node. This allows to animate a node based on the value of the parameter that owns it.
 pub struct Binding {
@@ -76,12 +76,17 @@ pub struct Param {
 }
 
 impl Param {
+	/// Iterate all bindings
+	pub(crate) fn iter_bindings(&self) -> impl Iterator<Item = &Binding> {
+		self.bindings.iter()
+	}
+
 	/// Internal function that modifies puppet components according to one param set.
 	/// Must be only called ONCE per frame to ensure correct behavior.
 	///
 	/// End users may repeatedly apply a same parameter for multiple times in between frames,
 	/// but other facilities should be present to make sure this `apply()` is only called once per parameter.
-	pub(crate) fn apply(&self, val: Vec2, nodes: &InoxNodeTree, comps: &mut World) {
+	pub(crate) fn apply(&self, val: Vec2, nodes: &InoxNodeTree, comps: &Partition<'_>) {
 		let val = val.clamp(self.min, self.max);
 		let val_normed = (val - self.min) / (self.max - self.min);
 
@@ -114,6 +119,10 @@ impl Param {
 
 		// Apply offset on each binding
 		for binding in &self.bindings {
+			if !comps.contains(binding.node) {
+				continue;
+			}
+
 			let range_in = InterpRange::new(
 				vec2(self.axis_points.x[x_mindex], self.axis_points.y[y_mindex]),
 				vec2(self.axis_points.x[x_maxdex], self.axis_points.y[y_maxdex]),
@@ -330,10 +339,20 @@ impl ParamCtx {
 
 	/// Modify components as specified by all params. Must be called ONCE per frame.
 	pub(crate) fn apply(&self, params: &HashMap<String, Param>, nodes: &InoxNodeTree, comps: &mut World) {
-		// a correct implementation should not care about the order of `.apply()`
-		for (param_name, val) in self.values.iter() {
-			params.get(param_name).unwrap().apply(*val, nodes, comps);
+		let mut bindings_bucket = HashSet::new();
+
+		for (param_name, _val) in self.values.iter() {
+			for node in params.get(param_name).unwrap().iter_bindings().map(|b| b.node) {
+				bindings_bucket.insert(node);
+			}
 		}
+
+		let accessed_nodes: Vec<_> = bindings_bucket.iter().copied().collect();
+		comps.par_iter(accessed_nodes.as_slice(), |comps| {
+			for (param_name, val) in self.values.iter() {
+				params.get(param_name).unwrap().apply(*val, nodes, &comps);
+			}
+		})
 	}
 }
 
