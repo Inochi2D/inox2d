@@ -86,7 +86,7 @@ impl Param {
 	///
 	/// End users may repeatedly apply a same parameter for multiple times in between frames,
 	/// but other facilities should be present to make sure this `apply()` is only called once per parameter.
-	pub(crate) fn apply(&self, val: Vec2, nodes: &InoxNodeTree, comps: &Partition<'_>) {
+	pub(crate) fn apply(&self, val: Vec2, nodes: &InoxNodeTree, comps: &mut Partition<'_>) {
 		let val = val.clamp(self.min, self.max);
 		let val_normed = (val - self.min) / (self.max - self.min);
 
@@ -348,9 +348,9 @@ impl ParamCtx {
 		}
 
 		let accessed_nodes: Vec<_> = bindings_bucket.iter().copied().collect();
-		comps.par_iter(accessed_nodes.as_slice(), |comps| {
+		comps.par_iter(accessed_nodes.as_slice(), |mut comps| {
 			for (param_name, val) in self.values.iter() {
-				params.get(param_name).unwrap().apply(*val, nodes, &comps);
+				params.get(param_name).unwrap().apply(*val, nodes, &mut comps);
 			}
 		})
 	}

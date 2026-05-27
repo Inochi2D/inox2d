@@ -1,4 +1,5 @@
 use std::any::TypeId;
+use std::borrow::Cow;
 use std::cell::UnsafeCell;
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
@@ -184,7 +185,15 @@ impl World {
 
 		nodes_clean
 			.par_chunks(batch_size)
-			.for_each(|nodes| your_fn(unsafe { Partition::new_unchecked(nodes, &self) }))
+			.for_each(|nodes| your_fn(unsafe { Partition::new_unchecked(Some(nodes.into()), None, &self) }))
+	}
+
+	pub fn as_partition(&mut self) -> Partition<'_> {
+		Partition {
+			nodes: None,
+			components: None,
+			data: self,
+		}
 	}
 }
 
@@ -194,13 +203,21 @@ impl Default for World {
 	}
 }
 
-/// A subset of the World that is partitioned by node UUID.
+/// A subset of the World that is partitioned by node UUID or component type.
 ///
-/// Partitions will allow access to the specific UUIDs only, with all other
-/// access to nodes failing. This is intended as a way to partition
-/// multithreaded writes to the ECS world by node.
+/// Partitions will allow access to the specific UUIDs or components only, with
+/// all other access to nodes failing. This is intended as a way to partition
+/// multithreaded writes to the ECS world.
+///
+/// SAFETY CONSIDERATIONS:
+///
+/// Partitions must only be created in functions that have mutable access to
+/// the underlying World, in such a way that the Partition's lifetime is bound
+/// to that mutable borrow. While we do not store a mutable pointer, we do
+/// mutate the underlying world.
 pub struct Partition<'a> {
-	nodes: &'a [InoxNodeUuid],
+	nodes: Option<Cow<'a, [InoxNodeUuid]>>,
+	components: Option<Cow<'a, [TypeId]>>,
 	data: &'a World,
 }
 
@@ -209,8 +226,16 @@ impl<'a> Partition<'a> {
 	///
 	/// SAFETY: Callers must ensure that all live partitions of the given World
 	/// reference disjoint node IDs before handing them to safe code.
-	pub unsafe fn new_unchecked(nodes: &'a [InoxNodeUuid], data: &'a World) -> Self {
-		Self { nodes, data }
+	pub unsafe fn new_unchecked(
+		nodes: Option<Cow<'a, [InoxNodeUuid]>>,
+		components: Option<Cow<'a, [TypeId]>>,
+		data: &'a World,
+	) -> Self {
+		Self {
+			nodes,
+			components,
+			data,
+		}
 	}
 
 	pub fn get<T: Component>(&self, node: InoxNodeUuid) -> Option<&T> {
@@ -223,7 +248,7 @@ impl<'a> Partition<'a> {
 		}
 	}
 
-	pub fn get_mut<T: Component>(&self, node: InoxNodeUuid) -> Option<&mut T> {
+	pub fn get_mut<T: Component>(&mut self, node: InoxNodeUuid) -> Option<&mut T> {
 		if self.contains(node) {
 			unsafe { self.data.get_interior_mut(node) }
 		} else {
@@ -232,12 +257,88 @@ impl<'a> Partition<'a> {
 	}
 
 	/// Retrieve the list of nodes present in the partition.
+	///
+	/// If the world is not partitioned by node, then this yields an empty
+	/// array. To check if a particular node is part of the partition, use
+	/// `.contains()`.
 	pub fn nodes(&self) -> impl Iterator<Item = InoxNodeUuid> + use<'_> {
-		self.nodes.iter().copied()
+		self.nodes.iter().flat_map(|n| n.iter()).copied()
 	}
 
+	/// Determine if a particular node is contained in the partition.
 	pub fn contains(&self, node: InoxNodeUuid) -> bool {
-		self.nodes.iter().find(|n| **n == node).is_some()
+		self.nodes.is_none() || self.nodes().find(|n| *n == node).is_some()
+	}
+
+	/// Determine if a particular component is contained in the partition.
+	pub fn contains_component<C: Component>(&self) -> bool {
+		self.components.is_none()
+			|| self
+				.components
+				.as_ref()
+				.unwrap()
+				.iter()
+				.find(|c| **c == TypeId::of::<C>())
+				.is_some()
+	}
+
+	/// Determine if a particular component's TypeId is contained in the
+	/// partition.
+	pub fn contains_type_id(&self, type_id: TypeId) -> bool {
+		if let Some(components) = &self.components {
+			components.iter().find(|c| **c == type_id).is_some()
+		} else {
+			true
+		}
+	}
+
+	/// Split the given partition by a particular component.
+	///
+	/// The first partition returned will be limited to the given component.
+	/// The second will contain all other components in this partition.
+	///
+	/// In the event that the requested component is not present, the first
+	/// partition will be empty (no components), and the second partition will
+	/// contain the same components as this partition.
+	pub fn split_by_component<C: Component>(self) -> (Partition<'a>, Partition<'a>) {
+		let c = TypeId::of::<C>();
+		let has_c = if let Some(components_partition) = self.components.as_ref() {
+			components_partition.iter().find(|other_c| **other_c == c).is_some()
+		} else {
+			//None signals no restriction
+			true
+		};
+
+		let c_list = if has_c { Cow::Owned(vec![c]) } else { Cow::Owned(vec![]) };
+
+		let not_c = if has_c {
+			if let Some(components_partition) = self.components.as_ref() {
+				Cow::Owned(
+					components_partition
+						.iter()
+						.filter(|other_c| **other_c != c)
+						.copied()
+						.collect(),
+				)
+			} else {
+				Cow::Owned(self.data.columns.keys().copied().collect())
+			}
+		} else {
+			self.components.unwrap()
+		};
+
+		(
+			Partition {
+				nodes: self.nodes.clone(),
+				components: Some(c_list),
+				data: self.data,
+			},
+			Partition {
+				nodes: self.nodes,
+				components: Some(not_c),
+				data: self.data,
+			},
+		)
 	}
 }
 
@@ -358,6 +459,89 @@ mod tests {
 
 				assert_eq!(world.get_unchecked::<CompC>(NODE_2).f, 8.93);
 			}
+		}
+	}
+
+	mod partition {
+		use crate::node::InoxNodeUuid;
+
+		use super::super::World;
+		use std::any::TypeId;
+
+		struct ComponentA {}
+
+		struct ComponentB {}
+
+		struct ComponentC {}
+
+		#[test]
+		fn disjoint_component_partitions() {
+			let mut world = World::new();
+
+			let partition = world.as_partition();
+
+			assert_eq!(partition.nodes.as_ref(), None);
+			assert_eq!(partition.components.as_deref(), None);
+
+			let (partition_a, partition_b) = world.as_partition().split_by_component::<ComponentA>();
+
+			assert_eq!(partition_a.nodes.as_ref(), None);
+			assert_eq!(partition_b.nodes.as_ref(), None);
+			assert_eq!(
+				partition_a.components.as_deref(),
+				Some([TypeId::of::<ComponentA>()].as_slice())
+			);
+			assert_eq!(partition_b.components.as_deref(), Some([].as_slice()));
+
+			world.add(InoxNodeUuid(0), ComponentB {});
+			world.add(InoxNodeUuid(0), ComponentC {});
+
+			let (partition_a, partition_b) = world.as_partition().split_by_component::<ComponentA>();
+
+			assert_eq!(partition_a.nodes.as_ref(), None);
+			assert_eq!(partition_b.nodes.as_ref(), None);
+			assert_eq!(
+				partition_a.components.as_deref(),
+				Some([TypeId::of::<ComponentA>()].as_slice())
+			);
+			assert!(partition_b
+				.components
+				.as_deref()
+				.unwrap()
+				.contains(&TypeId::of::<ComponentB>()));
+			assert!(partition_b
+				.components
+				.as_deref()
+				.unwrap()
+				.contains(&TypeId::of::<ComponentC>()));
+
+			let (partition_c, partition_d) = partition_a.split_by_component::<ComponentC>();
+
+			assert_eq!(partition_c.nodes.as_ref(), None);
+			assert_eq!(partition_d.nodes.as_ref(), None);
+			assert_eq!(partition_c.components.as_deref(), Some([].as_slice()));
+			assert_eq!(
+				partition_d.components.as_deref(),
+				Some([TypeId::of::<ComponentA>()].as_slice())
+			);
+
+			let (partition_c, partition_d) = partition_b.split_by_component::<ComponentC>();
+
+			assert_eq!(partition_c.nodes.as_ref(), None);
+			assert_eq!(partition_d.nodes.as_ref(), None);
+			assert_eq!(
+				partition_c.components.as_deref(),
+				Some([TypeId::of::<ComponentC>()].as_slice())
+			);
+			assert_eq!(
+				partition_d.components.as_deref(),
+				Some([TypeId::of::<ComponentB>()].as_slice())
+			);
+
+			let partition = world.as_partition();
+
+			assert_eq!(partition.nodes.as_ref(), None);
+			assert_eq!(partition.components.as_deref(), None);
 		}
 	}
 }
