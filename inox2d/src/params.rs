@@ -348,7 +348,7 @@ impl ParamCtx {
 		}
 
 		let accessed_nodes: Vec<_> = bindings_bucket.iter().copied().collect();
-		comps.par_iter(accessed_nodes.as_slice(), |mut comps| {
+		comps.with_node_partitions(accessed_nodes.as_slice(), |mut comps, _| {
 			for (param_name, val) in self.values.iter() {
 				params.get(param_name).unwrap().apply(*val, nodes, &mut comps);
 			}

@@ -168,32 +168,39 @@ impl World {
 		&mut *pair.0.downcast_mut_unchecked().get_unchecked_mut(index).get()
 	}
 
-	pub fn par_iter<F>(&mut self, nodes: &[InoxNodeUuid], your_fn: F)
-	where
-		F: for<'a> Fn(Partition<'a>) + Sync,
-	{
-		// SAFETY: We must filter duplicates from `nodes` to ensure disjoint
-		// partitions.
-		//
-		// NOTE: For some reason type inference fails and we have to manually
-		// tell Rust to use the standard state type.
-		let nodes_set: HashSet<InoxNodeUuid, RandomState> = HashSet::from_iter(nodes.iter().map(|n| *n));
-		let nodes_count = nodes_set.len();
-		let batch_size = max(nodes_count / current_num_threads(), 1);
-
-		let nodes_clean: Vec<_> = nodes_set.into_iter().collect();
-
-		nodes_clean
-			.par_chunks(batch_size)
-			.for_each(|nodes| your_fn(unsafe { Partition::new_unchecked(Some(nodes.into()), None, &self) }))
-	}
-
+	/// Yield a partition that refers to the total contents of the world.
 	pub fn as_partition(&mut self) -> Partition<'_> {
 		Partition {
 			nodes: None,
 			components: None,
 			data: self,
 		}
+	}
+
+	/// Do parallel work on the given world.
+	///
+	/// This function splits the world node-wise into chunks and provides
+	/// each partition to the provided callback in a separate thread.
+	pub fn with_node_partitions<F>(&mut self, nodes: &[InoxNodeUuid], your_fn: F)
+	where
+		F: for<'b> Fn(Partition<'b>, &[InoxNodeUuid]) + Sync,
+	{
+		self.as_partition().with_node_partitions(nodes, your_fn)
+	}
+
+	/// Do parallel work on the given world and return a list of values.
+	///
+	/// One value will be returned per invocation of your function; you will
+	/// need to fold them yourself.
+	///
+	/// This function splits the world node-wise into chunks and provides
+	/// each partition to the provided callback in a separate thread.
+	pub fn with_node_partitions_map<F, T>(&mut self, nodes: &[InoxNodeUuid], your_fn: F) -> Vec<T>
+	where
+		F: for<'b> Fn(Partition<'b>, &[InoxNodeUuid]) -> T + Sync,
+		T: Send,
+	{
+		self.as_partition().with_node_partitions_map(nodes, your_fn)
 	}
 }
 
@@ -339,6 +346,88 @@ impl<'a> Partition<'a> {
 				data: self.data,
 			},
 		)
+	}
+
+	/// Do parallel work on the given partition.
+	///
+	/// This function splits the partition node-wise into chunks and provides
+	/// each split of the partition to the provided callback in a separate
+	/// thread.
+	pub fn with_node_partitions<F>(&mut self, nodes: &[InoxNodeUuid], your_fn: F)
+	where
+		F: for<'b> Fn(Partition<'b>, &[InoxNodeUuid]) + Sync,
+	{
+		self.with_node_partitions_map(nodes, your_fn);
+	}
+
+	/// Do parallel work on the given partition and return a list of values.
+	///
+	/// One value will be returned per invocation of your function; you will
+	/// need to fold them yourself.
+	///
+	/// This function splits the partition node-wise into chunks and provides
+	/// each split of the partition to the provided callback in a separate
+	/// thread.
+	pub fn with_node_partitions_map<F, T>(&mut self, nodes: &[InoxNodeUuid], your_fn: F) -> Vec<T>
+	where
+		F: for<'b> Fn(Partition<'b>, &[InoxNodeUuid]) -> T + Sync,
+		T: Send,
+	{
+		// SAFETY: We must filter duplicates from `nodes` to ensure disjoint
+		// partitions.
+		//
+		// NOTE: For some reason type inference fails and we have to manually
+		// tell Rust to use the standard state type.
+		let nodes_set: HashSet<InoxNodeUuid, RandomState> = HashSet::from_iter(nodes.iter().copied());
+		let nodes_clean: Vec<_> = if let Some(nodes) = &self.nodes {
+			// If we are already in a node partition, we must also intersect
+			// with our own node partition.
+			let outer_set: HashSet<InoxNodeUuid, RandomState> = HashSet::from_iter(nodes.iter().copied());
+
+			nodes_set.intersection(&outer_set).copied().collect()
+		} else {
+			nodes_set.into_iter().collect()
+		};
+
+		let nodes_count = nodes_clean.len();
+		let batch_size = max(nodes_count / current_num_threads(), 1);
+
+		nodes_clean
+			.par_chunks(batch_size)
+			.map(|nodes| {
+				your_fn(
+					unsafe { Partition::new_unchecked(Some(nodes.into()), None, &self.data) },
+					nodes,
+				)
+			})
+			.collect()
+	}
+}
+
+/// Represents any type that can retrieve components for a given node.
+pub trait Query {
+	fn get<T: Component>(&self, node: InoxNodeUuid) -> Option<&T>;
+
+	fn get_mut<T: Component>(&mut self, node: InoxNodeUuid) -> Option<&mut T>;
+}
+
+impl Query for World {
+	fn get<T: Component>(&self, node: InoxNodeUuid) -> Option<&T> {
+		self.get(node)
+	}
+
+	fn get_mut<T: Component>(&mut self, node: InoxNodeUuid) -> Option<&mut T> {
+		self.get_mut(node)
+	}
+}
+
+impl Query for Partition<'_> {
+	fn get<T: Component>(&self, node: InoxNodeUuid) -> Option<&T> {
+		self.get(node)
+	}
+
+	fn get_mut<T: Component>(&mut self, node: InoxNodeUuid) -> Option<&mut T> {
+		self.get_mut(node)
 	}
 }
 
