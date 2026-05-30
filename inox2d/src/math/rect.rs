@@ -1,14 +1,14 @@
 use glam::Vec2;
 
 #[derive(Clone, Copy)]
-pub struct Rect {
+pub struct RectBounds {
 	top_left: Vec2,
 	bottom_right: Vec2,
 }
 
-impl Rect {
+impl RectBounds {
 	pub fn from_point(point: Vec2) -> Self {
-		Rect {
+		RectBounds {
 			top_left: point,
 			bottom_right: point,
 		}
