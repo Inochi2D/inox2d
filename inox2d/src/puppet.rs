@@ -5,7 +5,7 @@ mod world;
 
 use std::collections::HashMap;
 
-use crate::math::rect::Rect;
+use crate::math::rect::RectBounds;
 use crate::node::components::{Mesh, TransformStore};
 use crate::node::{InoxNode, InoxNodeUuid};
 use crate::params::{Param, ParamCtx};
@@ -172,7 +172,7 @@ impl Puppet {
 	}
 
 	/// Compute the bounds of the puppet's current state.
-	pub fn bounds(&self) -> Option<Rect> {
+	pub fn bounds(&self) -> Option<RectBounds> {
 		let mut out = None;
 		for node in self.nodes.iter() {
 			if let (Some(transform), Some(mesh)) = (
