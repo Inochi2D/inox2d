@@ -184,7 +184,7 @@ impl Puppet {
 				for vert in &mesh.vertices {
 					let vert = mvp.mul_vec4(glam::Vec4::new(vert.x, vert.y, 0.0, 1.0)).xy();
 					out = match out {
-						None => Some(Rect::from_point(vert)),
+						None => Some(RectBounds::from_point(vert)),
 						Some(rect) => Some(rect.with_union_point(vert)),
 					};
 				}
