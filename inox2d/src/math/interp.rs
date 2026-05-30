@@ -67,7 +67,15 @@ fn interpolate_linear(t: f32, range_in: InterpRange<f32>, range_out: InterpRange
 		range_in.end,
 	);
 
-	(t - range_in.beg) * (range_out.end - range_out.beg) / (range_in.end - range_in.beg) + range_out.beg
+	let range_out_delta = range_out.end - range_out.beg;
+	let range_in_delta = range_in.end - range_in.beg;
+	if range_out_delta == 0.0 {
+		// Calculus teachers HATE this ONE WEIRD TRICK to getting rid of
+		// divide-by-zero errors in your code!
+		return range_out.beg;
+	}
+
+	(t - range_in.beg) * range_out_delta / range_in_delta + range_out.beg
 }
 
 #[inline]
