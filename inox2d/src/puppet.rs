@@ -5,11 +5,14 @@ mod world;
 
 use std::collections::HashMap;
 
+use crate::math::rect::RectBounds;
+use crate::node::components::{Mesh, TransformStore};
 use crate::node::{InoxNode, InoxNodeUuid};
 use crate::params::{Param, ParamCtx};
 use crate::physics::{PhysicsCtx, PuppetPhysics};
 use crate::render::RenderCtx;
 
+use glam::Vec4Swizzles;
 use meta::PuppetMeta;
 use transforms::TransformCtx;
 pub use tree::InoxNodeTree;
@@ -166,5 +169,28 @@ impl Puppet {
 		if let Some(render_ctx) = self.render_ctx.as_mut() {
 			render_ctx.update(&self.nodes, &mut self.node_comps);
 		}
+	}
+
+	/// Compute the bounds of the puppet's current state.
+	pub fn bounds(&self) -> Option<RectBounds> {
+		let mut out = None;
+		for node in self.nodes.iter() {
+			if let (Some(transform), Some(mesh)) = (
+				self.node_comps.get::<TransformStore>(node.uuid),
+				self.node_comps.get::<Mesh>(node.uuid),
+			) {
+				let mvp = transform.absolute;
+
+				for vert in &mesh.vertices {
+					let vert = mvp.mul_vec4(glam::Vec4::new(vert.x, vert.y, 0.0, 1.0)).xy();
+					out = match out {
+						None => Some(RectBounds::from_point(vert)),
+						Some(rect) => Some(rect.with_union_point(vert)),
+					};
+				}
+			}
+		}
+
+		out
 	}
 }
