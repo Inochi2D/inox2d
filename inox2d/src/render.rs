@@ -1,7 +1,7 @@
 mod deform_stack;
 mod vertex_buffers;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::mem::swap;
 
 use crate::node::{
@@ -13,6 +13,8 @@ use crate::params::BindingValues;
 use crate::puppet::{InoxNodeTree, Puppet, World};
 
 pub use vertex_buffers::VertexBuffers;
+
+/// TODO (maybe): additional info for each node to avoid stack operations (node's depth in tree for example)
 
 /// Additional info per node for rendering a TexturedMesh:
 /// - offset and length of array for mesh point coordinates
@@ -60,10 +62,40 @@ impl RenderCtx {
 		let mut vertex_buffers = VertexBuffers::default();
 
 		let mut root_drawables_count: usize = 0;
-		for node in nodes.iter() {
+
+		// composite uuid => (descendant list, drawable count)
+		let mut composite_descendent_lists: HashMap<InoxNodeUuid, (Vec<InoxNodeUuid>, usize)> = HashMap::new();
+		// (node_uuid, maybe_highest_composite_ancestor)
+		let mut ancestor_stack: Vec<(InoxNodeUuid, Option<InoxNodeUuid>)> = Vec::new();
+
+		for node in nodes.pre_order_iter() {
+			// pop until top of stack is parent of current
+			while let Some(top) = ancestor_stack.last() {
+				if nodes.get_parent(node.uuid).uuid == top.0 {
+					break;
+				}
+				ancestor_stack.pop();
+			}
+
+			let parent_target_id = ancestor_stack.last().and_then(|curr_top| curr_top.1);
+
+			// either a descendant of current highest composite
+			if let Some(target_id) = parent_target_id {
+				composite_descendent_lists
+					.entry(target_id)
+					.or_default()
+					.0
+					.push(node.uuid);
+				ancestor_stack.push((node.uuid, Some(target_id)));
+			}
+
 			let drawable_kind = DrawableKind::new(node.uuid, comps, true);
 			if let Some(drawable_kind) = drawable_kind {
 				root_drawables_count += 1;
+
+				if let Some(target_id) = parent_target_id {
+					composite_descendent_lists.entry(target_id).or_default().1 += 1;
+				}
 
 				match drawable_kind {
 					DrawableKind::TexturedMesh(components) => {
@@ -86,32 +118,49 @@ impl RenderCtx {
 						}
 					}
 					DrawableKind::Composite { .. } => {
-						// exclude non-drawable children
-						let children_list: Vec<InoxNodeUuid> = nodes
-							.get_children(node.uuid)
-							.filter_map(|n| {
-								if DrawableKind::new(n.uuid, comps, false).is_some() {
-									Some(n.uuid)
-								} else {
-									None
-								}
-							})
-							.collect();
+						// currently only include a single level of children
+						// TODO: try to make the descendents into the children list
+						if parent_target_id.is_none() {
+							ancestor_stack.push((node.uuid, Some(node.uuid)));
+						}
 
-						// composite children are excluded from root_drawables_zsorted
-						root_drawables_count -= children_list.len();
+						// let children_list: Vec<InoxNodeUuid> = nodes
+						// 	.get_children(node.uuid)
+						// 	.filter_map(|n| {
+						// 		if DrawableKind::new(n.uuid, comps, false).is_some() {
+						// 			Some(n.uuid)
+						// 		} else {
+						// 			None
+						// 		}
+						// 	})
+						// 	.collect();
 
-						comps.add(
-							node.uuid,
-							CompositeRenderCtx {
-								// sort later, before render
-								zsorted_children_list: children_list,
-							},
-						);
+						// // composite children are excluded from root_drawables_zsorted
+						// root_drawables_count -= children_list.len();
+
+						// comps.add(
+						// 	node.uuid,
+						// 	CompositeRenderCtx {
+						// 		// sort later, before render
+						// 		zsorted_children_list: children_list,
+						// 	},
+						// );
 					}
 				};
 			}
 		}
+
+		composite_descendent_lists
+			.iter()
+			.for_each(|(composite_id, (descendents, drawable_count))| {
+				root_drawables_count -= drawable_count;
+				comps.add(
+					*composite_id,
+					CompositeRenderCtx {
+						zsorted_children_list: descendents.clone(),
+					},
+				);
+			});
 
 		let mut root_drawables_zsorted = Vec::new();
 		// similarly, populate later, before render
@@ -136,48 +185,69 @@ impl RenderCtx {
 	pub(crate) fn update(&mut self, nodes: &InoxNodeTree, comps: &mut World) {
 		let mut root_drawable_uuid_zsort_vec = Vec::<(InoxNodeUuid, f32)>::new();
 
+		let mut stack: Vec<(InoxNodeUuid, Option<InoxNodeUuid>)> = Vec::new();
+
 		// root is definitely not a drawable.
-		for node in nodes.iter().skip(1) {
+		for node in nodes.pre_order_iter().skip(1) {
+			while let Some(top) = stack.last() {
+				if nodes.get_parent(node.uuid).uuid == top.0 {
+					break;
+				}
+				stack.pop();
+			}
+
+			let top_composite = stack.last().and_then(|top| top.1);
+			if let Some(top_composite) = top_composite {
+				stack.push((node.uuid, Some(top_composite)));
+			}
 			if let Some(drawable_kind) = DrawableKind::new(node.uuid, comps, false) {
-				let parent = nodes.get_parent(node.uuid);
 				let node_zsort = comps.get::<ZSort>(node.uuid).unwrap().0;
 
-				if !matches!(
-					DrawableKind::new(parent.uuid, comps, false),
-					Some(DrawableKind::Composite(_))
-				) {
-					// exclude composite children
+				if top_composite.is_none() {
 					root_drawable_uuid_zsort_vec.push((node.uuid, node_zsort));
 				}
+
+				// if !matches!(
+				// 	DrawableKind::new(parent.uuid, comps, false),
+				// 	Some(DrawableKind::Composite(_))
+				// ) {
+				// 	// exclude composite children
+				// 	root_drawable_uuid_zsort_vec.push((node.uuid, node_zsort));
+				// }
 
 				match drawable_kind {
 					// for Composite, update zsorted children list
 					DrawableKind::Composite { .. } => {
-						// `swap()` usage is a trick that both:
-						// - returns mut borrowed comps early
-						// - does not involve any heap allocations
-						let mut zsorted_children_list = Vec::new();
-						swap(
-							&mut zsorted_children_list,
-							&mut comps
-								.get_mut::<CompositeRenderCtx>(node.uuid)
-								.unwrap()
-								.zsorted_children_list,
-						);
+						if top_composite.is_none() {
+							stack.push((node.uuid, Some(node.uuid)));
 
-						zsorted_children_list.sort_by(|a, b| {
-							let zsort_a = comps.get::<ZSort>(*a).unwrap();
-							let zsort_b = comps.get::<ZSort>(*b).unwrap();
-							zsort_a.total_cmp(zsort_b).reverse()
-						});
+							// Nested composites behave like a normal part zsort-wise
+							// `swap()` usage is a trick that both:
+							// - returns mut borrowed comps early
+							// - does not involve any heap allocations
+							let mut zsorted_children_list = Vec::new();
+							swap(
+								&mut zsorted_children_list,
+								&mut comps
+									.get_mut::<CompositeRenderCtx>(node.uuid)
+									.unwrap()
+									.zsorted_children_list,
+							);
 
-						swap(
-							&mut zsorted_children_list,
-							&mut comps
-								.get_mut::<CompositeRenderCtx>(node.uuid)
-								.unwrap()
-								.zsorted_children_list,
-						);
+							zsorted_children_list.sort_by(|a, b| {
+								let zsort_a = comps.get::<ZSort>(*a).unwrap();
+								let zsort_b = comps.get::<ZSort>(*b).unwrap();
+								zsort_a.total_cmp(zsort_b).reverse()
+							});
+
+							swap(
+								&mut zsorted_children_list,
+								&mut comps
+									.get_mut::<CompositeRenderCtx>(node.uuid)
+									.unwrap()
+									.zsorted_children_list,
+							);
+						}
 					}
 					// for TexturedMesh, obtain and write deforms into vertex_buffer
 					DrawableKind::TexturedMesh(..) => {
@@ -324,6 +394,7 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 				DrawableKind::TexturedMesh(components) => {
 					self.draw_textured_mesh_content(as_mask, &components, comps.get(*uuid).unwrap(), *uuid)
 				}
+				// TODO: Composite inside composite not handled yet
 				DrawableKind::Composite { .. } => panic!("Composite inside Composite not allowed."),
 			}
 		}
@@ -337,7 +408,7 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 	///
 	/// This does not guarantee the display of a puppet on screen due to these possible reasons:
 	/// - Only provided `InoxRenderer` method implementations are called.
-	/// 
+	///
 	/// For example, maybe the caller still need to transfer content from a texture buffer to the screen surface buffer.
 	/// - The provided `InoxRender` implementation is wrong.
 	/// - `puppet` here does not belong to the `model` this `renderer` is initialized with. This will likely result in panics for non-existent node uuids.
