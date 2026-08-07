@@ -77,23 +77,23 @@ impl RenderCtx {
 				ancestor_stack.pop();
 			}
 
-			let parent_target_id = ancestor_stack.last().and_then(|curr_top| curr_top.1);
+			let top_composite = ancestor_stack.last().and_then(|curr_top| curr_top.1);
 
 			// either a descendant of current highest composite
-			if let Some(target_id) = parent_target_id {
+			if let Some(top_composite) = top_composite {
 				composite_descendent_lists
-					.entry(target_id)
+					.entry(top_composite)
 					.or_default()
 					.0
 					.push(node.uuid);
-				ancestor_stack.push((node.uuid, Some(target_id)));
+				ancestor_stack.push((node.uuid, Some(top_composite)));
 			}
 
 			let drawable_kind = DrawableKind::new(node.uuid, comps, true);
 			if let Some(drawable_kind) = drawable_kind {
 				root_drawables_count += 1;
 
-				if let Some(target_id) = parent_target_id {
+				if let Some(target_id) = top_composite {
 					composite_descendent_lists.entry(target_id).or_default().1 += 1;
 				}
 
@@ -118,33 +118,9 @@ impl RenderCtx {
 						}
 					}
 					DrawableKind::Composite { .. } => {
-						// currently only include a single level of children
-						// TODO: try to make the descendents into the children list
-						if parent_target_id.is_none() {
+						if top_composite.is_none() {
 							ancestor_stack.push((node.uuid, Some(node.uuid)));
 						}
-
-						// let children_list: Vec<InoxNodeUuid> = nodes
-						// 	.get_children(node.uuid)
-						// 	.filter_map(|n| {
-						// 		if DrawableKind::new(n.uuid, comps, false).is_some() {
-						// 			Some(n.uuid)
-						// 		} else {
-						// 			None
-						// 		}
-						// 	})
-						// 	.collect();
-
-						// // composite children are excluded from root_drawables_zsorted
-						// root_drawables_count -= children_list.len();
-
-						// comps.add(
-						// 	node.uuid,
-						// 	CompositeRenderCtx {
-						// 		// sort later, before render
-						// 		zsorted_children_list: children_list,
-						// 	},
-						// );
 					}
 				};
 			}
@@ -185,20 +161,20 @@ impl RenderCtx {
 	pub(crate) fn update(&mut self, nodes: &InoxNodeTree, comps: &mut World) {
 		let mut root_drawable_uuid_zsort_vec = Vec::<(InoxNodeUuid, f32)>::new();
 
-		let mut stack: Vec<(InoxNodeUuid, Option<InoxNodeUuid>)> = Vec::new();
+		let mut ancestor_stack: Vec<(InoxNodeUuid, Option<InoxNodeUuid>)> = Vec::new();
 
 		// root is definitely not a drawable.
 		for node in nodes.pre_order_iter().skip(1) {
-			while let Some(top) = stack.last() {
+			while let Some(top) = ancestor_stack.last() {
 				if nodes.get_parent(node.uuid).uuid == top.0 {
 					break;
 				}
-				stack.pop();
+				ancestor_stack.pop();
 			}
 
-			let top_composite = stack.last().and_then(|top| top.1);
+			let top_composite = ancestor_stack.last().and_then(|top| top.1);
 			if let Some(top_composite) = top_composite {
-				stack.push((node.uuid, Some(top_composite)));
+				ancestor_stack.push((node.uuid, Some(top_composite)));
 			}
 			if let Some(drawable_kind) = DrawableKind::new(node.uuid, comps, false) {
 				let node_zsort = comps.get::<ZSort>(node.uuid).unwrap().0;
@@ -207,21 +183,14 @@ impl RenderCtx {
 					root_drawable_uuid_zsort_vec.push((node.uuid, node_zsort));
 				}
 
-				// if !matches!(
-				// 	DrawableKind::new(parent.uuid, comps, false),
-				// 	Some(DrawableKind::Composite(_))
-				// ) {
-				// 	// exclude composite children
-				// 	root_drawable_uuid_zsort_vec.push((node.uuid, node_zsort));
-				// }
-
 				match drawable_kind {
 					// for Composite, update zsorted children list
 					DrawableKind::Composite { .. } => {
+						// Nested composites behave like a normal part zsort-wise
+						// i.e. not owning or managing a zsorted children list
 						if top_composite.is_none() {
-							stack.push((node.uuid, Some(node.uuid)));
+							ancestor_stack.push((node.uuid, Some(node.uuid)));
 
-							// Nested composites behave like a normal part zsort-wise
 							// `swap()` usage is a trick that both:
 							// - returns mut borrowed comps early
 							// - does not involve any heap allocations
@@ -388,14 +357,16 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 		self.begin_composite_content(as_mask, components, render_ctx, id);
 
 		for uuid in &render_ctx.zsorted_children_list {
-			let drawable_kind = DrawableKind::new(*uuid, comps, false)
-				.expect("All children in zsorted_children_list should be a Drawable.");
-			match drawable_kind {
-				DrawableKind::TexturedMesh(components) => {
-					self.draw_textured_mesh_content(as_mask, &components, comps.get(*uuid).unwrap(), *uuid)
+			if let Some(drawable_kind) = DrawableKind::new(*uuid, comps, false)
+			//.expect("All children in zsorted_children_list should be a Drawable.");
+			{
+				match drawable_kind {
+					DrawableKind::TexturedMesh(components) => {
+						self.draw_textured_mesh_content(as_mask, &components, comps.get(*uuid).unwrap(), *uuid)
+					}
+					// TODO: Composite inside composite not handled yet
+					DrawableKind::Composite { .. } => continue, //panic!("Composite inside Composite not allowed."),
 				}
-				// TODO: Composite inside composite not handled yet
-				DrawableKind::Composite { .. } => panic!("Composite inside Composite not allowed."),
 			}
 		}
 
@@ -419,6 +390,7 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 			.expect("RenderCtx of puppet must be initialized before calling draw().")
 			.root_drawables_zsorted
 		{
+			let node = puppet.nodes.get_node(*uuid);
 			self.draw_drawable(false, &puppet.node_comps, *uuid);
 		}
 	}
