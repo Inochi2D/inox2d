@@ -1,25 +1,80 @@
+use crate::{math::triangle::MeshBitMask, node::components::Mesh};
 use glam::{Mat2, Vec2};
+use std::collections::HashMap;
 
 /// Different kinds of deform.
 // TODO: Meshgroup.
 pub(crate) enum Deform {
 	/// Specifying a displacement for every vertex.
 	Direct(Vec<Vec2>),
+
+	/// Apply the source's deformation to each vertex.
+	///
+	/// This currently only implements "dynamic deformation" as mandated in 0.9.
+	/// In 0.8, there is an option to turn that off; which precalculates the
+	/// parent deform and saves some CPU time.
+	///
+	/// TODO: I'm not 100% sure if that explanation is accurate.
+	Source,
 }
 
-/// Element-wise add direct deforms up and write result.
-pub(crate) fn linear_combine<'deforms>(direct_deforms: impl Iterator<Item = &'deforms Vec<Vec2>>, result: &mut [Vec2]) {
-	result.iter_mut().for_each(|deform| *deform = Vec2::ZERO);
+/// Element-wise add a single direct deform up and write result.
+pub(crate) fn linear_combine(direct_deform: &[Vec2], result: &mut [Vec2]) {
+	if direct_deform.len() != result.len() {
+		panic!("Trying to combine direct deformations with wrong dimensions.");
+	}
 
-	for direct_deform in direct_deforms {
-		if direct_deform.len() != result.len() {
-			panic!("Trying to combine direct deformations with wrong dimensions.");
-		}
+	result
+		.iter_mut()
+		.zip(direct_deform.iter())
+		.for_each(|(sum, addition)| *sum += *addition);
+}
 
-		result
-			.iter_mut()
-			.zip(direct_deform.iter())
-			.for_each(|(sum, addition)| *sum += *addition);
+/// Element-wise apply a foreign mesh's deforms to the result mesh and write
+/// result.
+///
+/// To help visualize this, imagine if the result mesh's vertices were somehow
+/// part of the texture of the foreign mesh, and we applied the deform that way.
+/// Each result vert is assigned to a triangle of the foreign mesh, and then
+/// that triangle's deforms are applied to the result vert based on the
+/// barycentric distance to each foreign triangle vert.
+///
+/// Also, the result mesh is treated as if the result deform were already
+/// applied, meaning this transform is non-linear.
+pub(crate) fn foreign_mesh_combine(
+	foreign_mesh: &Mesh,
+	foreign_deform: &[Vec2],
+	result_mesh: &Mesh,
+	result: &mut [Vec2],
+) {
+	if result_mesh.vertices.len() != result.len() {
+		panic!("Trying to combine a foreign mesh deformation with wrong dimensions.");
+	}
+
+	let testing_mask = MeshBitMask::new(foreign_mesh);
+	let mut decompose_cache = HashMap::new();
+
+	for (result_vert, result_deform) in result_mesh.vertices.iter().zip(result) {
+		let result_vert_applied = *result_vert + *result_deform;
+
+		if let Some(triangle_start_index) = testing_mask.test(result_vert_applied) {
+			let triangle = foreign_mesh.get_triangle(triangle_start_index);
+			let triangle_deforms = foreign_mesh.get_triangle_deforms(triangle_start_index, foreign_deform);
+			let decompose_matrix = decompose_cache
+				.entry(triangle_start_index)
+				.or_insert_with(|| vector_decompose_matrix(triangle[1] - triangle[0], triangle[2] - triangle[0]));
+
+			//TODO: I'm pretty sure we're supposed to be giving points in batches,
+			//but I'm too lazy to write a binning scheme for triangles.
+			*result_deform += deform_by_parent_triangle(
+				&decompose_matrix,
+				triangle[0],
+				&triangle_deforms,
+				std::iter::once(&result_vert_applied),
+			)
+			.next()
+			.unwrap();
+		} // otherwise do nothing, points outside the foreign mesh don't move
 	}
 }
 

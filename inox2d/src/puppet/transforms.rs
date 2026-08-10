@@ -1,4 +1,7 @@
-use crate::node::components::{TransformStore, ZSort};
+use crate::{
+	math::deform::Deform,
+	node::components::{DeformSource, DeformStack, MeshGroup, TransformStore, ZSort},
+};
 
 use super::{InoxNodeTree, Puppet, World};
 
@@ -51,6 +54,22 @@ impl TransformCtx {
 
 			let node_zsort = comps.get_mut::<ZSort>(node.uuid).unwrap();
 			node_zsort.0 += base.1;
+
+			// Since this is the only place I can think of to put it, let's go
+			// and look for the closest MeshGroup parent and add that to the
+			// stack.
+
+			let mut ancestor = nodes.get_parent(node.uuid).uuid;
+			while ancestor != nodes.root_node_id {
+				if comps.get_mut::<MeshGroup>(ancestor).is_some() {
+					if let Some(deform_stack) = comps.get_mut::<DeformStack>(node.uuid) {
+						deform_stack.push(DeformSource::MeshGroup(ancestor), Deform::Source);
+						break;
+					}
+				}
+
+				ancestor = nodes.get_parent(ancestor).uuid;
+			}
 		}
 	}
 }

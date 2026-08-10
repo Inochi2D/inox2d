@@ -195,14 +195,7 @@ impl RenderCtx {
 					DrawableKind::TexturedMesh(..) => {
 						// A TexturedMesh not having an associated DeformStack means it will not be deformed at all, skip.
 						if let Some(deform_stack) = comps.get::<DeformStack>(node.uuid) {
-							let render_ctx = comps.get::<TexturedMeshRenderCtx>(node.uuid).unwrap();
-							let vert_offset = render_ctx.vert_offset as usize;
-							let vert_len = render_ctx.vert_len;
-							deform_stack.combine(
-								nodes,
-								comps,
-								&mut self.vertex_buffers.deforms[vert_offset..(vert_offset + vert_len)],
-							);
+							deform_stack.combine(node.uuid, nodes, comps, &mut self.vertex_buffers.deforms);
 						}
 					}
 				}
