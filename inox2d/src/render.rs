@@ -14,8 +14,6 @@ use crate::puppet::{InoxNodeTree, Puppet, World};
 
 pub use vertex_buffers::VertexBuffers;
 
-/// TODO (maybe): additional info for each node to avoid stack operations (node's depth in tree for example)
-
 /// Additional info per node for rendering a TexturedMesh:
 /// - offset and length of array for mesh point coordinates
 /// - offset and length of array for indices of mesh points defining the mesh
@@ -63,13 +61,14 @@ impl RenderCtx {
 
 		let mut root_drawables_count: usize = 0;
 
-		// composite uuid => (descendant list, drawable count)
+		// Composite uuid => (descendant list, drawable count)
 		let mut composite_descendent_lists: HashMap<InoxNodeUuid, (Vec<InoxNodeUuid>, usize)> = HashMap::new();
-		// (node_uuid, maybe_highest_composite_ancestor)
+		// Vec<(Node uuid, maybe highest Composite ancestor)>
+		// This stack skips on nodes that don't have a Composite ancestor
 		let mut ancestor_stack: Vec<(InoxNodeUuid, Option<InoxNodeUuid>)> = Vec::new();
 
 		for node in nodes.pre_order_iter() {
-			// pop until top of stack is parent of current
+			// Pop until top of stack is parent of current node
 			while let Some(top) = ancestor_stack.last() {
 				if nodes.get_parent(node.uuid).uuid == top.0 {
 					break;
@@ -79,8 +78,8 @@ impl RenderCtx {
 
 			let top_composite = ancestor_stack.last().and_then(|curr_top| curr_top.1);
 
-			// either a descendant of current highest composite
 			if let Some(top_composite) = top_composite {
+				// Current node is a descendant of current highest Composite (could be anything, a Node, Part, Meshgroup, Composite etc.)
 				composite_descendent_lists
 					.entry(top_composite)
 					.or_default()
@@ -119,6 +118,8 @@ impl RenderCtx {
 					}
 					DrawableKind::Composite { .. } => {
 						if top_composite.is_none() {
+							// Empty stack -> current node is the highest Composite on its branch
+							// (otherwise this Composite would be pushed twice) 
 							ancestor_stack.push((node.uuid, Some(node.uuid)));
 						}
 					}
@@ -357,16 +358,13 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 		self.begin_composite_content(as_mask, components, render_ctx, id);
 
 		for uuid in &render_ctx.zsorted_children_list {
-			if let Some(drawable_kind) = DrawableKind::new(*uuid, comps, false)
-			//.expect("All children in zsorted_children_list should be a Drawable.");
-			{
-				match drawable_kind {
-					DrawableKind::TexturedMesh(components) => {
-						self.draw_textured_mesh_content(as_mask, &components, comps.get(*uuid).unwrap(), *uuid)
-					}
-					// TODO: Composite inside composite not handled yet
-					DrawableKind::Composite { .. } => continue, //panic!("Composite inside Composite not allowed."),
+			let drawable_kind = DrawableKind::new(*uuid, comps, false)
+				.expect("All children in zsorted_children_list should be a Drawable.");
+			match drawable_kind {
+				DrawableKind::TexturedMesh(components) => {
+					self.draw_textured_mesh_content(as_mask, &components, comps.get(*uuid).unwrap(), *uuid)
 				}
+				DrawableKind::Composite { .. } => continue, // Allow composite inside composite
 			}
 		}
 
@@ -390,7 +388,6 @@ impl<T: InoxRenderer> InoxRendererExt for T {
 			.expect("RenderCtx of puppet must be initialized before calling draw().")
 			.root_drawables_zsorted
 		{
-			let node = puppet.nodes.get_node(*uuid);
 			self.draw_drawable(false, &puppet.node_comps, *uuid);
 		}
 	}
