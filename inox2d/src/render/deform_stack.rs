@@ -5,6 +5,7 @@ use std::ops::Range;
 use glam::Vec2;
 
 use crate::math::deform::{foreign_mesh_combine, linear_combine, Deform};
+use crate::math::triangle::MeshBitMask;
 use crate::node::components::{DeformSource, DeformStack, Mesh, MeshGroupDeform};
 use crate::puppet::{InoxNodeTree, World};
 use crate::render::{InoxNodeUuid, TexturedMeshRenderCtx};
@@ -78,7 +79,7 @@ impl DeformStack {
 					Deform::Direct(ref direct_deform) => {
 						linear_combine(direct_deform, &mut result[vert_offset..(vert_offset + vert_len)]);
 					}
-					Deform::Source => {
+					Deform::Source(reverse_matrix) => {
 						let DeformSource::MeshGroup(source_node) = src else {
 							panic!("Source deform application through params is not supported (or meaningful)");
 						};
@@ -131,9 +132,14 @@ impl DeformStack {
 							continue;
 						}
 
-						eprintln!("SIZES: {}, {}", my_deform.len(), foreign_deform.len());
-
-						foreign_mesh_combine(foreign_mesh, foreign_deform, result_mesh, my_deform);
+						foreign_mesh_combine(
+							foreign_mesh,
+							foreign_deform,
+							node_comps.get::<MeshBitMask>(*source_node).unwrap(),
+							result_mesh,
+							reverse_matrix,
+							my_deform,
+						);
 					}
 				}
 			}
@@ -160,7 +166,7 @@ impl DeformStack {
 					})
 					.or_insert((true, deform));
 			}
-			Deform::Source => {
+			Deform::Source(_reverse_matrix) => {
 				let DeformSource::MeshGroup(_source_node) = src else {
 					panic!("Source deform application through params is not supported (or meaningful)");
 				};

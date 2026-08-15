@@ -1,5 +1,5 @@
 use crate::{math::triangle::MeshBitMask, node::components::Mesh};
-use glam::{Mat2, Vec2};
+use glam::{Mat2, Mat4, Vec2, Vec4, Vec4Swizzles};
 use std::collections::HashMap;
 
 /// Different kinds of deform.
@@ -10,12 +10,9 @@ pub(crate) enum Deform {
 
 	/// Apply the source's deformation to each vertex.
 	///
-	/// This currently only implements "dynamic deformation" as mandated in 0.9.
-	/// In 0.8, there is an option to turn that off; which precalculates the
-	/// parent deform and saves some CPU time.
-	///
-	/// TODO: I'm not 100% sure if that explanation is accurate.
-	Source,
+	/// The Mat4 specifies the transform from this node's coordinates to the
+	/// source mesh specifying the deformation.
+	Source(Mat4),
 }
 
 /// Element-wise add a single direct deform up and write result.
@@ -44,23 +41,30 @@ pub(crate) fn linear_combine(direct_deform: &[Vec2], result: &mut [Vec2]) {
 pub(crate) fn foreign_mesh_combine(
 	foreign_mesh: &Mesh,
 	foreign_deform: &[Vec2],
+	testing_mask: &MeshBitMask,
 	result_mesh: &Mesh,
+	result_to_foreign: Mat4,
 	result: &mut [Vec2],
 ) {
 	if result_mesh.vertices.len() != result.len() {
 		panic!("Trying to combine a foreign mesh deformation with wrong dimensions.");
 	}
 
-	let testing_mask = MeshBitMask::new(foreign_mesh);
 	let mut triangle_bins = HashMap::new();
 	for (index, (result_vert, result_deform)) in result_mesh.vertices.iter().zip(result.iter()).enumerate() {
 		let result_vert_applied = *result_vert + *result_deform;
+		let result_vert_foreign = result_to_foreign * Vec4::new(result_vert_applied.x, result_vert_applied.y, 0.0, 1.0);
 
-		if let Some(triangle_start_index) = testing_mask.test(result_vert_applied) {
+		if let Some(triangle_start_index) = testing_mask.test(result_vert_foreign.xy(), foreign_mesh) {
 			let (indexes, verts) = triangle_bins.entry(triangle_start_index).or_insert((vec![], vec![]));
 
 			indexes.push(index);
-			verts.push(result_vert_applied);
+			verts.push(result_vert_foreign.xy());
+		} else {
+			// TODO: Inochi appears to have a slightly different triangle test
+			// to ours - verts that are on the edge of a triangle appear to map
+			// to one of them anyway. Our own triangle tests assume this cannot
+			// happen.
 		}
 	}
 

@@ -1,5 +1,7 @@
+use glam::Mat4;
+
 use crate::{
-	math::deform::Deform,
+	math::{deform::Deform, triangle::MeshBitMask},
 	node::components::{DeformSource, DeformStack, Mesh, MeshGroup, TransformStore, ZSort},
 };
 
@@ -60,20 +62,40 @@ impl TransformCtx {
 			// stack.
 
 			let mut ancestor = nodes.get_parent(node.uuid).uuid;
-			while ancestor != nodes.root_node_id {
-				if comps.get::<MeshGroup>(ancestor).is_some() {
-					let mesh_len = comps
-						.get::<Mesh>(ancestor)
-						.expect("all meshgroups have a mesh")
-						.vertices
-						.len();
+			let mut tf_matrix = if let Some(transform_store) = comps.get::<TransformStore>(node.uuid) {
+				transform_store.relative.to_matrix()
+			} else {
+				Mat4::IDENTITY
+			};
 
-					if mesh_len > 0 {
-						if let Some(deform_stack) = comps.get_mut::<DeformStack>(node.uuid) {
-							deform_stack.push(DeformSource::MeshGroup(ancestor), Deform::Source);
-							break;
-						}
+			while ancestor != nodes.root_node_id {
+				let imposes_deform = if let Some(mg) = comps.get::<MeshGroup>(ancestor) {
+					if mg.dynamic {
+						true
+					} else {
+						// Static meshgroups do not need a deform stack item.
+						break;
 					}
+				} else {
+					// Meshes can impose a deform on their children anyway
+					comps.get::<Mesh>(ancestor).is_some()
+				};
+
+				if imposes_deform {
+					// We need to calculate a testing mask for all our parent
+					// deform meshes.
+					if comps.get::<MeshBitMask>(ancestor).is_none() {
+						comps.add(ancestor, MeshBitMask::new(comps.get::<Mesh>(ancestor).unwrap()));
+					}
+
+					if let Some(deform_stack) = comps.get_mut::<DeformStack>(node.uuid) {
+						deform_stack.push(DeformSource::MeshGroup(ancestor), Deform::Source(tf_matrix));
+						break;
+					}
+				}
+
+				if let Some(transform_store) = comps.get::<TransformStore>(ancestor) {
+					tf_matrix = transform_store.relative.to_matrix() * tf_matrix;
 				}
 
 				ancestor = nodes.get_parent(ancestor).uuid;

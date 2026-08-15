@@ -53,6 +53,12 @@ impl RenderCtx {
 			param.1.bindings.iter().for_each(|b| {
 				if matches!(b.values, BindingValues::Deform(_)) {
 					nodes_to_deform.insert(b.node);
+
+					// Any node that can accept deformations may potentially
+					// pass them on to their children.
+					for child in nodes.get_descendents(b.node) {
+						nodes_to_deform.insert(child.uuid);
+					}
 				}
 			});
 		}
