@@ -52,29 +52,30 @@ pub(crate) fn foreign_mesh_combine(
 	}
 
 	let testing_mask = MeshBitMask::new(foreign_mesh);
-	let mut decompose_cache = HashMap::new();
-
-	for (result_vert, result_deform) in result_mesh.vertices.iter().zip(result) {
+	let mut triangle_bins = HashMap::new();
+	for (index, (result_vert, result_deform)) in result_mesh.vertices.iter().zip(result.iter()).enumerate() {
 		let result_vert_applied = *result_vert + *result_deform;
 
 		if let Some(triangle_start_index) = testing_mask.test(result_vert_applied) {
-			let triangle = foreign_mesh.get_triangle(triangle_start_index);
-			let triangle_deforms = foreign_mesh.get_triangle_deforms(triangle_start_index, foreign_deform);
-			let decompose_matrix = decompose_cache
-				.entry(triangle_start_index)
-				.or_insert_with(|| vector_decompose_matrix(triangle[1] - triangle[0], triangle[2] - triangle[0]));
+			let (indexes, verts) = triangle_bins.entry(triangle_start_index).or_insert((vec![], vec![]));
 
-			//TODO: I'm pretty sure we're supposed to be giving points in batches,
-			//but I'm too lazy to write a binning scheme for triangles.
-			*result_deform += deform_by_parent_triangle(
-				&decompose_matrix,
-				triangle[0],
-				&triangle_deforms,
-				std::iter::once(&result_vert_applied),
-			)
-			.next()
-			.unwrap();
-		} // otherwise do nothing, points outside the foreign mesh don't move
+			indexes.push(index);
+			verts.push(result_vert_applied);
+		}
+	}
+
+	for (triangle_start_index, (vert_indexes, verts)) in triangle_bins.iter_mut() {
+		let triangle = foreign_mesh.get_triangle(*triangle_start_index);
+		let triangle_deforms = foreign_mesh.get_triangle_deforms(*triangle_start_index, foreign_deform);
+		let decompose_matrix = vector_decompose_matrix(triangle[1] - triangle[0], triangle[2] - triangle[0]);
+
+		//TODO: I'm pretty sure we're supposed to be giving points in batches,
+		//but I'm too lazy to write a binning scheme for triangles.
+		let deforms = deform_by_parent_triangle(&decompose_matrix, triangle[0], &triangle_deforms, verts.iter());
+
+		for (vert_index, deform) in vert_indexes.into_iter().zip(deforms) {
+			result[*vert_index] += deform;
+		}
 	}
 }
 
