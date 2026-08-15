@@ -5,7 +5,7 @@ use std::ops::Range;
 use glam::Vec2;
 
 use crate::math::deform::{foreign_mesh_combine, linear_combine, Deform};
-use crate::node::components::{DeformSource, DeformStack, Mesh};
+use crate::node::components::{DeformSource, DeformStack, Mesh, MeshGroupDeform};
 use crate::puppet::{InoxNodeTree, World};
 use crate::render::{InoxNodeUuid, TexturedMeshRenderCtx};
 
@@ -58,10 +58,9 @@ impl DeformStack {
 		_nodes: &InoxNodeTree,
 		node_comps: &World,
 		result: &mut [Vec2],
+		vert_offset: usize,
+		vert_len: usize,
 	) {
-		let render_ctx = node_comps.get::<TexturedMeshRenderCtx>(uuid).unwrap();
-		let vert_offset = render_ctx.vert_offset as usize;
-		let vert_len = render_ctx.vert_len;
 		if vert_len != self.deform_len {
 			panic!(
 				"Required output deform dimensions {} different from what DeformStack is initialized with ({}).",
@@ -90,45 +89,47 @@ impl DeformStack {
 						let Some(foreign_mesh) = node_comps.get::<Mesh>(*source_node) else {
 							continue;
 						};
-						// TODO: This doesn't work.
-						// MeshGroups don't get a TexturedMeshRenderCtx, and
-						// they probably don't have allocated space in the
-						// deform array - because they're not a renderable, and
-						// we're not going to send their deforms to the GPU.
-						// Instead, each MeshGroup needs to hold its own deform
-						// scratch buffer to combine to?
-						// Furthermore, we need somewhere to call .combine
-						// BEFORE render_ctx.apply() (so the meshes can
-						// reference the new deform data) and make sure we are
-						// combining node parents before children.
-						// Since we don't want to have to build a separate DAG
-						// of DeformStack dependencies, let's just say that
-						// Source deforms may ONLY reference parent nodes, and
-						// that parents always get applied before children.
-						// That works well with the current node order.
-						// Ideally all the deform logic would be refactored out
-						// into the renderer (since deforms can't do anything
-						// on the CPU) and then the renderer can GPU-skin
-						// everything
-						let Some(foreign_render_ctx) = node_comps.get::<TexturedMeshRenderCtx>(*source_node) else {
+
+						if *source_node == uuid {
+							eprintln!("Self-referential deformation is not permitted on node {:?}", uuid);
+							continue;
+						}
+
+						let Some((my_deform, foreign_deform)) =
+							(if let Some(foreign_render_ctx) = node_comps.get::<TexturedMeshRenderCtx>(*source_node) {
+								let foreign_offset = foreign_render_ctx.vert_offset as usize;
+								let foreign_len = foreign_render_ctx.vert_len;
+
+								let Some((my_deform, foreign_deform)) = split_ranges(
+									result,
+									vert_offset..(vert_offset + vert_len),
+									foreign_offset..(foreign_offset + foreign_len),
+								) else {
+									eprintln!(
+										"They're disjoint?! {:?}, {:?}",
+										vert_offset..(vert_offset + vert_len),
+										foreign_offset..(foreign_offset + foreign_len)
+									);
+									continue;
+								};
+
+								Some((my_deform, &*foreign_deform))
+							} else if let Some(mesh_deform_buffer) = node_comps.get::<MeshGroupDeform>(*source_node) {
+								Some((
+									&mut result[vert_offset..(vert_offset + vert_len)],
+									&mesh_deform_buffer.deform[..],
+								))
+							} else {
+								None
+							})
+						else {
 							continue;
 						};
 
-						let foreign_offset = foreign_render_ctx.vert_offset as usize;
-						let foreign_len = foreign_render_ctx.vert_len;
-
-						let Some((my_deform, foreign_deform)) = split_ranges(
-							result,
-							vert_offset..(vert_offset + vert_len),
-							foreign_offset..(foreign_offset + foreign_len),
-						) else {
-							eprintln!(
-								"They're disjoint?! {:?}, {:?}",
-								vert_offset..(vert_offset + vert_len),
-								foreign_offset..(foreign_offset + foreign_len)
-							);
+						// If the foreign deform is empty, don't apply the deform.
+						if foreign_deform.len() == 0 {
 							continue;
-						};
+						}
 
 						eprintln!("SIZES: {}, {}", my_deform.len(), foreign_deform.len());
 

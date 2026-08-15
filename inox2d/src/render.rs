@@ -5,13 +5,14 @@ use std::collections::HashSet;
 use std::mem::swap;
 
 use crate::node::{
-	components::{DeformStack, Mask, Masks, Mesh, MeshGroup, ZSort},
+	components::{DeformStack, Mask, Masks, Mesh, MeshGroup, MeshGroupDeform, ZSort},
 	drawables::{CompositeComponents, DrawableKind, TexturedMeshComponents},
 	InoxNodeUuid,
 };
 use crate::params::BindingValues;
 use crate::puppet::{InoxNodeTree, Puppet, World};
 
+use glam::Vec2;
 pub use vertex_buffers::VertexBuffers;
 
 /// Additional info per node for rendering a TexturedMesh:
@@ -195,9 +196,44 @@ impl RenderCtx {
 					DrawableKind::TexturedMesh(..) => {
 						// A TexturedMesh not having an associated DeformStack means it will not be deformed at all, skip.
 						if let Some(deform_stack) = comps.get::<DeformStack>(node.uuid) {
-							deform_stack.combine(node.uuid, nodes, comps, &mut self.vertex_buffers.deforms);
+							let render_ctx = comps.get::<TexturedMeshRenderCtx>(node.uuid).unwrap();
+							let vert_offset = render_ctx.vert_offset as usize;
+							let vert_len = render_ctx.vert_len;
+
+							deform_stack.combine(
+								node.uuid,
+								nodes,
+								comps,
+								&mut self.vertex_buffers.deforms,
+								vert_offset,
+								vert_len,
+							);
 						}
 					}
+				}
+			} else if let Some(_mg) = comps.get::<MeshGroup>(node.uuid) {
+				//Meshgroups aren't drawable, but we still need to deform them
+				//so child nodes can reference their deformations.
+				let mut deform = vec![Vec2::ZERO; 0];
+				if let Some(prealloc) = comps.get_mut::<MeshGroupDeform>(node.uuid) {
+					swap(&mut deform, &mut prealloc.deform);
+				} else {
+					let mesh = comps.get::<Mesh>(node.uuid).expect("all meshgroups have a mesh");
+					deform = vec![Vec2::ZERO; mesh.vertices.len()];
+				}
+
+				if let Some(deform_stack) = comps.get::<DeformStack>(node.uuid) {
+					let len = deform.len();
+					deform_stack.combine(node.uuid, nodes, comps, &mut deform, 0, len);
+				}
+
+				if comps.get::<MeshGroupDeform>(node.uuid).is_none() {
+					comps.add(node.uuid, MeshGroupDeform { deform: deform });
+				} else {
+					comps
+						.get_mut::<MeshGroupDeform>(node.uuid)
+						.expect("valid deform scratch buffer")
+						.deform = deform;
 				}
 			}
 		}

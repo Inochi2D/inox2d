@@ -205,6 +205,11 @@ pub struct MeshGroup {
 	pub translate_children: bool,
 }
 
+/// Temporary storage space for a MeshGroup's deform.
+pub struct MeshGroupDeform {
+	pub deform: Vec<Vec2>,
+}
+
 /* --- DEFORM STACK --- */
 
 /// Source of a deform.

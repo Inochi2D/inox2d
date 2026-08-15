@@ -1,6 +1,6 @@
 use crate::{
 	math::deform::Deform,
-	node::components::{DeformSource, DeformStack, MeshGroup, TransformStore, ZSort},
+	node::components::{DeformSource, DeformStack, Mesh, MeshGroup, TransformStore, ZSort},
 };
 
 use super::{InoxNodeTree, Puppet, World};
@@ -61,10 +61,18 @@ impl TransformCtx {
 
 			let mut ancestor = nodes.get_parent(node.uuid).uuid;
 			while ancestor != nodes.root_node_id {
-				if comps.get_mut::<MeshGroup>(ancestor).is_some() {
-					if let Some(deform_stack) = comps.get_mut::<DeformStack>(node.uuid) {
-						deform_stack.push(DeformSource::MeshGroup(ancestor), Deform::Source);
-						break;
+				if comps.get::<MeshGroup>(ancestor).is_some() {
+					let mesh_len = comps
+						.get::<Mesh>(ancestor)
+						.expect("all meshgroups have a mesh")
+						.vertices
+						.len();
+
+					if mesh_len > 0 {
+						if let Some(deform_stack) = comps.get_mut::<DeformStack>(node.uuid) {
+							deform_stack.push(DeformSource::MeshGroup(ancestor), Deform::Source);
+							break;
+						}
 					}
 				}
 
