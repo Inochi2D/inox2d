@@ -245,6 +245,15 @@ fn deserialize_transform(obj: JsonObject) -> InoxParseResult<TransformOffset> {
 	})
 }
 
+fn deserialize_meshgroup(obj: JsonObject) -> InoxParseResult<MeshGroup> {
+	Ok(MeshGroup {
+		dynamic: obj.get_bool("dynamic_deformation")?,
+		translate_children: obj.get_bool("translate_children")?,
+	})
+}
+
+// deserialization helpers
+
 fn deserialize_f32s(val: &[json::JsonValue]) -> Vec<f32> {
 	val.iter().filter_map(JsonValue::as_f32).collect::<Vec<_>>()
 }
@@ -334,6 +343,11 @@ impl Puppet {
 			}
 			"SimplePhysics" => {
 				self.node_comps.add(id, deserialize_simple_physics(data)?);
+			}
+			"MeshGroup" => {
+				self.node_comps.add(id, deserialize_meshgroup(data)?);
+				self.node_comps
+					.add(id, vals("mesh", deserialize_mesh(data.get_object("mesh")?))?);
 			}
 			custom => {
 				if let Some(func) = load_node_data_custom {
