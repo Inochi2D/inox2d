@@ -59,6 +59,14 @@ fn interpolate_nearest(t: f32, range_in: InterpRange<f32>, range_out: InterpRang
 
 #[inline]
 fn interpolate_linear(t: f32, range_in: InterpRange<f32>, range_out: InterpRange<f32>) -> f32 {
+	// A degenerate input range happens for single-point axes, e.g. the Y axis
+	// of 1D parameters (axis_points `[0]`). There is nothing to interpolate
+	// along such an axis, so return the start value instead of dividing by
+	// zero (which would produce NaN and e.g. make driven parts disappear).
+	if range_in.end == range_in.beg {
+		return range_out.beg;
+	}
+
 	debug_assert!(
 		range_in.beg <= t && t <= range_in.end,
 		"{} is out of input range [{}, {}]",
@@ -206,5 +214,26 @@ mod tests {
 			interpolate_linear(0.0, InterpRange::new(-0.5, 0.0), InterpRange::new(-5.0, 5.0)),
 			5.0
 		);
+	}
+
+	#[test]
+	fn test_degenerate_input_range() {
+		// Single-point axes (e.g. the Y axis `[0]` of 1D parameters) produce a
+		// zero-length input range. Interpolating over it must not divide by
+		// zero (NaN); the start value is returned instead.
+		let r = interpolate_linear(0.0, InterpRange::new(0.0, 0.0), InterpRange::new(3.0, 3.0));
+		assert_eq!(r, 3.0);
+		assert!(r.is_finite());
+
+		// Same for the bilinear entry points used by param bindings.
+		let b = bi_interpolate_f32(
+			Vec2::new(0.6, 0.0),
+			InterpRange::new(Vec2::new(0.5, 0.0), Vec2::new(1.0, 0.0)),
+			InterpRange::new(0.0, 15.0),
+			InterpRange::new(0.0, 15.0),
+			InterpolateMode::Linear,
+		);
+		assert!(b.is_finite());
+		assert!((b - 3.0).abs() < 1e-5);
 	}
 }
