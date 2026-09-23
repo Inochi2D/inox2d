@@ -30,10 +30,32 @@ pub struct Composite {}
 /// If has this as a component, the node should render something
 pub struct Drawable {
 	pub blending: Blending,
+
+	/// The original parameters for this drawable.
+	/// Copied over `blending` on reset.
+	initial_blending: Blending,
+
 	/// If Some, the node should consider masking when rendering
 	pub masks: Option<Masks>,
 }
 
+impl Drawable {
+	pub fn new(blending: Blending, masks: Option<Masks>) -> Self {
+		Self {
+			blending,
+			initial_blending: blending,
+			masks,
+		}
+	}
+
+	/// Reset the drawable back to the initial configuration set when `new`
+	/// was called.
+	pub fn reset(&mut self) {
+		self.blending = self.initial_blending;
+	}
+}
+
+#[derive(Copy, Clone)]
 pub struct Blending {
 	pub mode: BlendMode,
 	pub tint: Vec3,

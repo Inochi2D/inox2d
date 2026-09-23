@@ -5,7 +5,7 @@ use glam::Vec2;
 
 use crate::math::deform::{linear_combine, Deform};
 use crate::node::components::{DeformSource, DeformStack};
-use crate::puppet::{InoxNodeTree, World};
+use crate::puppet::{InoxNodeTree, Query};
 
 impl DeformStack {
 	pub(crate) fn new(deform_len: usize) -> Self {
@@ -23,7 +23,7 @@ impl DeformStack {
 	}
 
 	/// Combine the deformations received so far according to some rules, and write to the result
-	pub(crate) fn combine(&self, _nodes: &InoxNodeTree, _node_comps: &World, result: &mut [Vec2]) {
+	pub(crate) fn combine(&self, _nodes: &InoxNodeTree, _node_comps: &impl Query, result: &mut [Vec2]) {
 		if result.len() != self.deform_len {
 			panic!("Required output deform dimensions different from what DeformStack is initialized with.")
 		}

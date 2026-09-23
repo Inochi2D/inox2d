@@ -176,8 +176,8 @@ fn deserialize_simple_physics(obj: JsonObject) -> InoxParseResult<SimplePhysics>
 }
 
 fn deserialize_drawable(obj: JsonObject) -> InoxParseResult<Drawable> {
-	Ok(Drawable {
-		blending: Blending {
+	Ok(Drawable::new(
+		Blending {
 			mode: match obj.get_str("blend_mode")? {
 				"Normal" => BlendMode::Normal,
 				"Multiply" => BlendMode::Multiply,
@@ -192,7 +192,7 @@ fn deserialize_drawable(obj: JsonObject) -> InoxParseResult<Drawable> {
 			screen_tint: obj.get_vec3("screenTint").unwrap_or(vec3(0.0, 0.0, 0.0)),
 			opacity: obj.get_f32("opacity").unwrap_or(1.0),
 		},
-		masks: {
+		{
 			if let Ok(masks) = obj.get_list("masks") {
 				Some(Masks {
 					threshold: obj.get_f32("mask_threshold").unwrap_or(0.5),
@@ -209,7 +209,7 @@ fn deserialize_drawable(obj: JsonObject) -> InoxParseResult<Drawable> {
 				None
 			}
 		},
-	})
+	))
 }
 
 fn deserialize_mesh(obj: JsonObject) -> InoxParseResult<Mesh> {
@@ -446,6 +446,7 @@ fn deserialize_binding_values(param_name: &str, values: &[JsonValue]) -> InoxPar
 		"zSort" => BindingValues::ZSort(deserialize_inner_binding_values(values)?),
 		"transform.t.x" => BindingValues::TransformTX(deserialize_inner_binding_values(values)?),
 		"transform.t.y" => BindingValues::TransformTY(deserialize_inner_binding_values(values)?),
+		"transform.t.z" => BindingValues::TransformTZ(deserialize_inner_binding_values(values)?),
 		"transform.s.x" => BindingValues::TransformSX(deserialize_inner_binding_values(values)?),
 		"transform.s.y" => BindingValues::TransformSY(deserialize_inner_binding_values(values)?),
 		"transform.r.x" => BindingValues::TransformRX(deserialize_inner_binding_values(values)?),
@@ -464,8 +465,13 @@ fn deserialize_binding_values(param_name: &str, values: &[JsonValue]) -> InoxPar
 
 			BindingValues::Deform(Matrix2d::from_slice_vecs(&parsed, true)?)
 		}
-		// TODO
-		"opacity" => BindingValues::Opacity,
+		"tint.r" => BindingValues::TintR(deserialize_inner_binding_values(values)?),
+		"tint.g" => BindingValues::TintG(deserialize_inner_binding_values(values)?),
+		"tint.b" => BindingValues::TintB(deserialize_inner_binding_values(values)?),
+		"screenTint.r" => BindingValues::ScreenTintR(deserialize_inner_binding_values(values)?),
+		"screenTint.g" => BindingValues::ScreenTintG(deserialize_inner_binding_values(values)?),
+		"screenTint.b" => BindingValues::ScreenTintB(deserialize_inner_binding_values(values)?),
+		"opacity" => BindingValues::Opacity(deserialize_inner_binding_values(values)?),
 		param_name => return Err(InoxParseError::UnknownParamName(param_name.to_owned())),
 	})
 }

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use glam::{vec2, Vec2};
 
@@ -8,10 +8,10 @@ use crate::math::{
 	matrix::Matrix2d,
 };
 use crate::node::{
-	components::{DeformSource, DeformStack, Mesh, TransformStore, ZSort},
+	components::{DeformSource, DeformStack, Drawable, Mesh, TransformStore, ZSort},
 	InoxNodeUuid,
 };
-use crate::puppet::{InoxNodeTree, Puppet, World};
+use crate::puppet::{InoxNodeTree, Partition, Puppet, World};
 
 /// Parameter binding to a node. This allows to animate a node based on the value of the parameter that owns it.
 pub struct Binding {
@@ -26,14 +26,20 @@ pub enum BindingValues {
 	ZSort(Matrix2d<f32>),
 	TransformTX(Matrix2d<f32>),
 	TransformTY(Matrix2d<f32>),
+	TransformTZ(Matrix2d<f32>),
 	TransformSX(Matrix2d<f32>),
 	TransformSY(Matrix2d<f32>),
 	TransformRX(Matrix2d<f32>),
 	TransformRY(Matrix2d<f32>),
 	TransformRZ(Matrix2d<f32>),
 	Deform(Matrix2d<Vec<Vec2>>),
-	// TODO
-	Opacity,
+	TintR(Matrix2d<f32>),
+	TintG(Matrix2d<f32>),
+	TintB(Matrix2d<f32>),
+	ScreenTintR(Matrix2d<f32>),
+	ScreenTintG(Matrix2d<f32>),
+	ScreenTintB(Matrix2d<f32>),
+	Opacity(Matrix2d<f32>),
 }
 
 #[derive(Debug, Clone)]
@@ -70,12 +76,17 @@ pub struct Param {
 }
 
 impl Param {
+	/// Iterate all bindings
+	pub(crate) fn iter_bindings(&self) -> impl Iterator<Item = &Binding> {
+		self.bindings.iter()
+	}
+
 	/// Internal function that modifies puppet components according to one param set.
 	/// Must be only called ONCE per frame to ensure correct behavior.
 	///
 	/// End users may repeatedly apply a same parameter for multiple times in between frames,
 	/// but other facilities should be present to make sure this `apply()` is only called once per parameter.
-	pub(crate) fn apply(&self, val: Vec2, nodes: &InoxNodeTree, comps: &mut World) {
+	pub(crate) fn apply(&self, val: Vec2, nodes: &InoxNodeTree, comps: &mut Partition<'_>) {
 		let val = val.clamp(self.min, self.max);
 		let val_normed = (val - self.min) / (self.max - self.min);
 
@@ -108,6 +119,10 @@ impl Param {
 
 		// Apply offset on each binding
 		for binding in &self.bindings {
+			if !comps.contains(binding.node) {
+				continue;
+			}
+
 			let range_in = InterpRange::new(
 				vec2(self.axis_points.x[x_mindex], self.axis_points.y[y_mindex]),
 				vec2(self.axis_points.x[x_maxdex], self.axis_points.y[y_maxdex]),
@@ -141,6 +156,16 @@ impl Param {
 						.relative
 						.translation
 						.y += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+				}
+				BindingValues::TransformTZ(ref matrix) => {
+					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
+
+					comps
+						.get_mut::<TransformStore>(binding.node)
+						.unwrap()
+						.relative
+						.translation
+						.z += bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
 				}
 				BindingValues::TransformSX(ref matrix) => {
 					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
@@ -228,8 +253,48 @@ impl Param {
 						.expect("Nodes being deformed must have a DeformStack component.")
 						.push(DeformSource::Param(self.uuid), Deform::Direct(direct_deform));
 				}
-				// TODO
-				BindingValues::Opacity => {}
+				BindingValues::TintR(ref matrix) => {
+					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
+
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.tint.x *=
+						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+				}
+				BindingValues::TintG(ref matrix) => {
+					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
+
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.tint.y *=
+						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+				}
+				BindingValues::TintB(ref matrix) => {
+					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
+
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.tint.z *=
+						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+				}
+				BindingValues::ScreenTintR(ref matrix) => {
+					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
+
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.screen_tint.x +=
+						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+				}
+				BindingValues::ScreenTintG(ref matrix) => {
+					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
+
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.screen_tint.y +=
+						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+				}
+				BindingValues::ScreenTintB(ref matrix) => {
+					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
+
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.screen_tint.z +=
+						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+				}
+				BindingValues::Opacity(ref matrix) => {
+					let (out_top, out_bottom) = ranges_out(matrix, x_mindex, x_maxdex, y_mindex, y_maxdex);
+
+					comps.get_mut::<Drawable>(binding.node).unwrap().blending.opacity *=
+						bi_interpolate_f32(val_normed, range_in, out_top, out_bottom, binding.interpolate_mode);
+				}
 			}
 		}
 	}
@@ -264,15 +329,30 @@ impl ParamCtx {
 		}
 	}
 
+	pub fn get(&self, param_name: &str) -> Result<Vec2, SetParamError> {
+		if let Some(value) = self.values.get(param_name) {
+			Ok(*value)
+		} else {
+			Err(SetParamError::NoParameterNamed(param_name.to_string()))
+		}
+	}
+
 	/// Modify components as specified by all params. Must be called ONCE per frame.
 	pub(crate) fn apply(&self, params: &HashMap<String, Param>, nodes: &InoxNodeTree, comps: &mut World) {
-		// a correct implementation should not care about the order of `.apply()`
-		for (param_name, val) in self.values.iter() {
-			// TODO: a correct implementation should not fail on param value (0, 0)
-			if *val != Vec2::ZERO {
-				params.get(param_name).unwrap().apply(*val, nodes, comps);
+		let mut bindings_bucket = HashSet::new();
+
+		for (param_name, _val) in self.values.iter() {
+			for node in params.get(param_name).unwrap().iter_bindings().map(|b| b.node) {
+				bindings_bucket.insert(node);
 			}
 		}
+
+		let accessed_nodes: Vec<_> = bindings_bucket.iter().copied().collect();
+		comps.with_node_partitions(accessed_nodes.as_slice(), |mut comps, _| {
+			for (param_name, val) in self.values.iter() {
+				params.get(param_name).unwrap().apply(*val, nodes, &mut comps);
+			}
+		})
 	}
 }
 
