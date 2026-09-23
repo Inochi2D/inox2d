@@ -46,6 +46,8 @@ pub enum InoxParseError {
 	OddNumberOfFloatsInList(usize),
 	#[error("Expected 2 floats in list, got {0}")]
 	Not2FloatsInList(usize),
+	#[error("Unknown vendor data value \"{1}\" for key {0}")]
+	UnknownVendorKeyValue(&'static str, String),
 }
 
 // json structure helpers
@@ -63,14 +65,14 @@ fn vals<T>(key: &str, res: InoxParseResult<T>) -> InoxParseResult<T> {
 	res.map_err(|e| e.nested(key))
 }
 
-fn as_nested_list(index: usize, val: &json::JsonValue) -> InoxParseResult<&[json::JsonValue]> {
+pub fn as_nested_list(index: usize, val: &json::JsonValue) -> InoxParseResult<&[json::JsonValue]> {
 	match val {
 		json::JsonValue::Array(arr) => Ok(arr),
 		_ => Err(InoxParseError::JsonError(JsonError::ValueIsNotList(index.to_string()))),
 	}
 }
 
-fn as_object<'file>(msg: &str, val: &'file JsonValue) -> InoxParseResult<JsonObject<'file>> {
+pub fn as_object<'file>(msg: &str, val: &'file JsonValue) -> InoxParseResult<JsonObject<'file>> {
 	if let Some(obj) = val.as_object() {
 		Ok(JsonObject(obj))
 	} else {

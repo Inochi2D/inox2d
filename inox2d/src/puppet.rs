@@ -26,7 +26,7 @@ pub struct Puppet {
 	pub(crate) transform_ctx: Option<TransformCtx>,
 	/// Context for rendering this puppet. See `.init_rendering()`.
 	pub render_ctx: Option<RenderCtx>,
-	pub(crate) params: HashMap<String, Param>,
+	pub params: HashMap<String, Param>,
 	/// Context for animating puppet with parameters. See `.init_params()`
 	pub param_ctx: Option<ParamCtx>,
 }
