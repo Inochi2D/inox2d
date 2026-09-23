@@ -93,4 +93,22 @@ impl InoxNodeTree {
 			.children(&self.arena)
 			.map(|id| self.arena.get(id).unwrap().get())
 	}
+
+	pub fn is_node_enabled(&self, node: InoxNodeUuid) -> bool {
+		let mut node = self.get_node(node).unwrap();
+
+		loop {
+			if !node.enabled {
+				return false;
+			}
+
+			if node.uuid == self.root_node_id {
+				break;
+			}
+
+			node = self.get_parent(node.uuid);
+		}
+
+		return true;
+	}
 }
