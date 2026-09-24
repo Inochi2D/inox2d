@@ -115,6 +115,7 @@ pub struct OpenglRenderer {
 	vao: glow::VertexArray,
 	deform_buffer: glow::Buffer,
 
+	surface_framebuffer: Option<glow::Framebuffer>,
 	composite_framebuffer: glow::Framebuffer,
 	cf_albedo: glow::Texture,
 	cf_emissive: glow::Texture,
@@ -135,6 +136,19 @@ impl OpenglRenderer {
 	/// - Decode textures.
 	/// - Upload static buffer data and textures.
 	pub fn new(gl: glow::Context, model: &Model) -> Result<Self, OpenglRendererError> {
+		Self::new_with_framebuffer(gl, model, None)
+	}
+
+	/// Create an OpenGL renderer that renders to a particular framebuffer.
+	///
+	/// The framebuffer is treated as an externally-managed object and no
+	/// attempt is made to initialize it. Passing `None` will render to the
+	/// context's ordinary surface.
+	pub fn new_with_framebuffer(
+		gl: glow::Context,
+		model: &Model,
+		surface_framebuffer: Option<glow::Framebuffer>,
+	) -> Result<Self, OpenglRendererError> {
 		unsafe {
 			// Initialize framebuffers
 			let cf_albedo = gl.create_texture().map_err(OpenglRendererError::Opengl)?;
@@ -199,6 +213,7 @@ impl OpenglRenderer {
 				vao,
 				deform_buffer,
 
+				surface_framebuffer,
 				composite_framebuffer,
 				cf_albedo,
 				cf_emissive,
@@ -219,6 +234,14 @@ impl OpenglRenderer {
 
 			Ok(renderer)
 		}
+	}
+
+	pub fn context(&self) -> &glow::Context {
+		&self.gl
+	}
+
+	pub fn set_surface_framebuffer(&mut self, surface_framebuffer: Option<glow::Framebuffer>) {
+		self.surface_framebuffer = surface_framebuffer;
 	}
 
 	/// Pushes an OpenGL debug group.
@@ -367,7 +390,7 @@ impl OpenglRenderer {
 			0,
 		);
 
-		gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+		gl.bind_framebuffer(glow::FRAMEBUFFER, self.surface_framebuffer);
 	}
 
 	pub fn resize(&mut self, w: u32, h: u32) {
@@ -462,7 +485,7 @@ impl InoxRenderer for OpenglRenderer {
 			gl.stencil_func(glow::ALWAYS, 1, 0xff);
 			gl.disable(glow::STENCIL_TEST);
 		}
-		
+
 		self.pop_debug_group();
 	}
 
@@ -580,7 +603,7 @@ impl InoxRenderer for OpenglRenderer {
 
 		self.clear_texture_cache();
 		unsafe {
-			gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+			gl.bind_framebuffer(glow::FRAMEBUFFER, self.surface_framebuffer);
 		}
 
 		let blending = &components.drawable.blending;
@@ -660,12 +683,12 @@ impl OpenglRenderer {
 		self.pop_debug_group();
 
 		self.push_debug_group("inox2d - end draw");
-		
+
 		let gl = &self.gl;
 		unsafe {
 			gl.bind_vertex_array(None);
 		}
-		
+
 		self.pop_debug_group();
 	}
 }
