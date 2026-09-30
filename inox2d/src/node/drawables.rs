@@ -11,7 +11,7 @@ use crate::puppet::World;
 /// Future spec extensions go here.
 /// For user-defined custom nodes that can be rendered, as long as a subset of their components matches one of these variants,
 /// they will be picked up and enter the regular rendering pipeline.
-pub(crate) enum DrawableKind<'comps> {
+pub enum DrawableKind<'comps> {
 	TexturedMesh(TexturedMeshComponents<'comps>),
 	Composite(CompositeComponents<'comps>),
 }
@@ -38,7 +38,7 @@ impl<'comps> DrawableKind<'comps> {
 	/// `None` if node not renderable.
 	///
 	/// If `check`, will send a warning to `tracing` if component combination non-standard for a supposed-to-be Drawable node.
-	pub(crate) fn new(id: InoxNodeUuid, comps: &'comps World, check: bool) -> Option<Self> {
+	pub fn new(id: InoxNodeUuid, comps: &'comps World, check: bool) -> Option<Self> {
 		let drawable = match comps.get::<Drawable>(id) {
 			Some(drawable) => drawable,
 			None => return None,
